@@ -6,9 +6,9 @@ import DeciNSSE.Holes.Packets
 /-! # Decidability of holes at bounded depth
 
 Finite summaries shorten tuples of blocks while preserving derived monitors.
-Iterating this compression bounds the length of a hole of bounded hierarchy
-depth and horizon. Enumeration up to this computable bound decides whether
-such a hole exists.
+Iterating this compression shows: if a hole of bounded hierarchy depth and
+horizon exists, then such a hole exists whose length is at most a computable
+bound. Enumeration up to this bound decides whether such a hole exists.
 -/
 
 namespace DeciNSSE.BoundedDepth
