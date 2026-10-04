@@ -160,10 +160,10 @@ variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
   ext q; simp [rimg]
 
 theorem absHoleG_iff_split (u : List α) :
-    AbsHoleG M R T u ↔
-      runG M u u.length ∈ T ∧ runG M u u.length ∉ rimg R (vis M M.start u) ∧
+    IsReaderHole M R T u ↔
+      runPrefix M u u.length ∈ T ∧ runPrefix M u u.length ∉ rimg R (vis M M.start u) ∧
         ∀ s e, s < e → e < u.length → u.drop e <+: u.drop s →
-          ¬ R (runG M u s) (runG M u e) := by
+          ¬ R (runPrefix M u s) (runPrefix M u e) := by
   constructor
   · rintro ⟨hT, hW⟩
     refine ⟨hT, ?_, fun s e hse he hc => hW _ _ ⟨s, e, hse, he.le, rfl, rfl, hc⟩⟩

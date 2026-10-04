@@ -30,26 +30,26 @@ theorem streamPrefix_take (W : ℕ → α) {n k : ℕ} (hk : k ≤ n) :
 /-- No pair of equal infinite suffixes has admitted prefix states. -/
 def NoInfiniteAdmission (M : DFA α Q) (R : Q → Q → Prop) (W : ℕ → α) : Prop :=
   ∀ s e, s < e → R (M.eval (streamPrefix W s)) (M.eval (streamPrefix W e)) →
-    ¬ ∀ k, e ≤ k → W (k-(e-s)) = W k
+    ¬ ∀ k, e ≤ k → W (k - (e - s)) = W k
 
 /-- A sufficiently long comparison in a periodic tail extends to equality of infinite suffixes. -/
 theorem finite_comparison_extends (W : ℕ → α) {n J d s e : ℕ}
     (hd : 0 < d) (hse : s < e) (he : e ≤ J)
-    (hper : ∀ k, n ≤ k → W (k+d) = W k)
-    (hfin : ∀ k, e ≤ k → k < n+J+d → W (k-(e-s)) = W k) :
-    ∀ k, e ≤ k → W (k-(e-s)) = W k := by
+    (hper : ∀ k, n ≤ k → W (k + d) = W k)
+    (hfin : ∀ k, e ≤ k → k < n + J + d → W (k - (e - s)) = W k) :
+    ∀ k, e ≤ k → W (k - (e - s)) = W k := by
   intro k
   induction k using Nat.strong_induction_on with
   | h k ih =>
     intro hek
-    by_cases hk : k < n+J+d
+    by_cases hk : k < n + J + d
     · exact hfin k hek hk
-    · have hk' : k-d < k := by omega
-      have hh := ih (k-d) hk' (by omega)
-      have h1 := hper (k-d) (by omega)
-      have h2 := hper (k-d-(e-s)) (by omega)
-      have h3 : k-d+d = k := by omega
-      have h4 : k-d-(e-s)+d = k-(e-s) := by omega
+    · have hk' : k - d < k := by omega
+      have hh := ih (k - d) hk' (by omega)
+      have h1 := hper (k - d) (by omega)
+      have h2 := hper (k - d - (e - s)) (by omega)
+      have h3 : k - d + d = k := by omega
+      have h4 : k - d - (e - s) + d = k - (e - s) := by omega
       rw [h3] at h1
       rw [h4] at h2
       exact h2.trans (hh.trans h1.symm)
@@ -59,23 +59,23 @@ A sufficiently long rejected prefix of a periodic stream without infinite admiss
 -/
 theorem periodic_truncation (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
     (hc : AdmissionCone M R T) (W : ℕ → α) {n J d : ℕ}
-    (hd : 0 < d) (hper : ∀ k, n ≤ k → W (k+d) = W k)
+    (hd : 0 < d) (hper : ∀ k, n ≤ k → W (k + d) = W k)
     (hclear : NoInfiniteAdmission M R W)
-    (ht : M.eval (streamPrefix W (n+J+d)) ∈ T)
-    (hJ : IsFirstCut M T (streamPrefix W (n+J+d)) J) :
-    AbsHoleG M R T (streamPrefix W (n+J+d)) ∧
-      (streamPrefix W (n+J+d)).length-J = n+d := by
-  refine ⟨(hole_iff_cuts M R T _).mpr ⟨ht, ?_⟩, by simp; omega⟩
+    (ht : M.eval (streamPrefix W (n + J + d)) ∈ T)
+    (hJ : IsFirstRejectedPrefix M T (streamPrefix W (n + J + d)) J) :
+    IsReaderHole M R T (streamPrefix W (n + J + d)) ∧
+      (streamPrefix W (n + J + d)).length - J = n + d := by
+  refine ⟨(isReaderHole_iff M R T _).mpr ⟨ht, ?_⟩, by simp; omega⟩
   intro s e hse he hp hr
   have heJ := hc _ J ht hJ s e hse he hp hr
-  have heL : e ≤ n+J+d := by simpa using he
-  have hsL : s ≤ n+J+d := by omega
+  have heL : e ≤ n + J + d := by simpa using he
+  have hsL : s ≤ n + J + d := by omega
   have hrel : R (M.eval (streamPrefix W s)) (M.eval (streamPrefix W e)) := by
     simpa only [streamPrefix_take W hsL, streamPrefix_take W heL] using hr
   apply hclear s e hse hrel
   apply finite_comparison_extends W hd hse heJ hper
   intro k hek hk
   have hh := comparison_letters hse hek (by simpa using hk) hp
-  have hk' : k-(e-s) < n+J+d := by omega
+  have hk' : k - (e - s) < n + J + d := by omega
   simpa only [streamPrefix_get W hk', streamPrefix_get W hk, Option.some.injEq] using hh
 end DeciNSSE.RejectedTail

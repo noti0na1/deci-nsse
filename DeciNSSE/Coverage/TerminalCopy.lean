@@ -12,7 +12,9 @@ namespace DeciNSSE.TerminalCopy
 
 open Words
 
-scoped instance : Monoid Word := inferInstanceAs (Monoid (FreeMonoid (Fin 2)))
+/-- Use the free monoid structure for words over any alphabet. Keeping a single scoped
+instance makes the binary and general coverage constructions definitionally compatible. -/
+scoped instance {α : Type*} : Monoid (List α) := inferInstanceAs (Monoid (FreeMonoid α))
 
 variable {H : Type*} [Monoid H]
 

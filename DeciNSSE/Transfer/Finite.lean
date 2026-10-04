@@ -292,11 +292,11 @@ theorem mem_upperSteps {v : ℕ → V m} {t : V m} {ν : List (Fin 2)} {l : Lit 
 
 theorem source_xv (x : V k) {j : ℕ} (hj : 0 < j ∧ j ≤ n) :
     Source (xv x n j) := by
-  simp only [Source, xv, dif_pos hj]; omega
+  simp only [Source, xv, dite_eq_left hj]; omega
 
 theorem sink_yv (y : V k) {j : ℕ} (hj : 0 < j ∧ j ≤ n) :
     Sink (yv y n j) := by
-  simp only [Sink, yv, dif_pos hj]; omega
+  simp only [Sink, yv, dite_eq_left hj]; omega
 
 theorem source_bv : Source (bv k n) := by simp [Source, bv]
 theorem sink_tv : Sink (tv k n) := by simp [Sink, tv]

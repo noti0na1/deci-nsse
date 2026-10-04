@@ -21,7 +21,7 @@ theorem drop_prefix_drop_iff (Y : List β) {a b : ℕ} :
   · intro h k hk
     have := congrArg (·[k]?) h
     simp only [List.getElem?_drop, List.getElem?_take, List.length_drop] at this
-    rw [if_pos (by omega)] at this
+    rw [ite_eq_left (by omega)] at this
     exact this.symm
   · intro h
     apply List.ext_getElem?
@@ -33,7 +33,7 @@ theorem drop_prefix_drop_iff (Y : List β) {a b : ℕ} :
 
 end Horizon
 
-section M1
+section ShortWords
 variable {α S : Type*}
 
 theorem exists_short_evalFrom [Fintype S] (A : DFA α S) (s : S) (x : List α) :
@@ -70,7 +70,7 @@ theorem congrDFA_evalFrom (f : List α → S)
     rw [DFA.evalFrom_append_singleton, ih]
     have h : ∃ y, f y = f x := ⟨x, rfl⟩
     simp only [congrDFA]
-    rw [dif_pos h]
+    rw [dite_eq_left h]
     exact hf _ _ _ h.choose_spec
 
 theorem exists_short_of_congr [Fintype S] (f : List α → S)
@@ -80,12 +80,12 @@ theorem exists_short_of_congr [Fintype S] (f : List α → S)
   rw [congrDFA_evalFrom f hf, congrDFA_evalFrom f hf] at h3
   exact ⟨y, h1, h2, h3⟩
 
-end M1
+end ShortWords
 
 open DeciNSSE.Holes
 open scoped List
 
-section Conv
+section ColumnEncoding
 variable {σ : Type*} {r : ℕ}
 
 def tr (w : List (Fin r → Option σ)) (k : Fin r) : List (Option σ) := w.map (· k)
@@ -212,7 +212,7 @@ theorem conv_dec {w : List (Fin r → Option σ)} (hv : Valid w) (hna : ∀ c �
           omega
         have h0 := congrArg (fun l => l[0]?) he
         rw [List.getElem?_append_left (by simp only [List.length_replicate]; exact hlt),
-          List.getElem?_replicate, if_pos hlt] at h0
+          List.getElem?_replicate, ite_eq_left hlt] at h0
         simp only [tr, hw, List.map_cons, List.getElem?_cons_zero, Option.some_inj] at h0
         exact hk h0
       rw [← hw, ← hlen]
@@ -234,7 +234,7 @@ theorem exists_short_conv {S : Type*} [Fintype S] (f : List (Fin r → Option σ
     rwa [dec_conv] at this
   · rw [conv_dec hv hna, he]
 
-end Conv
+end ColumnEncoding
 
 section Summary
 variable {σ : Type*} {r : ℕ}
@@ -288,10 +288,10 @@ theorem mem_boundedLists {α : Type*} [DecidableEq α] (S : Finset α) (n : ℕ)
 
 theorem absHoleG_iff_bounded {α : Type*} (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
     (w : List α) :
-    AbsHoleG M R T w ↔ runG M w w.length ∈ T ∧
+    IsReaderHole M R T w ↔ runPrefix M w w.length ∈ T ∧
       ∀ s ∈ Finset.range (w.length + 1), ∀ e ∈ Finset.range (w.length + 1), s < e →
-        w.drop e <+: w.drop s → ¬ R (runG M w s) (runG M w e) := by
-  unfold AbsHoleG WitnessedG
+        w.drop e <+: w.drop s → ¬ R (runPrefix M w s) (runPrefix M w e) := by
+  unfold IsReaderHole WitnessedPair
   constructor
   · rintro ⟨hT, hW⟩
     refine ⟨hT, fun s _ e he hse hc => hW _ _ ⟨s, e, hse, ?_, rfl, rfl, hc⟩⟩
@@ -303,7 +303,7 @@ theorem absHoleG_iff_bounded {α : Type*} (M : DFA α Q) (R : Q → Q → Prop) 
     exact hB s (Finset.mem_range.mpr (by omega)) e (Finset.mem_range.mpr (by omega)) hse hc
 
 instance decHole {α : Type*} [DecidableEq α] (M : DFA α Q) (R : Q → Q → Prop) [DecidableRel R]
-    (T : Set Q) [DecidablePred (· ∈ T)] (w : List α) : Decidable (AbsHoleG M R T w) :=
+    (T : Set Q) [DecidablePred (· ∈ T)] (w : List α) : Decidable (IsReaderHole M R T w) :=
   decidable_of_iff _ (absHoleG_iff_bounded M R T w).symm
 
 end Decide

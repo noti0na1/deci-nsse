@@ -132,7 +132,7 @@ theorem toGraph_walkFrom (a : FTree) (p : Fin a.toGraph.n) (π : List (Fin 2)) :
     | node l r =>
       have hf : a.toGraph.label p = Sym.f := by simp [toGraph, h, rootLabel]
       have hm := children_mem_subtrees (h ▸ List.getElem_mem p.isLt)
-      rw [RGraph.walkFrom, if_pos hf, ih]
+      rw [RGraph.walkFrom, ite_eq_left hf, ih]
       fin_cases i <;> simp [toGraph, h, toTree,
         get_subtreeIndexOrRoot a l hm.1, get_subtreeIndexOrRoot a r hm.2]
 

@@ -38,9 +38,9 @@ variable {μ : Word →* H} {VA : Set H} {D : Set (H × H)}
 theorem endpointRelation_cuts (ax : DerivedAxioms μ VA D) (w : Word)
     {s e : ℕ} (hse : s ≤ e) :
     endpointRelation D (μ (w.take s)) (μ (w.take e)) ↔
-      (μ (w.take s), μ ((w.drop s).take (e-s))) ∈ D := by
-  have he : μ (w.take s) * μ ((w.drop s).take (e-s)) = μ (w.take e) := by
-    simpa only [Nat.add_sub_of_le hse] using Transport.prefix_product μ w s (e-s)
+      (μ (w.take s), μ ((w.drop s).take (e - s))) ∈ D := by
+  have he : μ (w.take s) * μ ((w.drop s).take (e - s)) = μ (w.take e) := by
+    simpa only [Nat.add_sub_of_le hse] using Transport.prefix_product μ w s (e - s)
   constructor
   · rintro ⟨t, ht, hd⟩
     exact (ax.endpoint _ _ _ (ht.trans he.symm)).mp hd
@@ -48,12 +48,12 @@ theorem endpointRelation_cuts (ax : DerivedAxioms μ VA D) (w : Word)
     exact ⟨_, he, hd⟩
 
 theorem comparison_period {w : Word} {s e : ℕ} (hse : s ≤ e)
-    (hp : w.drop e <+: w.drop s) : HasPeriod (w.drop s) (e-s) := by
+    (hp : w.drop e <+: w.drop s) : HasPeriod (w.drop s) (e - s) := by
   apply hasPeriod_iff_list_hasPeriod.mpr
-  change w.drop s <+: (w.drop s).take (e-s) ++ w.drop s
-  have hd : (w.drop s).drop (e-s) <+: w.drop s := by
+  change w.drop s <+: (w.drop s).take (e - s) ++ w.drop s
+  have hd : (w.drop s).drop (e - s) <+: w.drop s := by
     simpa only [List.drop_drop, Nat.add_sub_of_le hse] using hp
-  have hh := (List.prefix_append_right_inj ((w.drop s).take (e-s))).mpr hd
+  have hh := (List.prefix_append_right_inj ((w.drop s).take (e - s))).mpr hd
   simpa only [List.take_append_drop] using hh
 
 /-- An admitted comparison ends no later than a rejected prefix. -/
@@ -69,12 +69,12 @@ theorem image_cone_at_rejected (ax : DerivedAxioms μ VA D) {w : Word} {J s e : 
       (by simp only [List.length_drop]; omega)).mp (comparison_period hse.le hp))
   simp only [List.length_take, List.length_drop,
     min_eq_left (show s ≤ w.length by omega),
-    min_eq_left (show e-s ≤ w.length-s by omega)] at hb
+    min_eq_left (show e - s ≤ w.length - s by omega)] at hb
   constructor <;> omega
 
 /-- The image reader satisfies rejection persistence and the admission cone. -/
 theorem image_rejectedPath (ax : DerivedAxioms μ VA D) :
-    RejectedPathInstance (imageReader μ) (endpointRelation D) VAᶜ where
+    RejectedPath (imageReader μ) (endpointRelation D) VAᶜ where
   between := by
     intro v u w hvu huw hv hw
     simp only [imageReader_eval, Set.mem_compl_iff] at *
@@ -84,14 +84,14 @@ theorem image_rejectedPath (ax : DerivedAxioms μ VA D) :
     simp only [imageReader_eval, Set.mem_compl_iff] at hw hr
     exact (image_cone_at_rejected ax hw (by simpa using hJ.2.1) hse he hp hr).2
 
-/-- Cap elimination: image-reader holes are exactly words without full coverage. -/
+/-- Cap elimination: holes of the image reader are exactly words without full coverage. -/
 theorem image_hole_iff (ax : DerivedAxioms μ VA D) (w : Word) :
-    AbsHoleG (imageReader μ) (endpointRelation D) VAᶜ w ↔
-      ¬ FullCoverage.FullCovered μ VA (fun h => {h}) (fun e => {h | (e,h) ∈ D}) w := by
-  rw [hole_iff_cuts, covered_iff_root]
+    IsReaderHole (imageReader μ) (endpointRelation D) VAᶜ w ↔
+      ¬ FullCoverage.FullCovered μ VA (fun h => {h}) (fun e => {h | (e, h) ∈ D}) w := by
+  rw [isReaderHole_iff, covered_iff_root]
   simp only [imageReader_eval, Set.mem_compl_iff]
   constructor
-  · rintro ⟨hw, hn⟩ (ha | ⟨a,u,r,hwu,hd,hp⟩)
+  · rintro ⟨hw, hn⟩ (ha | ⟨a, u, r, hwu, hd, hp⟩)
     · exact hw ha
     obtain ⟨hr, _, t, ht⟩ := cap_root_in_prefix ax hw
       (by simpa only [← hwu] using hw) (by rw [← hwu]) hd hp
@@ -112,7 +112,7 @@ theorem image_hole_iff (ax : DerivedAxioms μ VA D) (w : Word) :
     intro s e hse he hp hr
     apply hn
     right
-    refine ⟨w.take s, w.drop s, (w.drop s).take (e-s),
+    refine ⟨w.take s, w.drop s, (w.drop s).take (e - s),
       (List.take_append_drop s w).symm, (endpointRelation_cuts ax w hse.le).mp hr, ?_⟩
     exact (hasPeriod_iff_isPrefixOfPower_take (by omega)
       (by simp only [List.length_drop]; omega)).mp (comparison_period hse.le hp)
@@ -125,15 +125,15 @@ variable {k : ℕ} {ϕ : Constraint k} {x y : V k} {d : Side}
 
 /-- The transition-image reader and the literal constraint monitor have the same holes. -/
 theorem nsse_image_hole_iff (w : Word) :
-    AbsHoleG (imageReader (imageμ ϕ x y d)) (endpointRelation (imageD ϕ x y d))
+    IsReaderHole (imageReader (imageμ ϕ x y d)) (endpointRelation (imageD ϕ x y d))
       (imageVA ϕ x y d)ᶜ w ↔
-    AbsHoleG (Bridge.monitor ϕ x y d) Bridge.relation (Bridge.target ϕ x y d) w := by
+    IsReaderHole (Bridge.monitor ϕ x y d) Bridge.relation (Bridge.target ϕ x y d) w := by
   rw [image_hole_iff constructed_derivedAxioms,
     ← mem_lang_iff_image_fullCovered, Bridge.side_hole_iff]
 
 /-- The constraint image reader satisfies the rejected-path conditions. -/
 theorem nsse_rejectedPath :
-    RejectedPathInstance (imageReader (imageμ ϕ x y d))
+    RejectedPath (imageReader (imageμ ϕ x y d))
       (endpointRelation (imageD ϕ x y d)) (imageVA ϕ x y d)ᶜ :=
   image_rejectedPath constructed_derivedAxioms
 

@@ -189,10 +189,10 @@ theorem W_rl [DecidableEq α] : ∀ w : List α, W μ (rl μ w).1 (rl μ w).2 = 
   | x :: w => by
     obtain ⟨h1, h2⟩ := W_rl w
     by_cases hx : x = μ
-    · simp only [rl, hx, if_true]
+    · simp only [rl, hx, ite_true]
       refine ⟨?_, h2⟩
       rw [show (rl μ w).1 + 1 = 1 + (rl μ w).1 by omega, ← rep_append_W μ 1, h1]; rfl
-    · simp only [rl, hx, if_false]
+    · simp only [rl, hx, ite_false]
       refine ⟨?_, ?_⟩
       · rw [W_cons, h1]; rfl
       · intro p hp
@@ -260,7 +260,7 @@ variable {α Q : Type*} [DecidableEq α]
 
 structure SLClass (μ : α) (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (B : Finset ℕ)
     (A₀ s₀ : ℕ) (L₀ : List (α × ℕ)) (x : α) (g : ℕ) (A s : ℕ) (L : List (α × ℕ)) : Prop where
-  hole : AbsHoleG M R T (W μ A (L ++ [(x, s)]))
+  hole : IsReaderHole M R T (W μ A (L ++ [(x, s)]))
   good : Good μ (L ++ [(x, s)])
   letters : L.map Prod.fst = L₀.map Prod.fst
   pos : 1 ≤ s

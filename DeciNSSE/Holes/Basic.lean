@@ -3,45 +3,41 @@ import DeciNSSE.Words
 
 /-! # Comparisons and holes of finite automata
 
-A comparison has positions s < e whose suffixes satisfy drop e ≤prefix drop s.
-It witnesses the pair of states at those positions. A hole reaches a target
-state and witnesses no admitted pair. Both binary and arbitrary alphabets
-are treated independently of the constraint semantics.
+A comparison consists of positions `s < e ≤ w.length` such that `w.drop e`
+is a prefix of `w.drop s`. Equivalently, the suffix at `s` has period `e - s`.
+It witnesses the reader states at its endpoints. A hole reaches a target state
+and has no comparison whose endpoint states satisfy the admission relation.
+The definitions apply to any alphabet, including the binary path alphabet.
 -/
 
 namespace DeciNSSE.Holes
-open Words
+variable {α Q : Type*}
 
-variable {Q : Type*}
+/-- The state reached after the first `i` letters, or after the whole word if `i ≥ w.length`. -/
+def runPrefix (M : DFA α Q) (w : List α) (i : ℕ) : Q := M.eval (w.take i)
 
-/-- The state reached after the first `i` letters of a binary word. -/
-def run (M : DFA (Fin 2) Q) (w : Word) (i : ℕ) : Q := M.eval (w.take i)
-
-/-- A pair of states occurs at a comparison `s < e` with `w.drop e` a prefix of `w.drop s`. -/
-def Witnessed (M : DFA (Fin 2) Q) (w : Word) (p q : Q) : Prop :=
-  ∃ s e, s < e ∧ e ≤ w.length ∧ run M w s = p ∧ run M w e = q ∧
+/-- A comparison witnesses the reader states at its two endpoints. -/
+def WitnessedPair (M : DFA α Q) (w : List α) (p q : Q) : Prop :=
+  ∃ s e, s < e ∧ e ≤ w.length ∧ runPrefix M w s = p ∧ runPrefix M w e = q ∧
     w.drop e <+: w.drop s
 
-/-- A word reaches the target set and witnesses no admitted pair of states. -/
-def AbsHole (M : DFA (Fin 2) Q) (R : Q → Q → Prop) (T : Set Q) (w : Word) : Prop :=
-  run M w w.length ∈ T ∧ ∀ p q, Witnessed M w p q → ¬ R p q
+/-- A word reaching the target set with no admitted comparison. -/
+def IsReaderHole (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) : Prop :=
+  runPrefix M w w.length ∈ T ∧ ∀ p q, WitnessedPair M w p q → ¬ R p q
 
-variable {α : Type*}
-
-/-- The state reached after a prefix over an arbitrary alphabet. -/
-def runG (M : DFA α Q) (w : List α) (i : ℕ) : Q := M.eval (w.take i)
-
-/-- A pair of states is witnessed by a suffix-prefix comparison over an arbitrary alphabet. -/
-def WitnessedG (M : DFA α Q) (w : List α) (p q : Q) : Prop :=
-  ∃ s e, s < e ∧ e ≤ w.length ∧ runG M w s = p ∧ runG M w e = q ∧
-    w.drop e <+: w.drop s
-
-/-- A target-reaching word over an arbitrary alphabet with no admitted comparison. -/
-def AbsHoleG (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) : Prop :=
-  runG M w w.length ∈ T ∧ ∀ p q, WitnessedG M w p q → ¬ R p q
-
-/-- The general and binary definitions of a hole agree on binary words. -/
-theorem absHoleG_iff_absHole (M : DFA (Fin 2) Q) (R : Q → Q → Prop) (T : Set Q)
-    (w : Word) : AbsHoleG M R T w ↔ AbsHole M R T w := Iff.rfl
+/-- Hole membership is a target condition together with absence of admitted comparisons. -/
+theorem isReaderHole_iff (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) :
+    IsReaderHole M R T w ↔ M.eval w ∈ T ∧
+      ∀ s e, s < e → e ≤ w.length → w.drop e <+: w.drop s →
+        ¬ R (M.eval (w.take s)) (M.eval (w.take e)) := by
+  constructor
+  · rintro ⟨ht, hn⟩
+    refine ⟨by simpa [runPrefix] using ht, ?_⟩
+    intro s e hse he hp
+    exact hn _ _ ⟨s, e, hse, he, rfl, rfl, hp⟩
+  · rintro ⟨ht, hn⟩
+    refine ⟨by simpa [runPrefix] using ht, ?_⟩
+    rintro p q ⟨s, e, hse, he, rfl, rfl, hp⟩
+    exact hn s e hse he hp
 
 end DeciNSSE.Holes

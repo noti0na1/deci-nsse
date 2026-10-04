@@ -105,8 +105,8 @@ theorem mem_visited (w : Word) (A : Reader k) :
   exact exists_congr fun _ => and_congr_right fun _ => eq_comm
 
 theorem run_image (w : Word) (s : ℕ) :
-    (run (monitor ϕ x y d) w s).1 = imageμ ϕ x y d (w.take s) := by
-  simp only [run, monitor_eval]
+    (runPrefix (monitor ϕ x y d) w s).1 = imageμ ϕ x y d (w.take s) := by
+  simp only [runPrefix, monitor_eval]
 
 /-- A comparison whose two prefix readers form an admitted pair. -/
 def SidePeriodic (ϕ : Constraint k) (x y : V k) (d : Side) (w : Word) : Prop :=
@@ -117,10 +117,10 @@ def SidePeriodic (ϕ : Constraint k) (x y : V k) (d : Side) (w : Word) : Prop :=
 /-- Periodic admission is precisely a witnessed admitted pair of monitor states. -/
 theorem periodic_part (w : Word) :
     SidePeriodic ϕ x y d w ↔
-      ∃ p q, Witnessed (monitor ϕ x y d) w p q ∧ R' p q := by
+      ∃ p q, WitnessedPair (monitor ϕ x y d) w p q ∧ R' p q := by
   constructor
   · rintro ⟨s, e, hse, he, ha, hp⟩
-    refine ⟨run (monitor ϕ x y d) w s, run (monitor ϕ x y d) w e,
+    refine ⟨runPrefix (monitor ϕ x y d) w s, runPrefix (monitor ϕ x y d) w e,
       ⟨s, e, hse, he, rfl, rfl, hp⟩, ?_⟩
     simpa only [R', run_image] using ha
   · rintro ⟨p, q, ⟨s, e, hse, he, rfl, rfl, hp⟩, ha⟩
@@ -225,12 +225,12 @@ theorem covered_iff_regular_or_periodic (w : Word) :
 /-- A word is rejected by the side automaton exactly when it is a monitor hole. -/
 theorem side_hole_iff_absHole (w : Word) :
     w ∉ (construct ϕ x y d).Lang ↔
-      AbsHole (monitor ϕ x y d) R' (T' ϕ x y d) w := by
+      IsReaderHole (monitor ϕ x y d) R' (T' ϕ x y d) w := by
   classical
   rw [covered_iff_regular_or_periodic, regular_part, periodic_part]
   change ¬ ((monitor ϕ x y d).eval w ∉ T' ϕ x y d ∨
-      ∃ p q, Witnessed (monitor ϕ x y d) w p q ∧ R' p q) ↔
-    run (monitor ϕ x y d) w w.length ∈ T' ϕ x y d ∧ _
-  simp only [run, List.take_length, not_or, not_not, not_exists, not_and]
+      ∃ p q, WitnessedPair (monitor ϕ x y d) w p q ∧ R' p q) ↔
+    runPrefix (monitor ϕ x y d) w w.length ∈ T' ϕ x y d ∧ _
+  simp only [runPrefix, List.take_length, not_or, not_not, not_exists, not_and]
 
 end DeciNSSE.AbstractMonitor

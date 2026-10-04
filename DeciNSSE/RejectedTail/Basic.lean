@@ -11,46 +11,31 @@ namespace DeciNSSE.RejectedTail
 open Holes
 variable {α Q : Type*}
 
-/-- Hole membership is a target condition together with absence of admitted comparisons. -/
-theorem hole_iff_cuts (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) :
-    AbsHoleG M R T w ↔ M.eval w ∈ T ∧
-      ∀ s e, s < e → e ≤ w.length → w.drop e <+: w.drop s →
-        ¬ R (M.eval (w.take s)) (M.eval (w.take e)) := by
-  constructor
-  · rintro ⟨ht, hn⟩
-    refine ⟨by simpa [runG] using ht, ?_⟩
-    intro s e hse he hp
-    exact hn _ _ ⟨s, e, hse, he, rfl, rfl, hp⟩
-  · rintro ⟨ht, hn⟩
-    refine ⟨by simpa [runG] using ht, ?_⟩
-    rintro p q ⟨s, e, hse, he, rfl, rfl, hp⟩
-    exact hn s e hse he hp
-
 /-- The first prefix position whose reader state lies in the rejected target set. -/
-def IsFirstCut (M : DFA α Q) (T : Set Q) (w : List α) (J : ℕ) : Prop :=
+def IsFirstRejectedPrefix (M : DFA α Q) (T : Set Q) (w : List α) (J : ℕ) : Prop :=
   J ≤ w.length ∧ M.eval (w.take J) ∈ T ∧ ∀ i < J, M.eval (w.take i) ∉ T
 
 /-- Every admitted comparison in a rejected word ends by its first rejected prefix. -/
 def AdmissionCone (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) : Prop :=
-  ∀ w J, M.eval w ∈ T → IsFirstCut M T w J →
+  ∀ w J, M.eval w ∈ T → IsFirstRejectedPrefix M T w J →
     ∀ s e, s < e → e ≤ w.length → w.drop e <+: w.drop s →
       R (M.eval (w.take s)) (M.eval (w.take e)) → e ≤ J
 
 /--
 Rejection persists between rejected prefixes, and admitted comparisons obey the admission cone.
 -/
-class RejectedPathInstance (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) : Prop where
+class RejectedPath (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) : Prop where
   between : ∀ v u w, v <+: u → u <+: w → M.eval v ∈ T → M.eval w ∈ T → M.eval u ∈ T
   cone : AdmissionCone M R T
 
 /-- If a hole exists, one exists with at most `B` letters after its first rejected prefix. -/
 def BoundedRejectedTail (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (B : ℕ) : Prop :=
-  (∃ w, AbsHoleG M R T w) →
-    ∃ w J, AbsHoleG M R T w ∧ IsFirstCut M T w J ∧ w.length - J ≤ B
+  (∃ w, IsReaderHole M R T w) →
+    ∃ w J, IsReaderHole M R T w ∧ IsFirstRejectedPrefix M T w J ∧ w.length - J ≤ B
 
 /-- Every word reaching the rejected target set has a first rejected prefix. -/
-theorem exists_firstCut (M : DFA α Q) (T : Set Q) {w : List α}
-    (hw : M.eval w ∈ T) : ∃ J, IsFirstCut M T w J := by
+theorem exists_firstRejectedPrefix (M : DFA α Q) (T : Set Q) {w : List α}
+    (hw : M.eval w ∈ T) : ∃ J, IsFirstRejectedPrefix M T w J := by
   classical
   have hex : ∃ J, J ≤ w.length ∧ M.eval (w.take J) ∈ T :=
     ⟨w.length, le_rfl, by simpa using hw⟩

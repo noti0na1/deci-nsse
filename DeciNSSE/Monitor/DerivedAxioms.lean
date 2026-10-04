@@ -9,14 +9,13 @@ that admitted roots occur before rejection and that suitable cycle words
 break all admitted periods.
 -/
 
-set_option backward.isDefEq.respectTransparency false
 namespace DeciNSSE.DerivedClass
 open Words FullCoverage
 open scoped TerminalCopy
 variable {H : Type*} [Monoid H]
 
 /-- Images whose every right extension is ordinarily accepted. -/
-def I_A (VA : Set H) : Set H := {x | ∀ y, x * y ∈ VA}
+def permanentlyAccepted (VA : Set H) : Set H := {x | ∀ y, x * y ∈ VA}
 
 /--
 Algebraic admission properties controlling endpoints, rejection and proper factors of cap roots.
@@ -32,9 +31,9 @@ structure DerivedAxioms (μ : Word →* H) (VA : Set H) (D : Set (H × H)) : Pro
   strictCap : ∀ e h f t, (e, h) ∈ D → f * t = h → t ∈ Set.range μ →
     t ≠ 1 → e * f ∈ VA
   /-- A return to acceptance after rejection enters the permanently accepted region. -/
-  gap : ∀ e a, e ∉ VA → e * μ [a] ∈ VA → e * μ [a] ∈ I_A VA
+  gap : ∀ e a, e ∉ VA → e * μ [a] ∈ VA → e * μ [a] ∈ permanentlyAccepted VA
   /-- Admission of the identity root implies permanent acceptance. -/
-  emptyRoot : ∀ e, (e, 1) ∈ D → e ∈ I_A VA
+  emptyRoot : ∀ e, (e, 1) ∈ D → e ∈ permanentlyAccepted VA
   /-- Only the empty word has identity image. -/
   identity : ∀ w, μ w = 1 → w = []
 

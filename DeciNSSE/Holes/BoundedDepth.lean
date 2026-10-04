@@ -9,6 +9,13 @@ Finite summaries shorten tuples of blocks while preserving derived monitors.
 Iterating this compression shows: if a hole of bounded hierarchy depth and
 horizon exists, then such a hole exists whose length is at most a computable
 bound. Enumeration up to this bound decides whether such a hole exists.
+
+`ColumnSummary` records transitions, final admissions, block equalities and
+pairwise admissions. `columnStateBound` counts these summaries. The recursive
+`blockLengthBound` controls expansion through earlier levels; `topLengthBound`
+controls the number of letters at the final level. Their products give
+`holeBound`. Each bound is uniform in the reader and depends only on the stated
+cardinalities, hierarchy depth and comparison horizon.
 -/
 
 namespace DeciNSSE.BoundedDepth
@@ -348,14 +355,14 @@ theorem derΛ_snoc_snoc (c c' : Option C) (X Y : List Γ) (z z' : Γ) :
         zlab_snoc_le D ℓ c' Y z' (p := x'.length) (by rw [hY]; simp)]
 
 /-- Summaries of block transitions, final admissions, equality and pairwise admissions. -/
-abbrev CS (C : Type*) (k : ℕ) :=
+abbrev ColumnSummary (C : Type*) (k : ℕ) :=
   (Fin k → Option C → C) × (Fin k → Option C → C → Prop) × (Fin k → Fin k → Prop) ×
     (Fin k → Fin k → Option C → Option C → Prop)
 
 variable (k : ℕ)
 
 /-- Update a tuple summary after reading one column of optional letters. -/
-def colStep (x : CS C k) (col : Fin k → Option Γ) : CS C k :=
+def colStep (x : ColumnSummary C k) (col : Fin k → Option Γ) : ColumnSummary C k :=
   (fun a c => match col a with
       | none => x.1 a c
       | some z => D.κ z (x.1 a c),
@@ -371,18 +378,18 @@ def colStep (x : CS C k) (col : Fin k → Option Γ) : CS C k :=
           D.Λ (some (x.1 a c, z)) (some (x.1 b c', z')) ∨ (z = z' ∧ x.2.2.2 a b c c'))
 
 /-- The summary of a tuple of empty blocks. -/
-def colStart : CS C k :=
+def colStart : ColumnSummary C k :=
   (fun _ c => fcore D ℓ c [], fun _ c d => D.Λf (lab0 ℓ c) (some (d, ℓ)), fun _ _ => True,
     fun _ _ c c' => D.Λ (lab0 ℓ c) (lab0 ℓ c'))
 
 /-- The automaton accumulating summaries of a column-encoded tuple. -/
-def colDFA : DFA (Fin k → Option Γ) (CS C k) where
+def colDFA : DFA (Fin k → Option Γ) (ColumnSummary C k) where
   step := colStep D ℓ k
   start := colStart D ℓ k
   accept := ∅
 
 /-- The transition and admission summary of a tuple of blocks. -/
-def summ (Ws : Fin k → List Γ) : CS C k :=
+def blockSummary (Ws : Fin k → List Γ) : ColumnSummary C k :=
   (fun a c => fcore D ℓ c (Ws a),
    fun a c d => ∃ p ≤ (Ws a).length, D.Λf (zlab D ℓ c (Ws a) p) (some (d, ℓ)),
    fun a b => Ws a = Ws b,
@@ -391,12 +398,12 @@ def summ (Ws : Fin k → List Γ) : CS C k :=
 open DeciNSSE.Packets in
 
 theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
-    (colDFA D ℓ k).eval w = summ D ℓ k (dec w) := by
+    (colDFA D ℓ k).eval w = blockSummary D ℓ k (dec w) := by
   induction w using List.reverseRecOn with
   | nil =>
     have hd : ∀ a, dec ([] : List (Fin k → Option Γ)) a = [] := fun _ => rfl
-    show colStart D ℓ k = summ D ℓ k (dec [])
-    simp only [colStart, summ, hd]
+    show colStart D ℓ k = blockSummary D ℓ k (dec [])
+    simp only [colStart, blockSummary, hd]
     refine Prod.ext rfl (Prod.ext ?_ (Prod.ext ?_ ?_))
     · funext a c d; exact propext (blockΛf_nil D ℓ c _).symm
     · funext a b; simp
@@ -404,8 +411,8 @@ theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
   | append_singleton w col ih =>
     rw [DFA.eval_append_singleton, ih (hw.sublist (List.sublist_append_left _ _))]
     have hpad : ∀ a, col a = none → dec w a = [] := dec_eq_nil_of_pad hw
-    show colStep D ℓ k (summ D ℓ k (dec w)) col = summ D ℓ k (dec (w ++ [col]))
-    simp only [colStep, summ, dec_snoc]
+    show colStep D ℓ k (blockSummary D ℓ k (dec w)) col = blockSummary D ℓ k (dec (w ++ [col]))
+    simp only [colStep, blockSummary, dec_snoc]
     refine Prod.ext ?_ (Prod.ext ?_ (Prod.ext ?_ ?_))
     · funext a c
       dsimp only
@@ -446,21 +453,21 @@ theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
       · simp only [Option.toList_some]
         exact (derΛ_snoc_snoc D ℓ c c' _ _ z z').symm
 
-instance instFintypeCS [Fintype C] [DecidableEq C] : Fintype (CS C k) :=
+instance instFintypeColumnSummary [Fintype C] [DecidableEq C] : Fintype (ColumnSummary C k) :=
   @instFintypeProd _ _ inferInstance
     (@instFintypeProd _ _ inferInstance (@instFintypeProd _ _ inferInstance inferInstance))
 
 /-- A cardinality bound for the automaton summarising a tuple of blocks. -/
-def colBound (N k : ℕ) : ℕ :=
+def columnStateBound (N k : ℕ) : ℕ :=
   (N ^ (N + 1)) ^ k * ((2 ^ N) ^ (N + 1)) ^ k * (2 ^ k) ^ k *
     (((2 ^ (N + 1)) ^ (N + 1)) ^ k) ^ k
 
-theorem card_CS [Fintype C] [DecidableEq C] :
-    Fintype.card (CS C k) = colBound (Fintype.card C) k := by
+theorem card_columnSummary [Fintype C] [DecidableEq C] :
+    Fintype.card (ColumnSummary C k) = columnStateBound (Fintype.card C) k := by
   rw [Fintype.card_prod, Fintype.card_prod, Fintype.card_prod]
-  simp [Fintype.card_option, colBound, mul_assoc]
+  simp [Fintype.card_option, columnStateBound, mul_assoc]
 
-theorem der_type_of_summ {Ws Ws' : Fin k → List Γ} (hs : summ D ℓ k Ws' = summ D ℓ k Ws)
+theorem der_type_of_blockSummary {Ws Ws' : Fin k → List Γ} (hs : blockSummary D ℓ k Ws' = blockSummary D ℓ k Ws)
     (a b : Fin k) :
     (Ws' a = Ws' b ↔ Ws a = Ws b) ∧
     (∀ c, (der D ℓ).κ (Ws' a) c = (der D ℓ).κ (Ws a) c) ∧
@@ -492,10 +499,10 @@ open DeciNSSE.Packets in
 /-- A tuple of blocks has a bounded column encoding with the same finite summary. -/
 theorem exists_short_tuple [Fintype C] [DecidableEq C] (Ws : Fin k → List Γ) :
     ∃ Ws' : Fin k → List Γ, (∀ a, (Ws' a).Sublist (Ws a)) ∧
-      (∀ a, (Ws' a).length < colBound (Fintype.card C) k) ∧ summ D ℓ k Ws' = summ D ℓ k Ws := by
+      (∀ a, (Ws' a).length < columnStateBound (Fintype.card C) k) ∧ blockSummary D ℓ k Ws' = blockSummary D ℓ k Ws := by
   obtain ⟨Ws', h1, h2, h3⟩ := exists_short_conv (fun x => (colDFA D ℓ k).eval x)
     (fun x y a h => by simp only [DFA.eval_append_singleton]; rw [h]) Ws
-  refine ⟨Ws', h1, fun a => (h2 a).trans_eq (card_CS k), ?_⟩
+  refine ⟨Ws', h1, fun a => (h2 a).trans_eq (card_columnSummary k), ?_⟩
   have e1 := colEval D ℓ k _ (valid_conv Ws')
   have e2 := colEval D ℓ k _ (valid_conv Ws)
   rw [dec_conv] at e1 e2
@@ -506,11 +513,11 @@ theorem exists_short_tuple [Fintype C] [DecidableEq C] (Ws : Fin k → List Γ) 
 theorem exists_short_letters [Fintype C] [DecidableEq C] (E : List (List Γ))
     (hk : E.length ≤ k) :
     ∃ ψ : List Γ → List Γ, Agree (der D ℓ) (der D ℓ) ψ E ∧
-      ∀ X ∈ E, (ψ X).Sublist X ∧ (ψ X).length < colBound (Fintype.card C) k := by
+      ∀ X ∈ E, (ψ X).Sublist X ∧ (ψ X).length < columnStateBound (Fintype.card C) k := by
   classical
   set Ws : Fin k → List Γ := fun a => E.getD a.1 [] with hWs
   obtain ⟨Ws', hsub, hlen, hsumm⟩ := exists_short_tuple D ℓ k Ws
-  have hT := der_type_of_summ D ℓ k hsumm
+  have hT := der_type_of_blockSummary D ℓ k hsumm
   have hidx : ∀ X ∈ E, E.idxOf X < k := fun X hX =>
     (List.idxOf_lt_length_of_mem hX).trans_le hk
   let idx : ∀ X ∈ E, Fin k := fun X hX => ⟨E.idxOf X, hidx X hX⟩
@@ -518,7 +525,7 @@ theorem exists_short_letters [Fintype C] [DecidableEq C] (E : List (List Γ))
     simp only [hWs, idx]
     rw [List.getD_eq_getElem _ _ (List.idxOf_lt_length_of_mem hX), List.getElem_idxOf]
   let ψ : List Γ → List Γ := fun X => if hX : X ∈ E then Ws' (idx X hX) else X
-  have hψ : ∀ X (hX : X ∈ E), ψ X = Ws' (idx X hX) := fun X hX => dif_pos hX
+  have hψ : ∀ X (hX : X ∈ E), ψ X = Ws' (idx X hX) := fun X hX => dite_eq_left hX
   refine ⟨ψ, ⟨rfl, ?_, ?_, ?_, ?_, ?_⟩, fun X hX => ?_⟩
   · intro X hX Y hY hXY
     rw [hψ X hX, hψ Y hY, (hT (idx X hX) (idx Y hY)).1, hWsidx X hX, hWsidx Y hY] at hXY
@@ -583,7 +590,7 @@ theorem delete_step (D : Lettered Γ C) (h : ℕ) {v : List Γ} (hv : D.IsHole v
 
   have hlet1 : ∀ y, y < a → v'[y]? = v[y]? := by
     intro y hy
-    rw [hv', List.getElem?_append_left (by simp; omega), List.getElem?_take, if_pos hy]
+    rw [hv', List.getElem?_append_left (by simp; omega), List.getElem?_take, ite_eq_left hy]
   have hlet2 : ∀ y, a ≤ y → v'[y]? = v[y + δ]? := by
     intro y hy
     rw [hv', List.getElem?_append_right (by simp; omega), List.getElem?_drop]
@@ -831,9 +838,9 @@ theorem length_flatten_le {β : Type*} {B : ℕ} :
       omega
 
 /-- The recursive bound on block lengths when shortening successive hierarchy levels. -/
-def sizeB (N : ℕ) : ℕ → ℕ → ℕ
+def blockLengthBound (N : ℕ) : ℕ → ℕ → ℕ
   | 0, _ => 1
-  | j + 1, k => colBound (N + j) k * sizeB N j (1 + k * colBound (N + j) k)
+  | j + 1, k => columnStateBound (N + j) k * blockLengthBound N j (1 + k * columnStateBound (N + j) k)
 
 /-- Shortening a derived level bounds its block lengths while preserving its hole. -/
 theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
@@ -841,8 +848,8 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
       Admissible ℓ j E →
       ∃ (ℓ' : (i : ℕ) → Alph α i) (φ : Alph α j → Alph α j),
         Agree (tower D0 ℓ j) (tower D0 ℓ' j) φ E ∧ Admissible ℓ' j (E.map φ) ∧
-        ∀ x ∈ E, (expandTo ℓ' j [φ x]).length ≤ sizeB (Fintype.card Q) j k
-  | 0, k, ℓ, E, _, _ => ⟨ℓ, id, Agree.refl _ _, trivial, fun x _ => by simp [expandTo, sizeB]⟩
+        ∀ x ∈ E, (expandTo ℓ' j [φ x]).length ≤ blockLengthBound (Fintype.card Q) j k
+  | 0, k, ℓ, E, _, _ => ⟨ℓ, id, Agree.refl _ _, trivial, fun x _ => by simp [expandTo, blockLengthBound]⟩
   | j + 1, k, ℓ, E, hk, hadm => by
       classical
       by_cases hE : E = []
@@ -856,13 +863,13 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
       have hmemBig : ∀ X ∈ E, ∀ a ∈ ψ X, a ∈ Ebig := fun X hX a ha =>
         List.mem_cons_of_mem _ (List.mem_flatten.mpr ⟨ψ X, List.mem_map_of_mem hX, ha⟩)
       have hℓBig : ℓ j ∈ Ebig := List.mem_cons_self
-      have hlenBig : Ebig.length ≤ 1 + k * colBound (N + j) k := by
-        have h1 := length_flatten_le (B := colBound (N + j) k) (E.map ψ) (by
+      have hlenBig : Ebig.length ≤ 1 + k * columnStateBound (N + j) k := by
+        have h1 := length_flatten_le (B := columnStateBound (N + j) k) (E.map ψ) (by
           intro l hl
           obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hl
           exact (hψ X hX).2.le)
         rw [List.length_map] at h1
-        have h2 := Nat.mul_le_mul_right (colBound (N + j) k) hk
+        have h2 := Nat.mul_le_mul_right (columnStateBound (N + j) k) hk
         simp only [hEbig, List.length_cons]
         omega
       have hadmBig : Admissible ℓ j Ebig := by
@@ -876,7 +883,7 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hl
           exact mem_expand.mpr ⟨X, hX, List.mem_append_left _ ((hψ X hX).1.subset hal)⟩
       obtain ⟨ℓ'', φ₀, hA, hadm'', hsize⟩ :=
-        shorten_level D0 j (1 + k * colBound (N + j) k) ℓ Ebig hlenBig hadmBig
+        shorten_level D0 j (1 + k * columnStateBound (N + j) k) ℓ Ebig hlenBig hadmBig
       set ℓ' : (i : ℕ) → Alph α i := Function.update ℓ'' j (φ₀ (ℓ j)) with hℓ'
       have hℓ'j : ℓ' j = φ₀ (ℓ j) := Function.update_self _ _ _
       have hℓ'lt : ∀ t < j, ℓ' t = ℓ'' t := fun t ht =>
@@ -917,7 +924,7 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           rw [expandTo_congr j hℓ'lt, hℓ'j]
           simp [expand]
         rw [e1]
-        refine (length_expandTo_le ℓ'' j _ (B := sizeB N j (1 + k * colBound (N + j) k))
+        refine (length_expandTo_le ℓ'' j _ (B := blockLengthBound N j (1 + k * columnStateBound (N + j) k))
           ?_).trans ?_
         · intro z hz
           obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hz
@@ -927,7 +934,7 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           · rw [List.mem_singleton] at h1
             rw [h1]
             exact hℓBig
-        · show _ ≤ colBound (N + j) k * sizeB N j (1 + k * colBound (N + j) k)
+        · show _ ≤ columnStateBound (N + j) k * blockLengthBound N j (1 + k * columnStateBound (N + j) k)
           rw [List.length_map, List.length_append, List.length_singleton]
           exact Nat.mul_le_mul_right _ (hψ X hX).2
 
@@ -938,15 +945,16 @@ universe u v
 variable {α : Type u} {Q : Type v}
 
 /-- The combined bound on the number of letters needed at a shortened top level. -/
-def topK (N h : ℕ) : ℕ := N + topBound N h
+def topLengthBound (N h : ℕ) : ℕ := N + topBound N h
 
 /-- The computable length bound for holes of given depth and comparison horizon. -/
 def holeBound (N d h : ℕ) : ℕ :=
-  ∑ i ∈ Finset.range (d + 1), topK (N + i) h * sizeB N i (topK (N + i) h)
+  ∑ i ∈ Finset.range (d + 1), topLengthBound (N + i) h * blockLengthBound N i (topLengthBound (N + i) h)
 
 variable [DecidableEq α] [Inhabited α]
 
-/-- A hole of bounded hierarchy depth and horizon has length bounded by `holeBound`. -/
+/-- If a hole has bounded hierarchy depth and horizon, some such hole has length at most
+`holeBound`. The bound applies to a chosen witness, not to every hole. -/
 theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : List α}
     (hw : D0.IsHole w) (hL : InL d h w) :
     ∃ w', D0.IsHole w' ∧ InL d h w' ∧ w'.length ≤ holeBound (Fintype.card Q) d h := by
@@ -960,7 +968,7 @@ theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : 
 
   obtain ⟨v₁, hv₁, htop₁, hsub₁, hlen₁⟩ : ∃ v₁ : List (Alph α i),
       (tower D0 (markOf w) i).IsHole v₁ ∧ (IsUnary v₁ ∨ HorizonLE v₁ h) ∧
-        (∀ a ∈ v₁, a ∈ hierOf w i) ∧ v₁.length ≤ topK (N + i) h := by
+        (∀ a ∈ v₁, a ∈ hierOf w i) ∧ v₁.length ≤ topLengthBound (N + i) h := by
     rcases htop with hu | hH
     · obtain ⟨x, hx⟩ := List.exists_mem_of_ne_nil _ (hierOf_ne_nil hw0 i)
       have hrep : hierOf w i = List.replicate (hierOf w i).length x :=
@@ -970,19 +978,19 @@ theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : 
       refine ⟨List.replicate m x, hm, Or.inl fun a ha b hb => by
         rw [List.eq_of_mem_replicate ha, List.eq_of_mem_replicate hb], fun a ha => by
         rw [List.eq_of_mem_replicate ha]; exact hx, ?_⟩
-      rw [List.length_replicate, topK]
+      rw [List.length_replicate, topLengthBound]
       rw [hcard] at hm2
       omega
     · obtain ⟨v₁, h1, h2, h3, h4⟩ := top_shorten (tower D0 (markOf w) i) h _ hv hH
       refine ⟨v₁, h1, Or.inr h2, h3, ?_⟩
       rw [hcard] at h4
-      rw [topK]
+      rw [topLengthBound]
       omega
 
   have hadm₁ : Admissible (markOf w) i v₁ :=
     admissible_of_subset _ i v₁ _ hadm (hierOf_ne_nil hw0 i) hsub₁
   obtain ⟨ℓ', φ, hA, hadm', hsize⟩ :=
-    shorten_level D0 i (topK (N + i) h) (markOf w) v₁ hlen₁ hadm₁
+    shorten_level D0 i (topLengthBound (N + i) h) (markOf w) v₁ hlen₁ hadm₁
   have hv₁0 : v₁ ≠ [] := hv₁.ne_nil
   have hv₂ : (tower D0 ℓ' i).IsHole (v₁.map φ) := (hA.isHole_iff (v := v₁) fun a ha => ha).mpr hv₁
   have hv₂0 : v₁.map φ ≠ [] := by simpa using hv₁0
@@ -1001,14 +1009,14 @@ theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : 
       rw [List.length_map] at he ⊢
       exact hH s e hc he
   · calc (expandTo ℓ' i (v₁.map φ)).length
-          ≤ (v₁.map φ).length * sizeB N i (topK (N + i) h) :=
+          ≤ (v₁.map φ).length * blockLengthBound N i (topLengthBound (N + i) h) :=
           length_expandTo_le ℓ' i _ (fun z hz => by
             obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hz
             exact hsize y hy)
-      _ ≤ topK (N + i) h * sizeB N i (topK (N + i) h) :=
+      _ ≤ topLengthBound (N + i) h * blockLengthBound N i (topLengthBound (N + i) h) :=
           Nat.mul_le_mul_right _ (by rw [List.length_map]; exact hlen₁)
       _ ≤ holeBound N d h :=
-          Finset.single_le_sum (f := fun i => topK (N + i) h * sizeB N i (topK (N + i) h))
+          Finset.single_le_sum (f := fun i => topLengthBound (N + i) h * blockLengthBound N i (topLengthBound (N + i) h))
             (fun _ _ => Nat.zero_le _) (Finset.mem_range.mpr (by omega))
 
 /--
@@ -1101,13 +1109,13 @@ instance decReaderΛ (M : DFA α Q) (R : Q → Q → Prop) [DecidableRel R] :
 
 omit [DecidableEq α] [Inhabited α] in
 theorem isHole_ofReader_iff' (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) :
-    (ofReader M R T).IsHole w ↔ w ≠ [] ∧ AbsHoleG M R T w :=
+    (ofReader M R T).IsHole w ↔ w ≠ [] ∧ IsReaderHole M R T w :=
   ⟨fun h => ⟨h.ne_nil, (isHole_ofReader_iff M R T h.ne_nil).mp h⟩,
     fun ⟨h0, h⟩ => (isHole_ofReader_iff M R T h0).mpr h⟩
 
 instance decExistsReaderInL [Fintype α] (M : DFA α Q) (R : Q → Q → Prop) [DecidableRel R]
     (T : Set Q) [DecidablePred (· ∈ T)] [Fintype Q] (d h : ℕ) :
-    Decidable (∃ w, w ≠ [] ∧ AbsHoleG M R T w ∧ InL d h w) :=
+    Decidable (∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d h w) :=
   haveI : ∀ L L', Decidable ((ofReader M R T).Λ L L') := decReaderΛ M R
   haveI : ∀ L L', Decidable ((ofReader M R T).Λf L L') := decReaderΛ M R
   haveI : ∀ c a, Decidable ((ofReader M R T).Tf c a) := fun c a =>

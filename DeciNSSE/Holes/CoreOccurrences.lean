@@ -158,7 +158,7 @@ theorem rho_eq_bridge {w r : List α} {h : ℕ} (hr : rho w h = some r) :
     r = bridge w (h + 1) := by
   by_cases hw : w = []
   · simp [rho, hw] at hr
-  · simp only [rho, if_neg hw, Option.map_eq_some_iff] at hr
+  · simp only [rho, ite_eq_right hw, Option.map_eq_some_iff] at hr
     obtain ⟨p, hp, rfl⟩ := hr
     have hn := List.length_pos_iff.mpr (hierOf_ne_nil hw h)
     rw [drop_corePos hw h _ (by omega) p hp, drop_hier_last hw h]

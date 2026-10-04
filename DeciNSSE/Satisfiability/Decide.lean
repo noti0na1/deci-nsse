@@ -74,6 +74,7 @@ theorem upperAtB_iff (ϕ : Constraint k) (π : List (Fin 2)) (x y : V k) :
         simp only [Bool.and_eq_true, derivesB_iff, ih]
         exact ⟨hd, hp⟩
 
+/-- Enumerate the nonempty binary paths of length at most the given bound. -/
 def pathsUpTo : ℕ → List (List (Fin 2))
   | 0 => []
   | n + 1 => [[0], [1]] ++ (pathsUpTo n).map (0 :: ·) ++ (pathsUpTo n).map (1 :: ·)
@@ -89,6 +90,7 @@ theorem mem_pathsUpTo (ρ : List (Fin 2)) (n : ℕ) :
       fin_cases i <;> simp [pathsUpTo, ih] <;>
         cases ρ <;> simp_all
 
+/-- Search for a cycle clash along paths of length at most the number of variable pairs. -/
 def cycleClashB (ϕ : Constraint k) : Bool :=
   let pairs := derivedPairs ϕ
   (pathsUpTo (k * k)).any fun ρ =>
@@ -117,8 +119,10 @@ theorem cycleClashB_complete {ϕ : Constraint k} (hn : ¬ LabelClash ϕ)
     (h : CycleClash ϕ) : cycleClashB ϕ = true :=
   (cycleClashB_iff_bounded ϕ).mpr ((cycleClash_iff_bounded hn).mp h)
 
+/-- Decide satisfiability over arbitrary trees by excluding label clashes. -/
 def satInfB (ϕ : Constraint k) : Bool := !labelClashB ϕ
 
+/-- Decide satisfiability over finite trees by excluding label and cycle clashes. -/
 def satFinB (ϕ : Constraint k) : Bool := !labelClashB ϕ && !cycleClashB ϕ
 
 theorem satInfB_iff (ϕ : Constraint k) :

@@ -145,34 +145,18 @@ theorem toAbstract_eval (w : Word) :
   | append_singleton w c ih =>
     rw [DFA.eval_append_singleton, toAbstract_step, ih, DFA.eval_append_singleton]
 
-/-- A hole is equivalently a target word with no admitted suffix comparison. -/
-theorem hole_iff_cuts {Q : Type*} (M : DFA (Fin 2) Q) (R : Q → Q → Prop)
-    (T : Set Q) (w : Word) :
-    AbsHoleG M R T w ↔ M.eval w ∈ T ∧
-      ∀ s e, s < e → e ≤ w.length → w.drop e <+: w.drop s →
-        ¬ R (M.eval (w.take s)) (M.eval (w.take e)) := by
-  constructor
-  · rintro ⟨ht, hn⟩
-    refine ⟨by simpa [runG] using ht, ?_⟩
-    intro s e hse he hp
-    exact hn _ _ ⟨s, e, hse, he, rfl, rfl, hp⟩
-  · rintro ⟨ht, hn⟩
-    refine ⟨by simpa [runG] using ht, ?_⟩
-    rintro p q ⟨s, e, hse, he, rfl, rfl, hp⟩
-    exact hn s e hse he hp
-
 /-- The finite and abstract monitors have the same holes. -/
 theorem hole_iff_abstract (w : Word) :
-    AbsHoleG (monitor ϕ x y d) relation (target ϕ x y d) w ↔
-      Holes.AbsHole (AbstractMonitor.monitor ϕ x y d)
+    IsReaderHole (monitor ϕ x y d) relation (target ϕ x y d) w ↔
+      Holes.IsReaderHole (AbstractMonitor.monitor ϕ x y d)
         AbstractMonitor.R' (AbstractMonitor.T' ϕ x y d) w := by
-  rw [← absHoleG_iff_absHole, hole_iff_cuts, hole_iff_cuts]
+  rw [isReaderHole_iff, isReaderHole_iff]
   simp only [target_iff, relation_iff, toAbstract_eval]
 
 /-- Rejection by the constructed side automaton is equivalent to a finite monitor hole. -/
 theorem side_hole_iff (w : Word) :
     w ∉ (construct ϕ x y d).Lang ↔
-      AbsHoleG (monitor ϕ x y d) relation (target ϕ x y d) w :=
+      IsReaderHole (monitor ϕ x y d) relation (target ϕ x y d) w :=
   AbstractMonitor.side_hole_iff_absHole w |>.trans (hole_iff_abstract w).symm
 
 /-- Failure of monoid coverage is equivalent to a monitor hole. -/
@@ -180,14 +164,14 @@ theorem not_fullCovered_iff_hole (w : Word) :
     ¬ FullCoverage.FullCovered (EndToEnd.transRel (construct ϕ x y d))
       (EndToEnd.VA (construct ϕ x y d)) (EndToEnd.V (construct ϕ x y d))
       (EndToEnd.U (construct ϕ x y d)) w ↔
-        AbsHoleG (monitor ϕ x y d) relation (target ϕ x y d) w := by
+        IsReaderHole (monitor ϕ x y d) relation (target ϕ x y d) w := by
   rw [← EndToEnd.mem_lang_iff_fullCovered]
   exact side_hole_iff w
 
 /-- The side automaton is universal exactly when its monitor has no hole. -/
 theorem universal_iff_no_holes (ϕ : Constraint k) (x y : DeciNSSE.V k) (d : Side) :
     (∀ w, w ∈ (construct ϕ x y d).Lang) ↔
-      ¬ ∃ w, AbsHoleG (monitor ϕ x y d) relation (target ϕ x y d) w := by
+      ¬ ∃ w, IsReaderHole (monitor ϕ x y d) relation (target ϕ x y d) w := by
   classical
   simp only [EndToEnd.mem_lang_iff_fullCovered, not_exists,
     ← not_fullCovered_iff_hole, not_not]
@@ -195,8 +179,8 @@ theorem universal_iff_no_holes (ϕ : Constraint k) (x y : DeciNSSE.V k) (d : Sid
 /-- Entailment holds exactly when there is no solution or neither side monitor has a hole. -/
 theorem entails_iff_unsat_or_no_holes (ϕ : Constraint k) (x y : DeciNSSE.V k) :
     Entails ϕ x y ↔ (¬ ∃ ρ, Sat ρ ϕ) ∨
-      ((¬ ∃ w, AbsHoleG (monitor ϕ x y .l) relation (target ϕ x y .l) w) ∧
-       (¬ ∃ w, AbsHoleG (monitor ϕ x y .r) relation (target ϕ x y .r) w)) := by
+      ((¬ ∃ w, IsReaderHole (monitor ϕ x y .l) relation (target ϕ x y .l) w) ∧
+       (¬ ∃ w, IsReaderHole (monitor ϕ x y .r) relation (target ϕ x y .r) w)) := by
   rw [Language.entails_iff_universal, universal_iff_no_holes, universal_iff_no_holes]
 
 end DeciNSSE.Bridge

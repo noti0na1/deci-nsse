@@ -17,7 +17,6 @@ variable {H : Type*} [Monoid H]
 
 section Membership
 variable {α : Type*}
-local instance : Monoid (List α) := inferInstanceAs (Monoid (FreeMonoid α))
 
 def PrM (μ : List α →* H) (U : Set H) (w : List α) : Prop :=
   ∃ t : List α, μ (w ++ t) ∈ U
@@ -132,11 +131,5 @@ theorem capCovered_iff (μ : Word →* H) (U : Set H) (w : Word) :
   change (PrM μ U w ∨ PeriodCovered μ U w) ↔ _
   rw [mem_cap_iff, prM_iff]
   rfl
-
-section Conditional
-variable {σ : Type*} [Fintype σ] [Fintype H]
-    (D : NFA (Fin 2) σ) (μ : Word →* H) (U : Set H)
-
-end Conditional
 
 end DeciNSSE.CapInflation

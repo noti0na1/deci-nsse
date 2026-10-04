@@ -104,7 +104,7 @@ def coreDFA : DFA Γ C where
   accept := ∅
 
 /-- The core reached after the prefix ending at a given position. -/
-def core (v : List Γ) (x : ℕ) : C := runG D.coreDFA v x
+def core (v : List Γ) (x : ℕ) : C := runPrefix D.coreDFA v x
 
 /-- The initial label at zero, or the preceding core and letter at a positive position. -/
 def label (v : List Γ) : ℕ → Lab Γ C

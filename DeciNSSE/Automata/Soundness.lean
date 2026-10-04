@@ -62,7 +62,8 @@ theorem leaf_prefix_of_missing {T : Tree} {σ : List (Fin 2)} (h : T.fn σ = non
       | top => exact Or.inr he
       | f => have := (T.child_isSome_iff σ i).mpr he; simp [h] at this
 
-theorem lemma13 (hn : π ≠ []) (hu : UpperBoundAt α u π v)
+/-- An upper bound along a nonempty period preserves left safety on its periodic prefixes. -/
+theorem leftSafe_of_periodic_upperBound (hn : π ≠ []) (hu : UpperBoundAt α u π v)
     (π' : List (Fin 2)) (hp : π' <+: π ++ π') : LSafeAt α u v π' := by
   intro hx
   by_cases hd : ((α v).fn π').isSome
@@ -94,7 +95,8 @@ theorem lemma13 (hn : π ≠ []) (hu : UpperBoundAt α u π v)
         simp [hb'] at ht'
     · exact ⟨τ, hτ, ht⟩
 
-theorem lemma13_r (_hn : π ≠ []) (hl : LowerBoundAt α π u v)
+/-- A lower bound along a period preserves right safety on its periodic prefixes. -/
+theorem rightSafe_of_periodic_lowerBound (hl : LowerBoundAt α π u v)
     (π' : List (Fin 2)) (hp : π' <+: π ++ π') : RSafeAt α u v π' := by
   intro hy
   have hb := (trace_eq_bot_iff _ _).mpr (hasLabel_prefix hp hy)
@@ -102,7 +104,8 @@ theorem lemma13_r (_hn : π ≠ []) (hl : LowerBoundAt α π u v)
   apply (Tree.le_bot_iff _).mp
   simpa only [← trace_append, hb] using trace_mono hl.le_trace π'
 
-theorem lemma14 (hu : UpperBoundAt α x π u) (hl : LowerBoundAt α π v y)
+/-- Matching upper and lower path bounds transport left safety through their common prefix. -/
+theorem leftSafe_prepend_bounds (hu : UpperBoundAt α x π u) (hl : LowerBoundAt α π v y)
     (hs : LSafeAt α u v π') : LSafeAt α x y (π ++ π') := by
   intro hx
   have hxu := trace_mono hu.trace_le π'
@@ -113,7 +116,8 @@ theorem lemma14 (hu : UpperBoundAt α x π u) (hl : LowerBoundAt α π v y)
   apply (Tree.top_le_iff _).mp
   simpa only [← trace_append, hvt] using trace_mono hl.le_trace π'
 
-theorem lemma14_r (hu : UpperBoundAt α x π u) (hl : LowerBoundAt α π v y)
+/-- Matching upper and lower path bounds transport right safety through their common prefix. -/
+theorem rightSafe_prepend_bounds (hu : UpperBoundAt α x π u) (hl : LowerBoundAt α π v y)
     (hs : RSafeAt α u v π') : RSafeAt α x y (π ++ π') := by
   intro hy
   have hvb : trace (α v) π' = Tree.bot := (Tree.le_bot_iff _).mp
@@ -191,8 +195,8 @@ theorem soundP_l (h : π ∈ LangP (construct ϕ x y .l)) : LSafe ϕ x y π := b
   obtain ⟨hu, hl⟩ := Soundness.initial_run_bounds hr
   have hμ := (runs_pair_iff_upperAt hn).mp ⟨some v, s, hm⟩
   intro α hs
-  exact Soundness.lemma14 (hu.upperBoundAt hs) (hl.lowerBoundAt hs)
-    (Soundness.lemma13 hn (hμ.upperBoundAt hs) μ' ((Words.prefix_pow_iff hn).mp hw))
+  exact Soundness.leftSafe_prepend_bounds (hu.upperBoundAt hs) (hl.lowerBoundAt hs)
+    (Soundness.leftSafe_of_periodic_upperBound hn (hμ.upperBoundAt hs) μ' ((Words.prefix_pow_iff hn).mp hw))
 
 theorem soundP_r (h : π ∈ LangP (construct ϕ x y .r)) : RSafe ϕ x y π := by
   obtain ⟨ρ, μ', q₁, q₂, μ, rfl, hr, hm, hp, hw⟩ := h
@@ -203,8 +207,8 @@ theorem soundP_r (h : π ∈ LangP (construct ϕ x y .r)) : RSafe ϕ x y π := b
   obtain ⟨hu, hl⟩ := Soundness.initial_run_bounds hr
   have hμ := (runs_pair_iff_lowerAt hn).mp ⟨some u, s, hm⟩
   intro α hs
-  exact Soundness.lemma14_r (hu.upperBoundAt hs) (hl.lowerBoundAt hs)
-    (Soundness.lemma13_r hn (hμ.lowerBoundAt hs) μ' ((Words.prefix_pow_iff hn).mp hw))
+  exact Soundness.rightSafe_prepend_bounds (hu.upperBoundAt hs) (hl.lowerBoundAt hs)
+    (Soundness.rightSafe_of_periodic_lowerBound (hμ.lowerBoundAt hs) μ' ((Words.prefix_pow_iff hn).mp hw))
 
 theorem sound_l (h : π ∈ Lang (construct ϕ x y .l)) : LSafe ϕ x y π :=
   h.elim soundA_l soundP_l

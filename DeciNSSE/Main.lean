@@ -6,8 +6,8 @@ import DeciNSSE.RejectedTail.Depth
 Entailment over finite or infinite trees reduces to unsatisfiability or the absence
 of holes in two finite monitors. A bound on the rejected tail gives a bound on
 canonical hierarchy depth, and bounded depth gives a finite search for holes.
-Regular-tree entailment agrees with infinite-tree entailment; finite-tree
-entailment also holds whenever the constraints have no finite solution.
+Entailment over regular trees agrees with unrestricted entailment. Entailment
+over finite trees also holds whenever the constraints have no finite solution.
 -/
 
 namespace DeciNSSE
@@ -40,17 +40,17 @@ theorem decideEntails_correct (ϕ : Constraint k) (x y : V k) :
     @decide (Entails ϕ x y) (decideEntails ϕ x y) = true ↔ Entails ϕ x y :=
   @decide_eq_true_iff (Entails ϕ x y) (decideEntails ϕ x y)
 
-/-- Decide entailment over regular trees using its equivalence with infinite-tree entailment. -/
+/-- Decide entailment over regular trees using its equivalence with unrestricted entailment. -/
 def decideEntailsReg (ϕ : Constraint k) (x y : V k) : Decidable (EntailsReg ϕ x y) := by
   letI := decideEntails ϕ x y
   exact decidable_of_iff (Entails ϕ x y) entails_iff_entailsReg
 
-/-- The regular-tree decision returns true exactly when regular-tree entailment holds. -/
+/-- The decision returns true exactly when entailment over regular trees holds. -/
 theorem decideEntailsReg_correct (ϕ : Constraint k) (x y : V k) :
     @decide (EntailsReg ϕ x y) (decideEntailsReg ϕ x y) = true ↔ EntailsReg ϕ x y :=
   @decide_eq_true_iff (EntailsReg ϕ x y) (decideEntailsReg ϕ x y)
 
-/-- Decide finite-tree entailment, including the case of no finite solution. -/
+/-- Decide entailment over finite trees, including the case of no finite solution. -/
 def decideEntailsFin (ϕ : Constraint k) (x y : V k) : Decidable (EntailsFin ϕ x y) :=
   if hs : satFinB ϕ = false then
     isTrue (entailsFin_iff_decider.mpr (Or.inl hs))
@@ -59,7 +59,7 @@ def decideEntailsFin (ϕ : Constraint k) (x y : V k) : Decidable (EntailsFin ϕ 
     decidable_of_iff (Entails ϕ x y) (by
       rw [entailsFin_iff_decider, or_iff_right hs])
 
-/-- The finite-tree decision returns true exactly when finite-tree entailment holds. -/
+/-- The decision returns true exactly when entailment over finite trees holds. -/
 theorem decideEntailsFin_correct (ϕ : Constraint k) (x y : V k) :
     @decide (EntailsFin ϕ x y) (decideEntailsFin ϕ x y) = true ↔ EntailsFin ϕ x y :=
   @decide_eq_true_iff (EntailsFin ϕ x y) (decideEntailsFin ϕ x y)

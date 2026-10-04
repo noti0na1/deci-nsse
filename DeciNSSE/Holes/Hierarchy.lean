@@ -284,7 +284,7 @@ theorem label_expand_length (v : List (List Γ)) (j : ℕ) (hj : v.length = j + 
 @[simp] theorem derΛf_none_left (L : Lab (List Γ) (Option C)) : ¬ derΛf D ℓ none L := by
   simp [derΛf]
 
-/-- Desubstitution at a marker preserves holes for nonempty marker-free block words. -/
+/-- Desubstitution preserves holes for nonempty marker-free block words. -/
 theorem isHole_der_iff (v : List (List Γ)) (hv : v ≠ []) (hℓ : ∀ X ∈ v, ℓ ∉ X) :
     (der D ℓ).IsHole v ↔ D.IsHole (expand ℓ v) := by
   obtain ⟨j, hlen⟩ : ∃ j, v.length = j + 1 :=
@@ -768,7 +768,7 @@ def sCount (D0 : Lettered α Q) (w : List α) (j : ℕ) : ℕ :=
 Start cores occupy an initial segment of distinct cores, and transitions from ordinary cores
 remain ordinary.
 -/
-theorem lemma41 (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) : ∀ j,
+theorem startCore_invariants (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) : ∀ j,
     (∀ x < (hierOf w j).length,
       isStart j ((tower D0 (markOf w) j).core (hierOf w j) x) = true ↔ x < sCount D0 w j) ∧
     sCount D0 w j ≤ (hierOf w j).length ∧
@@ -783,7 +783,7 @@ theorem lemma41 (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) : ∀ j,
       refine ⟨fun x _ => by simp [h0, isStart], by omega, fun x y _ _ hx => by
         simp [isStart] at hx, fun _ _ _ => rfl⟩
   | j + 1 => by
-      obtain ⟨hpre, hsle, hdist, hcl⟩ := lemma41 D0 hw j
+      obtain ⟨hpre, hsle, hdist, hcl⟩ := startCore_invariants D0 hw j
       have hu := expand_hierOf hw j
       set s' := min (hierOf w (j + 1)).length
         (1 + ((hierOf w j).take (sCount D0 w j)).count (markOf w j)) with hs'
@@ -809,7 +809,7 @@ theorem sCount_succ (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) (j : ℕ)
     sCount D0 w (j + 1) = min (hierOf w (j + 1)).length
       (1 + ((hierOf w j).take (sCount D0 w j)).count (markOf w j)) := by
   have hu := expand_hierOf hw j
-  obtain ⟨hpre, -, -, -⟩ := lemma41 D0 hw j
+  obtain ⟨hpre, -, -, -⟩ := startCore_invariants D0 hw j
   refine countP_range_of_prefix (min_le_left _ _) ?_
   have := startCores_der (tower D0 (markOf w) j) (markOf w j) (isStart j)
     (hierOf w (j + 1)) (avoid_hierOf j) (sCount D0 w j) (by rw [hu]; exact hpre)
@@ -955,7 +955,7 @@ theorem iterate_small {C : Type*} [Fintype C] (f : C → C) (c : C) :
       · exact key a b h he
       · exact key b a h he.symm
 
-/-- A unary hole exists exactly when one exists below the finite core-cardinality bound. -/
+/-- A unary hole exists exactly when one exists with length bounded by the number of cores. -/
 theorem exists_unary_hole_iff {Γ C : Type*} [Fintype C] (D : Lettered Γ C) (x : Γ) :
     (∃ m, D.IsHole (List.replicate m x)) ↔
       ∃ m, 1 ≤ m ∧ m ≤ Fintype.card C ∧ D.IsHole (List.replicate m x) := by
@@ -1029,28 +1029,28 @@ def ofReader (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) : Lettered α Q w
     (ofReader M R T).Tf c a = (M.step c a ∈ T) := rfl
 
 theorem core_ofReader (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) (x : ℕ) :
-    (ofReader M R T).core w x = runG M w x := rfl
+    (ofReader M R T).core w x = runPrefix M w x := rfl
 
 theorem stOf_label (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) :
-    ∀ x ≤ w.length, stOf M ((ofReader M R T).label w x) = runG M w x
+    ∀ x ≤ w.length, stOf M ((ofReader M R T).label w x) = runPrefix M w x
   | 0, _ => rfl
   | x + 1, hx => by
-      rw [Lettered.label_succ _ _ (by omega), stOf, core_ofReader, runG, runG,
+      rw [Lettered.label_succ _ _ (by omega), stOf, core_ofReader, runPrefix, runPrefix,
         List.take_succ_eq_append_getElem (by omega), DFA.eval_append_singleton]
 
 /-- For nonempty words, lettered-reader holes and ordinary reader holes coincide. -/
 theorem isHole_ofReader_iff (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) {w : List α}
-    (hw : w ≠ []) : (ofReader M R T).IsHole w ↔ AbsHoleG M R T w := by
+    (hw : w ≠ []) : (ofReader M R T).IsHole w ↔ IsReaderHole M R T w := by
   obtain ⟨j, hlen⟩ : ∃ j, w.length = j + 1 :=
     ⟨w.length - 1, by have := List.length_pos_iff.mpr hw; omega⟩
   have hst := stOf_label M R T w
-  have hlab : (ofReader M R T).label w w.length = some (runG M w j, w[j]) := by
+  have hlab : (ofReader M R T).label w w.length = some (runPrefix M w j, w[j]) := by
     rw [← core_ofReader M R T]; simp only [hlen]; exact Lettered.label_succ _ w (by omega)
-  have hfin : M.step (runG M w j) w[j] = runG M w w.length := by
+  have hfin : M.step (runPrefix M w j) w[j] = runPrefix M w w.length := by
     have := hst _ le_rfl
     rw [hlab] at this
     exact this
-  have hfin' : stOf M (some (runG M w j, w[j])) = runG M w w.length := hfin
+  have hfin' : stOf M (some (runPrefix M w j, w[j])) = runPrefix M w w.length := hfin
   rw [absHoleG_iff_split]
   unfold Lettered.IsHole
   rw [hlab, exists_some_eq_iff]
@@ -1059,13 +1059,13 @@ theorem isHole_ofReader_iff (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) {w
     · rintro h ⟨p, ⟨i, hi, hp⟩, hr⟩
       refine h i hi ?_
       rw [ofReader_Λf]
-      show R (stOf M ((ofReader M R T).label w i)) (stOf M (some (runG M w j, w[j])))
+      show R (stOf M ((ofReader M R T).label w i)) (stOf M (some (runPrefix M w j, w[j])))
       rw [hst i hi.le, hfin']
-      have : runG M w i = p := hp
+      have : runPrefix M w i = p := hp
       rw [this]; exact hr
     · intro h s hs hr
       rw [ofReader_Λf] at hr
-      change R (stOf M ((ofReader M R T).label w s)) (stOf M (some (runG M w j, w[j]))) at hr
+      change R (stOf M ((ofReader M R T).label w s)) (stOf M (some (runPrefix M w j, w[j]))) at hr
       rw [hst s hs.le, hfin'] at hr
       exact h ⟨_, ⟨s, hs, rfl⟩, hr⟩
   · constructor

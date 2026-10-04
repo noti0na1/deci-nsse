@@ -10,6 +10,7 @@ to non-structural subtype entailment.
 
 namespace DeciNSSE
 
+/-- A finite nondeterministic automaton with additional edges closing admitted cap roots. -/
 structure CapAutomaton (Q : Type) [Fintype Q] [DecidableEq Q] where
   init : Q
   final : Q → Bool
@@ -52,13 +53,16 @@ theorem mem_reach_iff (q r : Q) (π : List (Fin 2)) :
   | nil => simp [reach, eq_comm]
   | cons i π ih => simp [reach, ih]
 
+/-- Ordinary acceptance by a finite run from the initial state to a final state. -/
 def LangA : Set (List (Fin 2)) :=
   {π | ∃ q, P.Runs P.init π q ∧ P.final q = true}
 
+/-- Acceptance by an initial run followed by a prefix of a power of an admitted cap root. -/
 def LangP : Set (List (Fin 2)) :=
   {ν | ∃ π μ' q₁ q₂ μ, ν = π ++ μ' ∧ P.Runs P.init π q₁ ∧
     P.Runs q₁ μ q₂ ∧ P.pedge q₂ q₁ = true ∧ Words.IsPrefixOfPower μ μ'}
 
+/-- The union of ordinary acceptance and acceptance by periodic caps. -/
 def Lang : Set (List (Fin 2)) := P.LangA ∪ P.LangP
 
 end CapAutomaton

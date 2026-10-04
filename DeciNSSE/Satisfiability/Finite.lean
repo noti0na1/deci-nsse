@@ -207,7 +207,7 @@ theorem toTree_ofTree {d : ℕ} {t : Tree}
           have hd := hdepth (i :: π) hp
           simp only [List.length_cons] at hd
           omega
-        simp only [ofTree, dif_pos hr, toTree]
+        simp only [ofTree, dite_eq_left hr, toTree]
         rw [ih (hb 0), ih (hb 1)]
         exact (t.eq_node_of_root_eq_f hr).symm
 
