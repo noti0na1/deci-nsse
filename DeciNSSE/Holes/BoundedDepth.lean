@@ -4,9 +4,10 @@ import DeciNSSE.Holes.Packets
 /-! # Finite search at bounded hierarchy depth
 
 Finite summaries record transitions, admissions and block equalities.
-Short representatives preserve the derived monitor on its support. Iterating
-this compression bounds the length of a witness at bounded depth and
-comparison horizon; it does not bound every hole at that depth.
+Short representatives preserve the derived monitor on its support. At a unary
+level a short power of one letter is a hole; iterating the compression below
+it bounds the length of a witness at bounded depth. This does not bound every
+hole at that depth.
 -/
 
 set_option autoImplicit false
@@ -569,224 +570,6 @@ theorem exists_short_letters [Fintype C] [DecidableEq C] (E : List (List Γ))
 
 end Column
 
-section Top
-variable {Γ C : Type*}
-
-/-- The key of a cut: the core, the `Λ`-row of its label against every window label
-`(c, v[m+t])` (`m = |v| - (h+1)`, `t ≤ h`), and the look-ahead pattern
-`v[x+t] = v[m+t']` against the window `v[m:]`. -/
-abbrev Key (C : Type*) (h : ℕ) :=
-  C × (C → Fin (h + 1) → Prop) × (Fin (h + 1) → Fin (h + 1) → Prop)
-
-/-- The key of the cut `x` of `v`. -/
-def key (D : Lettered Γ C) (h : ℕ) (v : List Γ) (x : ℕ) : Key C h :=
-  (D.core v x,
-   fun c t => D.Λ (D.label v x) ((v[v.length - (h + 1) + t]?).map fun a => (c, a)),
-   fun t t' => v[x + t]? = v[v.length - (h + 1) + t']?)
-
-theorem card_key [Fintype C] [DecidableEq C] (h : ℕ) :
-    Fintype.card (Key C h) =
-      Fintype.card C * (2 ^ (h + 1)) ^ Fintype.card C * (2 ^ (h + 1)) ^ (h + 1) := by
-  simp [Key, Fintype.card_prod, mul_assoc]
-
-/-- The top length bound for `N` cores. -/
-def topBound (N h : ℕ) : ℕ := N * (2 ^ (h + 1)) ^ N * (2 ^ (h + 1)) ^ (h + 1) + h
-
-/-- One deletion. If the cuts `a < b ≤ |v| - (h+1)` of a hole `v` of horizon `≤ h` have
-equal keys, deleting `v[a:b]` gives a hole of horizon `≤ h`. -/
-theorem delete_step (D : Lettered Γ C) (h : ℕ) {v : List Γ} (hv : D.IsHole v)
-    (hH : HorizonLE v h) {a b : ℕ} (hab : a < b) (hb : b + (h + 1) ≤ v.length)
-    (hkey : key D h v a = key D h v b) :
-    D.IsHole (v.take a ++ v.drop b) ∧ HorizonLE (v.take a ++ v.drop b) h := by
-  set n := v.length with hn
-  set m := n - (h + 1) with hm
-  set δ := b - a with hδ
-  set v' := v.take a ++ v.drop b with hv'
-  have gq : ∀ {x y : ℕ}, x = y → v[x]? = v[y]? := fun e => e ▸ rfl
-  have hlen' : v'.length = n - δ := by
-    simp only [hv', List.length_append, List.length_take, List.length_drop]; omega
-
-  have hlet1 : ∀ y, y < a → v'[y]? = v[y]? := by
-    intro y hy
-    rw [hv', List.getElem?_append_left (by simp; omega), List.getElem?_take, ite_eq_left hy]
-  have hlet2 : ∀ y, a ≤ y → v'[y]? = v[y + δ]? := by
-    intro y hy
-    rw [hv', List.getElem?_append_right (by simp; omega), List.getElem?_drop]
-    exact gq (by simp; omega)
-
-  have hk1 : D.core v a = D.core v b := congrArg Prod.fst hkey
-  have hk2 : ∀ c (t : Fin (h + 1)), D.Λ (D.label v a) ((v[m + t]?).map fun x => (c, x)) ↔
-      D.Λ (D.label v b) ((v[m + t]?).map fun x => (c, x)) := fun c t =>
-    Iff.of_eq (congrFun (congrFun (congrArg (fun s => s.2.1) hkey) c) t)
-  have hk3 : ∀ (τ t : Fin (h + 1)), v[a + τ]? = v[m + t]? ↔ v[b + τ]? = v[m + t]? :=
-    fun τ t => Iff.of_eq (congrFun (congrFun (congrArg (fun s => s.2.2) hkey) τ) t)
-  have hpat : ∀ τ t, τ ≤ h → t ≤ h → v[b + τ]? = v[m + t]? → v[a + τ]? = v[m + t]? :=
-    fun τ t hτ ht e => (hk3 ⟨τ, by omega⟩ ⟨t, by omega⟩).mpr e
-
-  have hcore1 : ∀ x ≤ a, D.core v' x = D.core v x := by
-    intro x hx
-    rw [core_eq_kst, core_eq_kst, hv', List.take_append_of_le_length (by simp; omega),
-      List.take_take, Nat.min_eq_left hx]
-  have hcore2 : ∀ x, a ≤ x → D.core v' x = D.core v (x + δ) := by
-    intro x hx
-    have e1 : v'.take x = v.take a ++ (v.drop b).take (x - a) := by
-      rw [hv', List.take_append, List.take_take, Nat.min_eq_right hx, List.length_take,
-        Nat.min_eq_left (by omega)]
-    have e2 : v.take (x + δ) = v.take b ++ (v.drop b).take (x - a) := by
-      rw [show x + δ = b + (x - a) by omega, List.take_add]
-    rw [core_eq_kst, core_eq_kst, e1, e2, kst_append, kst_append, ← core_eq_kst,
-      ← core_eq_kst, hk1]
-
-  have hlab1 : ∀ x ≤ a, D.label v' x = D.label v x := by
-    intro x hx
-    rcases x with _ | y
-    · rfl
-    · show (v'[y]?).map (fun c => (D.core v' y, c)) = (v[y]?).map (fun c => (D.core v y, c))
-      rw [hlet1 y (by omega), hcore1 y (by omega)]
-  have hlab2 : ∀ x, a < x → D.label v' x = D.label v (x + δ) := by
-    intro x hx
-    obtain ⟨y, rfl⟩ : ∃ y, x = y + 1 := ⟨x - 1, by omega⟩
-    rw [show y + 1 + δ = (y + δ) + 1 by omega]
-    show (v'[y]?).map (fun c => (D.core v' y, c)) =
-      (v[y + δ]?).map (fun c => (D.core v (y + δ), c))
-    rw [hlet2 y (by omega), hcore2 y (by omega)]
-
-  have hΛab : ∀ e, m < e → e ≤ n →
-      (D.Λ (D.label v a) (D.label v e) ↔ D.Λ (D.label v b) (D.label v e)) := by
-    intro e h1 h2
-    obtain ⟨y, rfl⟩ : ∃ y, e = y + 1 := ⟨e - 1, by omega⟩
-    have hw : D.label v (y + 1) = (v[m + (y - m)]?).map fun x => (D.core v y, x) := by
-      show (v[y]?).map _ = _
-      rw [show m + (y - m) = y by omega]
-    rw [hw]
-    exact hk2 (D.core v y) ⟨y - m, by omega⟩
-
-  have hH' : HorizonLE v' h := by
-    intro s e hc he
-    by_contra hlt
-    rw [hlen'] at hlt he
-    have hcpt := (DeciNSSE.Packets.drop_prefix_drop_iff v').mp hc.2.2
-    set m' := n - δ - (h + 1) with hm'
-    have hse := hc.1
-    have hw : ∀ t, t ≤ h → v'[s + (m' - e) + t]? = v[m + t]? := by
-      intro t ht
-      have h1 := hcpt (m' - e + t) (by rw [hlen']; omega)
-      rw [show s + (m' - e + t) = s + (m' - e) + t by omega,
-        show e + (m' - e + t) = m' + t by omega, hlet2 (m' + t) (by omega)] at h1
-      rw [h1]; exact gq (by omega)
-    have key : ∃ s₀, s₀ < m ∧ ∀ t, t ≤ h → v[s₀ + t]? = v[m + t]? := by
-      by_cases hsa : a ≤ s + (m' - e)
-      · refine ⟨s + (m' - e) + δ, by omega, fun t ht => ?_⟩
-        rw [← hw t ht, hlet2 _ (by omega)]
-        exact gq (by omega)
-      · refine ⟨s + (m' - e), by omega, fun t ht => ?_⟩
-        by_cases hst : s + (m' - e) + t < a
-        · rw [← hw t ht, hlet1 _ hst]
-        · have e1 : v[b + (s + (m' - e) + t - a)]? = v[m + t]? := by
-            rw [← hw t ht, hlet2 _ (by omega)]
-            exact gq (by omega)
-          have e2 := hpat _ t (by omega) ht e1
-          rw [← e2]
-          exact gq (by omega)
-    obtain ⟨s₀, hs₀, hs₀t⟩ := key
-    have hcomp : IsComp v s₀ m := by
-      refine ⟨hs₀, by omega, ?_⟩
-      rw [DeciNSSE.Packets.drop_prefix_drop_iff]
-      intro t ht
-      exact hs₀t t (by omega)
-    have := hH s₀ m hcomp (by omega)
-    omega
-  have hna : a < v'.length := by rw [hlen']; omega
-  have hnn : v'.length + δ = n := by rw [hlen']; omega
-  refine ⟨⟨?_, ?_, ?_⟩, hH'⟩
-  · rw [hlab2 _ hna, hnn]
-    exact hv.1
-  · intro s hs
-    rw [hlab2 _ hna, hnn]
-    rcases Nat.lt_or_ge a s with has | has
-    · rw [hlab2 s has]; exact hv.2.1 _ (by rw [hlen'] at hs; omega)
-    · rw [hlab1 s has]; exact hv.2.1 _ (by omega)
-  · intro s e hc he
-    have hhe := hH' s e hc he
-    rw [hlen'] at hhe he
-    have hae : a < e := by omega
-    rw [hlab2 e hae]
-    have hcpt := (DeciNSSE.Packets.drop_prefix_drop_iff v').mp hc.2.2
-    have hse := hc.1
-    rcases lt_trichotomy s a with hsa | hsa | hsa
-    · rw [hlab1 s hsa.le]
-      refine hv.2.2 s (e + δ) ⟨by omega, by omega, ?_⟩ (by omega)
-      rw [DeciNSSE.Packets.drop_prefix_drop_iff]
-      intro t ht
-      have e0 := hcpt t (by rw [hlen']; omega)
-      rw [hlet2 (e + t) (by omega)] at e0
-      by_cases hst : s + t < a
-      · rw [hlet1 _ hst] at e0
-        rw [e0]; exact gq (by omega)
-      · rw [hlet2 _ (by omega)] at e0
-        have e1 := hpat (s + t - a) (e + δ + t - m) (by omega) (by omega)
-          (by rw [← gq (show s + t + δ = b + (s + t - a) by omega), e0]; exact gq (by omega))
-        rw [gq (show a + (s + t - a) = s + t by omega)] at e1
-        rw [e1]; exact gq (by omega)
-    · rw [hsa, hlab1 a le_rfl, hΛab (e + δ) (by omega) (by omega)]
-      refine hv.2.2 b (e + δ) ⟨by omega, by omega, ?_⟩ (by omega)
-      rw [DeciNSSE.Packets.drop_prefix_drop_iff]
-      intro t ht
-      have e0 := hcpt t (by rw [hlen']; omega)
-      rw [hlet2 (e + t) (by omega), hlet2 (s + t) (by omega)] at e0
-      rw [gq (show b + t = s + t + δ by omega), e0]; exact gq (by omega)
-    · rw [hlab2 s hsa]
-      refine hv.2.2 (s + δ) (e + δ) ⟨by omega, by omega, ?_⟩ (by omega)
-      rw [DeciNSSE.Packets.drop_prefix_drop_iff]
-      intro t ht
-      have e0 := hcpt t (by rw [hlen']; omega)
-      rw [hlet2 (e + t) (by omega), hlet2 (s + t) (by omega)] at e0
-      rw [gq (show s + δ + t = s + t + δ by omega), e0]; exact gq (by omega)
-
-/-- A lettered instance with finitely many cores that has a hole
-of horizon `≤ h` has one of length `≤ topBound |C| h`, using only letters of the first. -/
-theorem top_shorten [Fintype C] [DecidableEq C] (D : Lettered Γ C) (h : ℕ) (v : List Γ)
-    (hv : D.IsHole v) (hH : HorizonLE v h) :
-    ∃ v' : List Γ, D.IsHole v' ∧ HorizonLE v' h ∧ (∀ a ∈ v', a ∈ v) ∧
-      v'.length ≤ topBound (Fintype.card C) h := by
-  suffices H : ∀ n, ∀ v : List Γ, v.length = n → D.IsHole v → HorizonLE v h →
-      ∃ v' : List Γ, D.IsHole v' ∧ HorizonLE v' h ∧ (∀ a ∈ v', a ∈ v) ∧
-        v'.length ≤ Fintype.card (Key C h) + h by
-    obtain ⟨v', h1, h2, h3, h4⟩ := H _ v rfl hv hH
-    refine ⟨v', h1, h2, h3, ?_⟩
-    rw [card_key] at h4
-    exact h4
-  intro n
-  induction n using Nat.strong_induction_on with
-  | _ n ih =>
-    intro v hn hv hH
-    by_cases hsmall : v.length ≤ Fintype.card (Key C h) + h
-    · exact ⟨v, hv, hH, fun a ha => ha, hsmall⟩
-    · set m := v.length - (h + 1) with hm
-      have hcard : Fintype.card (Key C h) < Fintype.card (Fin (m + 1)) := by
-        rw [Fintype.card_fin]; omega
-      obtain ⟨x, y, hxy, hxyk⟩ :=
-        Fintype.exists_ne_map_eq_of_card_lt (fun x : Fin (m + 1) => key D h v x.1) hcard
-      have main : ∀ a b : ℕ, a < b → b ≤ m → key D h v a = key D h v b →
-          ∃ v' : List Γ, D.IsHole v' ∧ HorizonLE v' h ∧ (∀ c ∈ v', c ∈ v) ∧
-            v'.length ≤ Fintype.card (Key C h) + h := by
-        intro a b hab hbm hk
-        obtain ⟨hv', hH'⟩ := delete_step D h hv hH hab (by omega) hk
-        obtain ⟨v'', h1, h2, h3, h4⟩ :=
-          ih _ (by rw [← hn]; simp only [List.length_append, List.length_take,
-            List.length_drop]; omega) _ rfl hv' hH'
-        refine ⟨v'', h1, h2, fun c hc => ?_, h4⟩
-        rcases List.mem_append.mp (h3 c hc) with hc' | hc'
-        · exact List.mem_of_mem_take hc'
-        · exact List.mem_of_mem_drop hc'
-      have hx := x.2
-      have hy := y.2
-      rcases Nat.lt_or_gt_of_ne (fun e => hxy (Fin.ext e)) with hlt | hlt
-      · exact main x y hlt (by omega) hxyk
-      · exact main y x hlt (by omega) hxyk.symm
-
-end Top
-
 section Cores
 universe v
 variable {Q : Type v}
@@ -967,87 +750,61 @@ section Final
 universe u v
 variable {α : Type u} {Q : Type v}
 
-/-- The size of a shortened top word at a level with `N` cores: a unary top needs at most `N`
-letters (`exists_unary_hole_iff`), a horizon-`≤ h` top at most `topBound N h`. -/
-def topK (N h : ℕ) : ℕ := N + topBound N h
-
-/-- The computable length bound for a hole of bounded hierarchy depth and horizon. -/
-def holeBound (N d h : ℕ) : ℕ :=
-  ∑ i ∈ Finset.range (d + 1), topK (N + i) h * sizeB N i (topK (N + i) h)
+/-- The computable length bound for a hole in `𝓛(d)` of an instance with `N` cores: at a
+unary level `i` the top word `x^m` has `m ≤ N + i`, and the letter `x` expands to at most
+`sizeB N i 1` letters. -/
+def holeBound (N d : ℕ) : ℕ :=
+  ∑ i ∈ Finset.range (d + 1), (N + i) * sizeB N i 1
 
 variable [DecidableEq α] [Inhabited α]
 
-/-- If a lettered instance with `N` cores (over any alphabet)
-has a hole in `𝓛(d, h)`, it has one of length `≤ holeBound N d h`. Nothing is assumed about
-the variety, degeneracy or run lengths of the levels below the top. -/
-theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : List α}
-    (hw : D0.IsHole w) (hL : InL d h w) :
-    ∃ w', D0.IsHole w' ∧ InL d h w' ∧ w'.length ≤ holeBound (Fintype.card Q) d h := by
+/-- If a lettered instance with `N` cores (over any alphabet) has a hole in `𝓛(d)`, it has
+one of length `≤ holeBound N d`. At the unary level `i` a short power `x^m` is a hole of the
+derived instance; shortening the single letter `x` and expanding gives the witness. Nothing is
+assumed about the variety, degeneracy or run lengths of the levels below the top. -/
+theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d : ℕ) {w : List α}
+    (hw : D0.IsHole w) (hL : InL d w) :
+    ∃ w', D0.IsHole w' ∧ InL d w' ∧ w'.length ≤ holeBound (Fintype.card Q) d := by
   classical
-  obtain ⟨i, hi, htop⟩ := hL
+  obtain ⟨i, hi, hu⟩ := hL
   have hw0 : w ≠ [] := hw.ne_nil
   set N := Fintype.card Q with hN
+  obtain ⟨x, hx⟩ := List.exists_mem_of_ne_nil _ (hierOf_ne_nil hw0 i)
+  have hrep : hierOf w i = List.replicate (hierOf w i).length x :=
+    List.eq_replicate_iff.mpr ⟨rfl, fun b hb => hu b hb x hx⟩
   have hv : (tower D0 (markOf w) i).IsHole (hierOf w i) := (isHole_hierOf_iff hw0 D0 i).mpr hw
-  have hadm : Admissible (markOf w) i (hierOf w i) := admissible_hierOf hw0 i
-  have hcard : Fintype.card (Cores Q i) = N + i := card_cores i
-
-  obtain ⟨v₁, hv₁, htop₁, hsub₁, hlen₁⟩ : ∃ v₁ : List (Alph α i),
-      (tower D0 (markOf w) i).IsHole v₁ ∧ (IsUnary v₁ ∨ HorizonLE v₁ h) ∧
-        (∀ a ∈ v₁, a ∈ hierOf w i) ∧ v₁.length ≤ topK (N + i) h := by
-    rcases htop with hu | hH
-    · obtain ⟨x, hx⟩ := List.exists_mem_of_ne_nil _ (hierOf_ne_nil hw0 i)
-      have hrep : hierOf w i = List.replicate (hierOf w i).length x :=
-        List.eq_replicate_iff.mpr ⟨rfl, fun b hb => hu b hb x hx⟩
-      obtain ⟨m, -, hm2, hm⟩ := (exists_unary_hole_iff (tower D0 (markOf w) i) x).mp
-        ⟨(hierOf w i).length, by rw [← hrep]; exact hv⟩
-      refine ⟨List.replicate m x, hm, Or.inl fun a ha b hb => by
-        rw [List.eq_of_mem_replicate ha, List.eq_of_mem_replicate hb], fun a ha => by
-        rw [List.eq_of_mem_replicate ha]; exact hx, ?_⟩
-      rw [List.length_replicate, topK]
-      rw [hcard] at hm2
-      omega
-    · obtain ⟨v₁, h1, h2, h3, h4⟩ := top_shorten (tower D0 (markOf w) i) h _ hv hH
-      refine ⟨v₁, h1, Or.inr h2, h3, ?_⟩
-      rw [hcard] at h4
-      rw [topK]
-      omega
-
-  have hadm₁ : Admissible (markOf w) i v₁ :=
-    admissible_of_subset _ i v₁ _ hadm (hierOf_ne_nil hw0 i) hsub₁
-  obtain ⟨ℓ', φ, hA, hadm', hsize⟩ :=
-    shorten_level D0 i (topK (N + i) h) (markOf w) v₁ hlen₁ hadm₁
-  have hv₁0 : v₁ ≠ [] := hv₁.ne_nil
-  have hv₂ : (tower D0 ℓ' i).IsHole (v₁.map φ) := (hA.isHole_iff (v := v₁) fun a ha => ha).mpr hv₁
-  have hv₂0 : v₁.map φ ≠ [] := by simpa using hv₁0
-  refine ⟨expandTo ℓ' i (v₁.map φ), (isHole_tower_iff D0 ℓ' i _ hadm' hv₂0).mp hv₂,
-    ⟨i, hi, ?_⟩, ?_⟩
-  · rw [(hierOf_expandTo ℓ' i _ hadm' hv₂0).1]
-    rcases htop₁ with hu | hH
-    · left
-      intro a ha b hb
-      obtain ⟨a', ha', rfl⟩ := List.mem_map.mp ha
-      obtain ⟨b', hb', rfl⟩ := List.mem_map.mp hb
-      rw [hu a' ha' b' hb']
-    · right
-      intro s e hc he
-      rw [hA.isComp_iff (v := v₁) (fun a ha => ha)] at hc
-      rw [List.length_map] at he ⊢
-      exact hH s e hc he
-  · calc (expandTo ℓ' i (v₁.map φ)).length
-          ≤ (v₁.map φ).length * sizeB N i (topK (N + i) h) :=
-          length_expandTo_le ℓ' i _ (fun z hz => by
-            obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hz
-            exact hsize y hy)
-      _ ≤ topK (N + i) h * sizeB N i (topK (N + i) h) :=
-          Nat.mul_le_mul_right _ (by rw [List.length_map]; exact hlen₁)
-      _ ≤ holeBound N d h :=
-          Finset.single_le_sum (f := fun i => topK (N + i) h * sizeB N i (topK (N + i) h))
+  obtain ⟨m, -, hmN, hm⟩ := (exists_unary_hole_iff (tower D0 (markOf w) i) x).mp
+    ⟨(hierOf w i).length, by rw [← hrep]; exact hv⟩
+  rw [card_cores i] at hmN
+  have hadm : Admissible (markOf w) i [x] :=
+    admissible_of_subset _ i [x] _ (admissible_hierOf hw0 i) (hierOf_ne_nil hw0 i)
+      fun a ha => by rw [List.mem_singleton.mp ha]; exact hx
+  obtain ⟨ℓ', φ, hA, hadm', hsize⟩ := shorten_level D0 i 1 (markOf w) [x] le_rfl hadm
+  have hv' : (tower D0 ℓ' i).IsHole (List.replicate m (φ x)) := by
+    rw [← List.map_replicate]
+    exact (hA.isHole_iff fun a ha => List.mem_singleton.mpr (List.eq_of_mem_replicate ha)).mpr hm
+  have hadm₂ : Admissible ℓ' i (List.replicate m (φ x)) :=
+    admissible_of_subset ℓ' i _ _ hadm' (by simp) fun a ha => by
+      rw [List.eq_of_mem_replicate ha]; exact List.mem_map_of_mem (List.mem_singleton_self x)
+  refine ⟨expandTo ℓ' i (List.replicate m (φ x)),
+    (isHole_tower_iff D0 ℓ' i _ hadm₂ hv'.ne_nil).mp hv', ⟨i, hi, ?_⟩, ?_⟩
+  · rw [(hierOf_expandTo ℓ' i _ hadm₂ hv'.ne_nil).1]
+    intro a ha b hb
+    rw [List.eq_of_mem_replicate ha, List.eq_of_mem_replicate hb]
+  · calc (expandTo ℓ' i (List.replicate m (φ x))).length
+          ≤ (List.replicate m (φ x)).length * sizeB N i 1 :=
+          length_expandTo_le ℓ' i _ fun z hz => by
+            rw [List.eq_of_mem_replicate hz]; exact hsize x (List.mem_singleton_self x)
+      _ ≤ (N + i) * sizeB N i 1 := by
+          rw [List.length_replicate]; exact Nat.mul_le_mul_right _ hmN
+      _ ≤ holeBound N d :=
+          Finset.single_le_sum (f := fun i => (N + i) * sizeB N i 1)
             (fun _ _ => Nat.zero_le _) (Finset.mem_range.mpr (by omega))
 
-theorem exists_hole_InL_iff_bounded (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) :
-    (∃ w, D0.IsHole w ∧ InL d h w) ↔
-      ∃ w, D0.IsHole w ∧ InL d h w ∧ w.length ≤ holeBound (Fintype.card Q) d h :=
-  ⟨fun ⟨_, hw, hL⟩ => exists_short_hole_InL D0 d h hw hL, fun ⟨w, hw, hL, _⟩ => ⟨w, hw, hL⟩⟩
+theorem exists_hole_InL_iff_bounded (D0 : Lettered α Q) [Fintype Q] (d : ℕ) :
+    (∃ w, D0.IsHole w ∧ InL d w) ↔
+      ∃ w, D0.IsHole w ∧ InL d w ∧ w.length ≤ holeBound (Fintype.card Q) d :=
+  ⟨fun ⟨_, hw, hL⟩ => exists_short_hole_InL D0 d hw hL, fun ⟨w, hw, hL, _⟩ => ⟨w, hw, hL⟩⟩
 
 end Final
 
@@ -1067,13 +824,13 @@ theorem isHole_ofReader_iff' (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (
     fun ⟨h0, h⟩ => (isHole_ofReader_iff M R T h0).mpr h⟩
 
 /-- A reader `(M, R, T)` with `N` states having a
-hole in `𝓛(d, h)` has one of length `≤ holeBound N d h`. -/
+hole in `𝓛(d)` has one of length `≤ holeBound N d`. -/
 theorem exists_reader_hole_InL_iff_bounded (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
-    [Fintype Q] (d h : ℕ) :
-    (∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d h w) ↔
-      ∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d h w ∧
-        w.length ≤ holeBound (Fintype.card Q) d h := by
-  have := exists_hole_InL_iff_bounded (ofReader M R T) d h
+    [Fintype Q] (d : ℕ) :
+    (∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d w) ↔
+      ∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d w ∧
+        w.length ≤ holeBound (Fintype.card Q) d := by
+  have := exists_hole_InL_iff_bounded (ofReader M R T) d
   simp only [isHole_ofReader_iff', and_assoc] at this
   exact this
 

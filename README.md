@@ -258,9 +258,12 @@ levels. Counting these plateaus bounds the first unary level by
 d = 2 * N * (B + 1) - 1.
 ```
 
-At bounded depth, finite summaries of tuples of blocks record transitions,
+At the first unary level the canonical word is a power `x^m`, and a hole of
+this form can be chosen with `m` at most the number of cores of that level.
+Below it, finite summaries of tuples of blocks record transitions,
 admissions and equalities. Short representatives preserve these summaries,
-giving a computable length bound `BoundedDepth.holeBound N d 0`. This bounds
+so the letter `x` can be replaced by one of bounded expanded length. This
+gives a computable length bound `BoundedDepth.holeBound N d`. This bounds
 the length of a chosen witness, not the length of every hole. The empty word
 and empty alphabet are covered by `RejectedTail.hole_iff_bounded_length`.
 

@@ -922,16 +922,11 @@ variable {α : Type u} {Q : Type v}
 /-- A unary word `x^m`. -/
 def IsUnary {β : Type*} (u : List β) : Prop := ∀ a ∈ u, ∀ b ∈ u, a = b
 
-/-- `horizon(u) ≤ h`: every nonterminal comparison `(s, e)` has `|u| - e ≤ h` (no suffix
-longer than `h` occurs earlier). -/
-def HorizonLE {β : Type*} (u : List β) (h : ℕ) : Prop :=
-  ∀ s e, IsComp u s e → e < u.length → u.length - e ≤ h
-
 variable [DecidableEq α] [Inhabited α]
 
-/-- A word reaches a unary level or a bounded comparison horizon within the given depth. -/
-def InL (d h : ℕ) (w : List α) : Prop :=
-  ∃ i ≤ d, IsUnary (hierOf w i) ∨ HorizonLE (hierOf w i) h
+/-- `w ∈ 𝓛(d)`: some level `i ≤ d` of the canonical hierarchy of `w` is unary. -/
+def InL (d : ℕ) (w : List α) : Prop :=
+  ∃ i ≤ d, IsUnary (hierOf w i)
 
 /-- The core run of `x^m` is the orbit of `⋆` under `κ(x, ·)`. -/
 theorem core_replicate {Γ C : Type*} (D : Lettered Γ C) (x : Γ) (m : ℕ) :

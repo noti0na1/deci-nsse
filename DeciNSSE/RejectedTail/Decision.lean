@@ -21,7 +21,7 @@ def holeDepthBound (N : ℕ) : ℕ :=
 
 /-- An explicit total witness-length bound, including epsilon. -/
 def holeLengthBound (N : ℕ) : ℕ :=
-  BoundedDepth.holeBound N (holeDepthBound N) 0
+  BoundedDepth.holeBound N (holeDepthBound N)
 
 variable [DecidableEq α] [Fintype Q] [DecidableEq Q]
 variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) [RejectedPath M R T]
@@ -30,13 +30,13 @@ variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) [RejectedPath M R T]
 theorem hole_iff_bounded_depth [Inhabited α] :
     (∃ w, IsReaderHole M R T w) ↔
       IsReaderHole M R T [] ∨
-      ∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL (holeDepthBound (Fintype.card Q)) 0 w := by
+      ∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL (holeDepthBound (Fintype.card Q)) w := by
   constructor
   · intro hh
     obtain ⟨w,J,hw,hJ,hb⟩ := boundedRejectedTail_of_rejectedPath M R T hh
     by_cases hn : w = []
     · exact Or.inl (hn ▸ hw)
-    · refine Or.inr ⟨w, hn, hw, depth w, ?_, Or.inl (isUnary_depth w)⟩
+    · refine Or.inr ⟨w, hn, hw, depth w, ?_, isUnary_depth w⟩
       have hd := rejected_depth M R T hn ((Holes.isReaderHole_iff _ _ _ _).mp hw).1 hJ
       apply hd.trans
       simp only [holeDepthBound]
@@ -54,7 +54,7 @@ theorem hole_iff_bounded_length_of_inhabited [Inhabited α] :
     rcases (hole_iff_bounded_depth M R T).mp hh with hnil | hnon
     · exact ⟨[], hnil, Nat.zero_le _⟩
     · obtain ⟨w,_,hw,_,hlen⟩ := (BoundedDepth.exists_reader_hole_InL_iff_bounded
-        M R T (holeDepthBound (Fintype.card Q)) 0).mp hnon
+        M R T (holeDepthBound (Fintype.card Q))).mp hnon
       exact ⟨w, hw, hlen⟩
   · rintro ⟨w,hw,_⟩
     exact ⟨w,hw⟩

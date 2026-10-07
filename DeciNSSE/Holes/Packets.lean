@@ -13,41 +13,6 @@ set_option autoImplicit false
 
 namespace DeciNSSE.Packets
 open DeciNSSE.Holes
-open scoped List
-
-section Horizon
-variable {β : Type*}
-
-/-- Zero-based tail comparison `Y[b:] ⪯ Y[a:]`, entrywise. -/
-theorem drop_prefix_drop_iff (Y : List β) {a b : ℕ} :
-    Y.drop b <+: Y.drop a ↔ ∀ k, b + k < Y.length → Y[a + k]? = Y[b + k]? := by
-  rw [List.prefix_iff_eq_take]
-  constructor
-  · intro h k hk
-    have := congrArg (·[k]?) h
-    simp only [List.getElem?_drop, List.getElem?_take, List.length_drop] at this
-    rw [ite_eq_left (by omega)] at this
-    exact this.symm
-  · intro h
-    apply List.ext_getElem?
-    intro k
-    simp only [List.getElem?_drop, List.getElem?_take, List.length_drop]
-    split_ifs with hk
-    · exact (h k (by omega)).symm
-    · rw [List.getElem?_eq_none (by omega)]
-
-end Horizon
-
-end DeciNSSE.Packets
-
-end
-
-section
-
-set_option autoImplicit false
-
-namespace DeciNSSE.Packets
-open DeciNSSE.Holes
 
 section ShortestWords
 variable {α S : Type*}
