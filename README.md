@@ -302,14 +302,13 @@ regular entailment coincides with unrestricted entailment.
 See [Satisfiability/ShapeGraph.lean](DeciNSSE/Satisfiability/ShapeGraph.lean)
 and [Transfer/Regular.lean](DeciNSSE/Transfer/Regular.lean).
 
-Finite satisfiability additionally excludes cycle clashes. The least-shape
-solution and its sign dual have identical constructor positions; a polarity
-selector produces a finite fixed solution. For finite countermodel transfer,
-four spines enforce both source extremes and both target non-extremes.
-The fourth condition is needed because a finite third median input may be
-top; the full constructor tree cannot serve as a finite input in general.
-Ranked spine extensions add no cycle clashes, so these conditions can be
-realised finitely whenever the original system has a finite solution.
+Finite satisfiability additionally excludes cycle clashes. Without them the
+least-shape solution has bounded depth, and the polarity selector keeps its
+domain, so it produces a finite fixed solution. The same argument transfers
+countermodels. Since the spine extension is ranked, a nonempty cycle cannot
+pass through its sources or sinks, so it adds no cycle clash. When the original
+system has a finite solution, the selected least shape of the extension of an
+unsafe word is therefore finite, and its decoding is a finite countermodel.
 
 The finite procedure first tests finite satisfiability. If it fails, entailment
 is vacuous; otherwise unrestricted entailment gives the answer. All arities

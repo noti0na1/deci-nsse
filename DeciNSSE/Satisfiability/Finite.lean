@@ -196,17 +196,20 @@ theorem toTree_ofTree {d : ℕ} {t : Tree n}
         simp only [ofTree, dite_eq_left hr, toTree_node, hc]
         exact (t.eq_node_of_root_eq_f hr).symm
 
+/-- An assignment of trees of uniformly bounded depth is an assignment of finite trees. -/
+theorem exists_eq_of_depth {α : Type*} {ρ : α → Tree n} {d : ℕ}
+    (hd : ∀ a π, ((ρ a).fn π).isSome → π.length ≤ d) :
+    ∃ σ : α → FTree n, toTree ∘ σ = ρ :=
+  ⟨fun a => ofTree d (ρ a), funext fun a => toTree_ofTree (hd a)⟩
+
 end FTree
 
 /-- A uniform depth bound turns the least-shape assignment into a finite solution. -/
 theorem satFin_of_leastShape_depth (hn : ¬ LabelClash ϕ)
     (hd : ∀ z π, ((leastShape ϕ z).fn π).isSome → π.length ≤ k * k + 1) :
     ∃ σ : V k → FTree n, Covariant.Sat (FTree.toTree ∘ σ) ϕ := by
-  let σ := fun z => FTree.ofTree (k * k + 1) (leastShape ϕ z)
-  have hσ : FTree.toTree ∘ σ = leastShape ϕ := by
-    funext z
-    exact FTree.toTree_ofTree (hd z)
-  exact ⟨σ, hσ.symm ▸ leastShape_sat hn⟩
+  obtain ⟨σ, hσ⟩ := FTree.exists_eq_of_depth hd
+  exact ⟨σ, hσ ▸ leastShape_sat hn⟩
 
 /-- Finite satisfiability is equivalent to the absence of label and cycle clashes. -/
 theorem satFin_iff : (∃ σ : V k → FTree n, Covariant.Sat (FTree.toTree ∘ σ) ϕ) ↔

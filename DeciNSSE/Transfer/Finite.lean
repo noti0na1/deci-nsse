@@ -1,97 +1,104 @@
+import DeciNSSE.Monitor.Semantics
+import DeciNSSE.Satisfiability.FiniteVariance
 import DeciNSSE.Transfer.Cycle
-import DeciNSSE.Transfer.FiniteMedian
 
 /-! # Finite countermodel transfer
 
-When a finite solution exists, every countermodel has a finite counterpart.
-Four spines enforce top at the positive source, bottom at its negative copy,
-non-top at the positive target and non-bottom at its negative copy. Both
-target inputs must be non-top because the finite third median input may be top;
-the full constructor tree used for regular transfer need not be finite.
+When a system has a finite solution, every countermodel can be replaced by a
+finite one. A countermodel has an unsafe word on one side, so the four-spine
+extension of that side has no label clash. The finite solution excludes cycle
+clashes in the side system, and the ranked spine extension adds none. The least
+shape of the extension therefore has bounded depth, selection keeps its domain,
+and its restriction to the old variables is a finite sign-fixed witness of the
+unsafe word. Decoding this witness gives a finite countermodel.
 -/
 
 namespace DeciNSSE
 
 namespace FiniteTransfer
 
-open Spine
+open Spine.Closure Events FiniteVariance
 
-variable {n k m : ℕ}
+variable {n k : ℕ}
 
-/-- All four prefix requirements, realised by an arbitrary solution, are realised
-by a finite solution when the system is finitely satisfiable. -/
-theorem finite_fourSpine {ψ : Constraint n m} {x y xm ym : V m} {w : List (Fin n)}
-    {A : V m → Tree n}
-    (hf : ∃ D : V m → FTree n, Covariant.Sat (FTree.toTree ∘ D) ψ) (ha : Covariant.Sat A ψ)
-    (hx : covPrefTop w (A x)) (hy : ¬ covPrefTop w (A y))
-    (hym : ¬ covPrefBot w (A ym)) (hxm : covPrefBot w (A xm)) :
-    ∃ B : V m → FTree n, Covariant.Sat (FTree.toTree ∘ B) ψ ∧ covPrefTop w (B x).toTree ∧
-      ¬ covPrefTop w (B y).toTree ∧ ¬ covPrefBot w (B ym).toTree ∧
-        covPrefBot w (B xm).toTree := by
-  obtain ⟨ρ'', -, hs⟩ := (fourSpine_restrict_iff ψ x y xm ym w A).mpr ⟨ha, hx, hy, hym, hxm⟩
-  obtain ⟨B₂, hB₂⟩ := (fourExtension_satFin_iff ψ x y xm ym w).mpr ⟨⟨ρ'', hs⟩, hf⟩
-  obtain ⟨hψ, hx', hy', hym', hxm'⟩ :=
-    (fourSpine_restrict_iff ψ x y xm ym w _).mp ⟨FTree.toTree ∘ B₂, rfl, hB₂⟩
-  exact ⟨fun z => B₂ (Fin.castAdd _ (Fin.castAdd _ z)), hψ, hx', hy', hym', hxm'⟩
+section Witness
 
-/-- The signed coordinate of the same base variable with the opposite sign. -/
-def flipV (z : V (2 * k)) : V (2 * k) := sv (base z) (!(sign z))
+variable {c : Fin n → Bool} {ψ : Constraint n (2 * k)} {X Y : V (2 * k)} {w : List (Fin n)}
 
-@[simp] theorem flipV_sv (u : V k) (p : Bool) : flipV (sv u p) = sv u (!p) := by
-  simp [flipV]
+/-- Without a cycle clash in `ψ`, a four-spine extension without label clash has
+a finite sign-fixed witness: the selected least shape of the extension,
+restricted to the old variables. -/
+theorem finite_fixedWitness (hf : FlipClosed ψ) (hc : SignCoherent c ψ)
+    (hl : ¬ LabelClash (Spine.extension c ψ X Y w)) (hcy : ¬ CycleClash ψ) :
+    ∃ B : V (2 * k) → FTree n, Covariant.Sat (FTree.toTree ∘ B) ψ ∧
+      Signed.dual (FTree.toTree ∘ B) = FTree.toTree ∘ B ∧
+        covPrefTop w (B X).toTree ∧ ¬ covPrefTop w (B Y).toTree := by
+  have hf' : FlipClosed (Spine.extension c ψ X Y w) := extension_flipClosed hf
+  have hB := leastShape_sat hl
+  have hM := select_sat_of_coherent (extension_signCoherent hc) hB
+    (sat_signedDual_of_flipClosed hf' hB) (leastShape_sameShape_dual hf')
+  have hcy' : ¬ CycleClash (Spine.extension c ψ X Y w) :=
+    fun h => hcy ((extension_ranked c X Y w ψ).cycleClash_iff.mp h)
+  obtain ⟨hA, hfix, hx, hy⟩ := witness_of_sat hM (select_fixed _ _ _)
+  obtain ⟨B, he⟩ := FTree.exists_eq_of_depth
+    (ρ := select c (leastShape (Spine.extension c ψ X Y w)) (leastShape_sameShape_dual hf') ∘ lift)
+    fun z π hπ => select_depth c _ _ (leastShape_depth hcy') (lift z) π hπ
+  have he' (z : V (2 * k)) : (B z).toTree = _ := congrFun he z
+  exact ⟨B, he ▸ hA, he ▸ hfix, he' X ▸ hx, he' Y ▸ hy⟩
 
-/-- A fixed signed assignment swaps the leaves between the two signs. -/
-theorem fixed_flipV {A : V (2 * k) → Tree n} (h : Signed.dual A = A) (z : V (2 * k)) :
-    A (flipV z) = Tree.dual (A z) := by
-  calc A (flipV z) = Signed.dual A (flipV z) := (congrFun h _).symm
-    _ = Tree.dual (A z) := by simp [Signed.dual, flipV]
+end Witness
 
-/-- The signed normalisation of a finite assignment is finite. -/
-theorem normalized_finite (c : Fin n → Bool) (D : V k → FTree n) :
-    FTree.toTree ∘ (fun z => FTree.normalize c (sign z) (D (base z))) =
-      normalized c (FTree.toTree ∘ D) := by
-  funext z; simp [normalized]
+section Sides
 
-/-- A top/non-top witness of a signed normalisation has a finite counterpart,
-again a normalisation of a finite variance-tree solution. -/
-theorem finite_top_witness (c : Fin n → Bool) {ϕ : Constraint n k}
-    {ρ : V k → Tree n} {u v : V (2 * k)} {w : List (Fin n)}
-    (hf : ∃ D : V k → FTree n, Sat c (FTree.toTree ∘ D) ϕ)
-    (hρ : Sat c ρ ϕ)
-    (hu : covPrefTop w (normalized c ρ u)) (hv : ¬ covPrefTop w (normalized c ρ v)) :
+variable {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k}
+
+/-- A finite solution leaves no cycle clash on either side. -/
+theorem sideSystem_not_cycleClash (hs : SatisfiableFin c ϕ) (θ : Side) :
+    ¬ CycleClash (sideSystem c ϕ θ) := by
+  have h := (satFin_iff.mp ((satFin_iff_signed c ϕ).mp hs)).2
+  cases θ
+  · exact h
+  · exact fun hc => h (cycleClash_dual_iff.mp hc)
+
+/-- A finite sign-fixed solution of the signed translation whose query fails the
+covariant order decodes to a finite countermodel. -/
+theorem finite_countermodel_of_fixed {B : V (2 * k) → FTree n}
+    (hB : Covariant.Sat (FTree.toTree ∘ B) (signed c ϕ))
+    (hfix : Signed.dual (FTree.toTree ∘ B) = FTree.toTree ∘ B)
+    (hxy : ¬ (B (sv x false)).toTree ≤ (B (sv y false)).toTree) :
     ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ ∧
-      covPrefTop w (normalized c (FTree.toTree ∘ σ) u) ∧
-        ¬ covPrefTop w (normalized c (FTree.toTree ∘ σ) v) := by
-  obtain ⟨D, hD⟩ := hf
-  have hDs : Covariant.Sat (FTree.toTree ∘ fun z => FTree.normalize c (sign z) (D (base z))) (signed c ϕ) := by
-    rw [normalized_finite]; exact (sat_iff_signed c _ ϕ).mp hD
-  have hfix := normalized_fixed c ρ
-  have hum : covPrefBot w (normalized c ρ (flipV u)) := by
-    rw [fixed_flipV hfix, covPrefBot_dual]; exact hu
-  have hvm : ¬ covPrefBot w (normalized c ρ (flipV v)) := by
-    rw [fixed_flipV hfix, covPrefBot_dual]; exact hv
-  obtain ⟨B, hB, hbu, hbv, hbvm, hbum⟩ :=
-    finite_fourSpine ⟨_, hDs⟩ ((sat_iff_signed c ρ ϕ).mp hρ) hu hv hvm hum
-  have hM := symmetrizeFinite_sat hB hD
-  have hfixM := symmetrizeFinite_fixed c B D
-  let σ : V k → FTree n := fun z => FTree.normalize c false (symmetrizeFinite c B D (sv z false))
-  have hσ : FTree.toTree ∘ σ = decoded c (FTree.toTree ∘ symmetrizeFinite c B D) := by
-    funext z; simp only [Function.comp_apply, σ, FTree.normalize_toTree, decoded]
-  have he : normalized c (FTree.toTree ∘ σ) = FTree.toTree ∘ symmetrizeFinite c B D := by
-    rw [hσ, normalized_decoded c hfixM]
-  have hS (z : V (2 * k)) : Signed.dual (FTree.toTree ∘ B) z = Tree.dual (B (flipV z)).toTree := rfl
-  refine ⟨σ, (sat_iff_signed c _ ϕ).mpr (he ▸ hM), ?_, ?_⟩
-  · rw [he, covPrefTop_iff_trace, Function.comp_apply, symmetrizeFinite_toTree, trace_median, hS,
-      trace_dual, (covPrefTop_iff_trace _ _).mp hbu, (covPrefBot_iff_trace _ _).mp hbum]
-    exact medianSym_self _ _
-  · rw [he, covPrefTop_iff_trace, Function.comp_apply, symmetrizeFinite_toTree, trace_median, hS, trace_dual]
-    apply medianSym_ne_top
-    · exact fun h => hbv ((covPrefTop_iff_trace _ _).mpr h)
-    · intro h
-      apply hbvm
-      rw [covPrefBot_iff_trace]
-      revert h
-      cases Tree.trace (B (flipV v)).toTree w <;> decide
+      ¬ Tree.Le c (σ x).toTree (σ y).toTree := by
+  have hσ : FTree.toTree ∘ (fun u => FTree.normalize c false (B (sv u false))) =
+      decoded c (FTree.toTree ∘ B) := by
+    funext u; simp [decoded]
+  refine ⟨fun u => FTree.normalize c false (B (sv u false)), ?_, fun hle => hxy ?_⟩
+  · rw [hσ, sat_iff_signed, normalized_decoded c hfix]; exact hB
+  · simpa only [treeLe_iff_normalize, FTree.normalize_toTree, normalize_involutive] using hle
+
+/-- On a finitely satisfiable system, every unsafe word has a finite countermodel.
+On the bottom-prefix side, the finite witness of the order dual is dualised back. -/
+theorem finite_countermodel_of_unsafe (hs : SatisfiableFin c ϕ) {θ : Side} {w : List (Fin n)}
+    (hu : Unsafe c ϕ x y θ w) :
+    ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ ∧
+      ¬ Tree.Le c (σ x).toTree (σ y).toTree := by
+  obtain ⟨B, hB, hfix, hX, hY⟩ := finite_fixedWitness (sideSystem_flipClosed θ)
+    (sideSystem_signCoherent θ) ((sideUnsafe_iff_not_labelClash θ w).mp hu)
+    (sideSystem_not_cycleClash hs θ)
+  have hne : ¬ (B (sideQuery x y θ).1).toTree ≤ (B (sideQuery x y θ).2).toTree :=
+    fun h => hY (((cov_le_iff_safe _ _).mp h w).1 hX)
+  cases θ
+  · exact finite_countermodel_of_fixed hB hfix hne
+  · have hd : FTree.toTree ∘ (fun z => FTree.normalize (fun _ => false) true (B z)) =
+        Tree.dual ∘ (FTree.toTree ∘ B) := funext fun z => FTree.normalize_toTree _ _ _
+    refine finite_countermodel_of_fixed (B := fun z => FTree.normalize (fun _ => false) true (B z))
+      (by rw [hd]; exact ConstraintDual.sat_of_dual hB) ?_ fun h => hne ?_
+    · rw [hd]
+      change Tree.dual ∘ Signed.dual (FTree.toTree ∘ B) = _
+      rw [hfix]
+    · rw [FTree.normalize_toTree, FTree.normalize_toTree] at h
+      exact (dual_le_iff _ _).mp h
+
+end Sides
 
 end FiniteTransfer
 
@@ -105,38 +112,9 @@ theorem finite_countermodel_transfer {n k : ℕ} (c : Fin n → Bool)
     (hn : ¬ Entails c ϕ x y) :
     ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ ∧
       ¬ Tree.Le c (σ x).toTree (σ y).toTree := by
-  classical
-  simp only [Entails, not_forall] at hn
-  obtain ⟨ρ, hρ, hxy⟩ := hn
-  have hcov : ¬ Tree.normalize c false (ρ x) ≤ Tree.normalize c false (ρ y) :=
-    fun h => hxy ((treeLe_iff_normalize c _ _).mpr h)
-  rw [cov_le_iff_safe] at hcov
-  obtain ⟨w, hw⟩ := not_forall.mp hcov
-  by_cases htop : covPrefTop w (Tree.normalize c false (ρ x)) ∧ ¬ covPrefTop w (Tree.normalize c false (ρ y))
-  ·
-    obtain ⟨hx, hy⟩ := htop
-    obtain ⟨σ, hσ, hu, hv⟩ := finite_top_witness c hs hρ (u := sv x false)
-      (v := sv y false) (w := w) (by rwa [normalized_sv]) (by rwa [normalized_sv])
-    refine ⟨σ, hσ, fun hle => ?_⟩
-    have h := ((cov_le_iff_safe _ _).mp ((treeLe_iff_normalize c _ _).mp hle) w).1
-    rw [normalized_sv, Function.comp_apply] at hu hv
-    exact hv (h hu)
-  ·
-    have hbot : covPrefBot w (Tree.normalize c false (ρ y)) ∧ ¬ covPrefBot w (Tree.normalize c false (ρ x)) := by
-      by_contra hb
-      apply hw
-      constructor
-      · intro hx; by_contra hy; exact htop ⟨hx, hy⟩
-      · intro hy; by_contra hx; exact hb ⟨hy, hx⟩
-    obtain ⟨hy, hx⟩ := hbot
-    obtain ⟨σ, hσ, hu, hv⟩ := finite_top_witness c hs hρ (u := sv y true)
-      (v := sv x true) (w := w)
-      (by rwa [normalized_sv, normalize_true, covPrefTop_dual])
-      (by rwa [normalized_sv, normalize_true, covPrefTop_dual])
-    refine ⟨σ, hσ, fun hle => ?_⟩
-    have h := ((cov_le_iff_safe _ _).mp ((treeLe_iff_normalize c _ _).mp hle) w).2
-    rw [normalized_sv, normalize_true, covPrefTop_dual, Function.comp_apply] at hu hv
-    exact hv (h hu)
+  obtain ⟨θ, w, hu⟩ : ∃ θ w, Unsafe c ϕ x y θ w := by
+    simpa only [entails_iff_not_sideUnsafe, not_forall, not_not] using hn
+  exact finite_countermodel_of_unsafe hs hu
 
 /-- Finite entailment is finite vacuity or unrestricted entailment, for every arity
 and every variance. -/

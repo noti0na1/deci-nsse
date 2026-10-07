@@ -41,10 +41,6 @@ def spineChildren (i : Fin n) (next fill : V k) : Fin n → V k :=
 theorem spineChildren_of_ne {i j : Fin n} (h : j ≠ i) (next fill : V k) :
     spineChildren i next fill j = fill := by simp [spineChildren, h]
 
-theorem spineChildren_eq_or (i j : Fin n) (next fill : V k) :
-    spineChildren i next fill j = next ∨ spineChildren i next fill j = fill := by
-  by_cases h : j = i <;> simp [spineChildren, h]
-
 /-- A lower link `f(…, next at i, …, b, …) ≤ a`. -/
 def lowerLink (i : Fin n) (a next b : V k) : Lit n k :=
   .fLe (spineChildren i next b) a
@@ -62,81 +58,6 @@ def lowerSteps (v : ℕ → V k) (b : V k) : List (Fin n) → Constraint n k
 def upperSteps (v : ℕ → V k) (t : V k) : List (Fin n) → Constraint n k
   | [] => []
   | i :: ν => upperLink i (v 0) (v 1) t :: upperSteps (fun j => v (j + 1)) t ν
-
-/-- Exact membership in a lower chain: position `j` reads the letter `ν[j]`. -/
-theorem mem_lowerSteps_iff {v : ℕ → V k} {b : V k} {ν : List (Fin n)} {l : Lit n k} :
-    l ∈ lowerSteps v b ν ↔
-      ∃ j, ∃ hj : j < ν.length, l = lowerLink ν[j] (v j) (v (j + 1)) b := by
-  induction ν generalizing v with
-  | nil => simp [lowerSteps]
-  | cons i ν ih =>
-    constructor
-    · intro h
-      rcases List.mem_cons.mp h with rfl | h
-      · exact ⟨0, by simp, rfl⟩
-      · obtain ⟨j, hj, he⟩ := ih.mp h
-        exact ⟨j + 1, by simpa using hj, he⟩
-    · rintro ⟨j, hj, he⟩
-      cases j with
-      | zero => exact List.mem_cons.mpr (Or.inl he)
-      | succ j =>
-        apply List.mem_cons.mpr ∘ Or.inr
-        exact ih.mpr ⟨j, by simpa using hj, he⟩
-
-theorem mem_upperSteps_iff {v : ℕ → V k} {t : V k} {ν : List (Fin n)} {l : Lit n k} :
-    l ∈ upperSteps v t ν ↔
-      ∃ j, ∃ hj : j < ν.length, l = upperLink ν[j] (v j) (v (j + 1)) t := by
-  induction ν generalizing v with
-  | nil => simp [upperSteps]
-  | cons i ν ih =>
-    constructor
-    · intro h
-      rcases List.mem_cons.mp h with rfl | h
-      · exact ⟨0, by simp, rfl⟩
-      · obtain ⟨j, hj, he⟩ := ih.mp h
-        exact ⟨j + 1, by simpa using hj, he⟩
-    · rintro ⟨j, hj, he⟩
-      cases j with
-      | zero => exact List.mem_cons.mpr (Or.inl he)
-      | succ j =>
-        apply List.mem_cons.mpr ∘ Or.inr
-        exact ih.mpr ⟨j, by simpa using hj, he⟩
-
-theorem leF_not_mem_lowerSteps (v : ℕ → V k) (b c : V k) (a : Fin n → V k)
-    (ν : List (Fin n)) : Lit.leF c a ∉ lowerSteps v b ν := by
-  intro h
-  obtain ⟨_, _, he⟩ := mem_lowerSteps_iff.mp h
-  simp [lowerLink] at he
-
-theorem eqBot_not_mem_lowerSteps (v : ℕ → V k) (b c : V k) (ν : List (Fin n)) :
-    Lit.eqBot c ∉ lowerSteps v b ν := by
-  intro h
-  obtain ⟨_, _, he⟩ := mem_lowerSteps_iff.mp h
-  simp [lowerLink] at he
-
-theorem eqTop_not_mem_lowerSteps (v : ℕ → V k) (b c : V k) (ν : List (Fin n)) :
-    Lit.eqTop c ∉ lowerSteps v b ν := by
-  intro h
-  obtain ⟨_, _, he⟩ := mem_lowerSteps_iff.mp h
-  simp [lowerLink] at he
-
-theorem fLe_not_mem_upperSteps (v : ℕ → V k) (t c : V k) (a : Fin n → V k)
-    (ν : List (Fin n)) : Lit.fLe a c ∉ upperSteps v t ν := by
-  intro h
-  obtain ⟨_, _, he⟩ := mem_upperSteps_iff.mp h
-  simp [upperLink] at he
-
-theorem eqBot_not_mem_upperSteps (v : ℕ → V k) (t c : V k) (ν : List (Fin n)) :
-    Lit.eqBot c ∉ upperSteps v t ν := by
-  intro h
-  obtain ⟨_, _, he⟩ := mem_upperSteps_iff.mp h
-  simp [upperLink] at he
-
-theorem eqTop_not_mem_upperSteps (v : ℕ → V k) (t c : V k) (ν : List (Fin n)) :
-    Lit.eqTop c ∉ upperSteps v t ν := by
-  intro h
-  obtain ⟨_, _, he⟩ := mem_upperSteps_iff.mp h
-  simp [upperLink] at he
 
 namespace Spine
 

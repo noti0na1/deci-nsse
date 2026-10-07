@@ -1,68 +1,26 @@
-import DeciNSSE.Satisfiability.Finite
+import DeciNSSE.Constraints.Dual
+import DeciNSSE.Satisfiability.Cycle
 import DeciNSSE.Transfer.RankedExtension
 
-/-! # Cycle preservation by spine extensions
+/-! # Cycle clashes under extension and duality
 
-Ranked source and sink extensions preserve cycle clashes exactly. The
-four-spine extension consequently preserves the cycle obstruction to finite
-satisfiability.
+A ranked source and sink extension has exactly the cycle clashes of the
+original system: a nonempty lower or upper self-path cannot pass through a
+source or a sink, so both cycle variables are old. Order duality exchanges the
+lower and the upper self-path of a cycle clash.
 -/
 
-section
-
-namespace DeciNSSE.Spine
-
-open Spine
+namespace DeciNSSE
 
 variable {n k : ℕ}
 
-/-- A left-unsafety block followed by a right-unsafety block on new endpoints. -/
-def fourExtension (ψ : Constraint n k) (x y xm ym : V k) (w : List (Fin n)) :
-    Constraint n ((k + (2 * w.length + 2)) + (2 * w.length + 2)) :=
-  rUnsafe (lUnsafe ψ x y w) (Fin.castAdd _ ym) (Fin.castAdd _ xm) w
-
-/-- Exact semantics of the composite: four prefix requirements on old variables. -/
-theorem fourSpine_restrict_iff (ψ : Constraint n k) (x y xm ym : V k)
-    (w : List (Fin n)) (ρ : V k → Tree n) :
-    (∃ ρ'', (ρ'' ∘ Fin.castAdd _) ∘ Fin.castAdd _ = ρ ∧ Covariant.Sat ρ'' (Spine.fourExtension ψ x y xm ym w)) ↔
-      Covariant.Sat ρ ψ ∧ covPrefTop w (ρ x) ∧ ¬ covPrefTop w (ρ y) ∧
-        ¬ covPrefBot w (ρ ym) ∧ covPrefBot w (ρ xm) := by
-  constructor
-  · rintro ⟨ρ'', hr, hs⟩
-    obtain ⟨hl, hym, hxm⟩ :=
-      (rUnsafe_restrict_iff _ _ _ w (ρ'' ∘ Fin.castAdd _)).mp ⟨ρ'', rfl, hs⟩
-    obtain ⟨hψ, hx, hy⟩ := (lUnsafe_restrict_iff ψ x y w ρ).mp ⟨_, hr, hl⟩
-    have e₁ : ρ'' (Fin.castAdd _ (Fin.castAdd _ ym)) = ρ ym := congrFun hr ym
-    have e₂ : ρ'' (Fin.castAdd _ (Fin.castAdd _ xm)) = ρ xm := congrFun hr xm
-    simp only [Function.comp_apply, e₁, e₂] at hym hxm
-    exact ⟨hψ, hx, hy, hym, hxm⟩
-  · rintro ⟨hψ, hx, hy, hym, hxm⟩
-    obtain ⟨ρ', hr, hl⟩ := (lUnsafe_restrict_iff ψ x y w ρ).mpr ⟨hψ, hx, hy⟩
-    have e₁ : ρ' (Fin.castAdd _ ym) = ρ ym := congrFun hr ym
-    have e₂ : ρ' (Fin.castAdd _ xm) = ρ xm := congrFun hr xm
-    obtain ⟨ρ'', hr', hs⟩ := (rUnsafe_restrict_iff _ _ _ w ρ').mpr
-      ⟨hl, by rw [e₁]; exact hym, by rw [e₂]; exact hxm⟩
-    exact ⟨ρ'', by rw [hr', hr], hs⟩
-
-end DeciNSSE.Spine
-
-end
-
-section
-
-namespace DeciNSSE.FiniteTransfer
-
-open Spine
-
-variable {n k : ℕ}
-
-section Extension
+namespace Ranked
 
 variable {K : ℕ} {ι : V k → V K} {ϕ : Constraint n k} {ψ : Constraint n K}
   {Source Sink : V K → Prop} {rank : V K → ℕ}
 
 /-- A ranked extension has exactly the cycle clashes of the original system. -/
-theorem extension_cycleClash_iff (e : Ranked.Extension ι ϕ ψ Source Sink rank) :
+theorem Extension.cycleClash_iff (e : Extension ι ϕ ψ Source Sink rank) :
     CycleClash ψ ↔ CycleClash ϕ := by
   constructor
   · rintro ⟨π, a, b, hn, hl, hd, hu⟩
@@ -71,37 +29,17 @@ theorem extension_cycleClash_iff (e : Ranked.Extension ι ϕ ψ Source Sink rank
   · rintro ⟨π, u, v, hn, hl, hd, hu⟩
     exact ⟨π, _, _, hn, hl.map _ e.old_mem, hd.map _ e.old_mem, hu.map _ e.old_mem⟩
 
-end Extension
+end Ranked
 
-theorem rUnsafe_cycleClash_iff (ϕ : Constraint n k) (x y : V k) (ν : List (Fin n)) :
-    CycleClash (rUnsafe ϕ x y ν) ↔ CycleClash ϕ :=
-  extension_cycleClash_iff (Spine.rUnsafe_extension ϕ x y ν)
-
-theorem lUnsafe_cycleClash_iff (ϕ : Constraint n k) (x y : V k) (ν : List (Fin n)) :
-    CycleClash (lUnsafe ϕ x y ν) ↔ CycleClash ϕ :=
-  extension_cycleClash_iff (Spine.lUnsafe_extension ϕ x y ν)
-
-/-- The two composed fresh blocks add no cycle clash. -/
-theorem fourExtension_cycleClash_iff (ψ : Constraint n k) (x y xm ym : V k)
-    (w : List (Fin n)) : CycleClash (Spine.fourExtension ψ x y xm ym w) ↔ CycleClash ψ :=
-  (rUnsafe_cycleClash_iff _ _ _ w).trans (lUnsafe_cycleClash_iff ψ x y w)
-
-/-- The four-spine system is finitely satisfiable exactly when it is satisfiable
-and the base system is finitely satisfiable. -/
-theorem fourExtension_satFin_iff (ψ : Constraint n k) (x y xm ym : V k)
-    (w : List (Fin n)) :
-    (∃ σ, Covariant.Sat (FTree.toTree ∘ σ) (Spine.fourExtension ψ x y xm ym w)) ↔
-      (∃ ρ'', Covariant.Sat ρ'' (Spine.fourExtension ψ x y xm ym w)) ∧
-        ∃ σ : V k → FTree n, Covariant.Sat (FTree.toTree ∘ σ) ψ := by
+/-- Order duality preserves cycle clashes, exchanging the two cycle variables. -/
+theorem cycleClash_dual_iff {ψ : Constraint n k} :
+    CycleClash (Constraint.dual ψ) ↔ CycleClash ψ := by
   constructor
-  · rintro ⟨σ, hσ⟩
-    have h := ((fourSpine_restrict_iff ψ x y xm ym w _).mp ⟨_, rfl, hσ⟩).1
-    exact ⟨⟨_, hσ⟩, ⟨fun z => σ (Fin.castAdd _ (Fin.castAdd _ z)), h⟩⟩
-  · rintro ⟨⟨ρ'', hρ''⟩, hf⟩
-    apply satFin_iff.mpr
-    exact ⟨fun hl => hl.unsatisfiable ⟨ρ'', hρ''⟩,
-      fun hc => (satFin_iff.mp hf).2 ((fourExtension_cycleClash_iff ψ x y xm ym w).mp hc)⟩
+  · rintro ⟨π, a, b, hn, hl, hd, hu⟩
+    exact ⟨π, b, a, hn, ConstraintDual.upper_iff.mp hu, ConstraintDual.derives_iff.mp hd,
+      ConstraintDual.lower_iff.mp hl⟩
+  · rintro ⟨π, a, b, hn, hl, hd, hu⟩
+    exact ⟨π, b, a, hn, ConstraintDual.lower_iff.mpr hu, ConstraintDual.derives_iff.mpr hd,
+      ConstraintDual.upper_iff.mpr hl⟩
 
-end DeciNSSE.FiniteTransfer
-
-end
+end DeciNSSE

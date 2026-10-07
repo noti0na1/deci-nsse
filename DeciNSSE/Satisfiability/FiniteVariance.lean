@@ -56,9 +56,7 @@ theorem finite_selected_solution {c : Fin n → Bool} {ϕ : Constraint n k}
     intro π hπ
     apply selectedShape_depth hc (sv u false) π
     simpa [decoded] using hπ
-  let σ := fun u => FTree.ofTree ((2 * k) * (2 * k) + 1) (decoded c (selectedShape c ϕ) u)
-  have he : FTree.toTree ∘ σ = decoded c (selectedShape c ϕ) :=
-    funext fun u => FTree.toTree_ofTree (hd u)
+  obtain ⟨σ, he⟩ := FTree.exists_eq_of_depth hd
   exact ⟨σ, by rw [he]; exact hρ, he⟩
 
 end DeciNSSE.FiniteVariance

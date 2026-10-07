@@ -1,5 +1,6 @@
 import DeciNSSE.Semantics.Selector
 import DeciNSSE.Transfer.RankedExtension
+import DeciNSSE.Transfer.Spines
 
 /-! # The four-spine extension
 
