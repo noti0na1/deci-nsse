@@ -1,6 +1,5 @@
 import DeciNSSE.Semantics.Selector
 import DeciNSSE.Transfer.RankedExtension
-import DeciNSSE.Transfer.Spines
 
 /-! # The four-spine extension
 
@@ -22,6 +21,14 @@ its roots.
 -/
 
 namespace DeciNSSE.Spine.Closure
+
+/-- A constructor with bottom children lies below exactly the non-bottom trees. -/
+theorem node_bot_le_iff {n : ℕ} (t : Tree n) :
+    Tree.node (fun _ => Tree.bot) ≤ t ↔ t ≠ Tree.bot := by
+  rcases t.eq_bot_or_eq_top_or_node with rfl | rfl | ⟨a, rfl⟩
+  · simp only [Tree.le_bot_iff, Tree.node_ne_bot, ne_eq, not_true_eq_false]
+  · simp
+  · simp
 
 open FiniteVariance Safety
 

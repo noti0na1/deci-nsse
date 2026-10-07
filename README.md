@@ -401,11 +401,11 @@ procedures also relies on the compiler.
 | Module | Purpose |
 | --- | --- |
 | [Words](DeciNSSE/Words.lean) | Finite-alphabet paths, powers and periods |
-| [Semantics](DeciNSSE/Semantics) | Trees, variance order, normalisation and median |
+| [Semantics](DeciNSSE/Semantics) | Trees, variance order, normalisation and polarity selection |
 | [Characterisation](DeciNSSE/Semantics/Characterisation.lean) | Fixed points, representation domains and flat expressiveness |
 | [Constraints](DeciNSSE/Constraints) | Flat syntax, satisfaction, entailment and signed closure |
 | [Satisfiability](DeciNSSE/Satisfiability) | Least shapes, their finite graphs, label clashes and cycle clashes |
-| [Transfer](DeciNSSE/Transfer) | Spines, symmetrisation and countermodel transfer |
+| [Transfer](DeciNSSE/Transfer) | Ranked extensions, cycle preservation and countermodel transfer |
 | [Monitor](DeciNSSE/Monitor) | Exact clash analysis, label readers and semantic bridge |
 | [Holes](DeciNSSE/Holes) | Desubstitution, supports and finite compression |
 | [RejectedTail](DeciNSSE/RejectedTail) | Tail bounds, return gaps and finite search |
