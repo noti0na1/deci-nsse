@@ -750,9 +750,9 @@ section Final
 universe u v
 variable {α : Type u} {Q : Type v}
 
-/-- The computable length bound for a hole in `𝓛(d)` of an instance with `N` cores: at a
-unary level `i` the top word `x^m` has `m ≤ N + i`, and the letter `x` expands to at most
-`sizeB N i 1` letters. -/
+/-- The computable length bound for a chosen hole in `𝓛(d)` of an instance with `N`
+cores: at a unary level `i` a unary hole `x^m` can be chosen with `m ≤ N + i`, and after
+compression its letter `x` expands to at most `sizeB N i 1` letters. -/
 def holeBound (N d : ℕ) : ℕ :=
   ∑ i ∈ Finset.range (d + 1), (N + i) * sizeB N i 1
 

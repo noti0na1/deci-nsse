@@ -37,7 +37,7 @@ theorem hole_iff_bounded_depth [Inhabited α] :
     by_cases hn : w = []
     · exact Or.inl (hn ▸ hw)
     · refine Or.inr ⟨w, hn, hw, depth w, ?_, isUnary_depth w⟩
-      have hd := rejected_depth M R T hn ((Holes.isReaderHole_iff _ _ _ _).mp hw).1 hJ
+      have hd := rejected_depth M T hn ((Holes.isReaderHole_iff _ _ _ _).mp hw).1 hJ
       apply hd.trans
       simp only [holeDepthBound]
       exact Nat.sub_le_sub_right (Nat.mul_le_mul_left _ (Nat.add_le_add_right hb 1)) 1

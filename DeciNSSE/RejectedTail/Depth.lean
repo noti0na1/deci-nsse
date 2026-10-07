@@ -93,7 +93,7 @@ omit [Fintype Q] in
 /-- Equal nonempty supports force a return no longer than the rejected tail. -/
 theorem equal_support_gap {w : List α} {J a b fa fb : ℕ}
     (hw : w ≠ []) (hr : M.eval w ∈ T) (hJ : IsFirstRejectedPrefix M T w J)
-    (hab : a < b) (hs : supp E w a = supp E w b) (_hne : (supp E w a).Nonempty)
+    (hab : a < b) (hs : supp E w a = supp E w b)
     (hfa : IsGreatest (ordinaryCores w a) fa) (hfb : IsGreatest (ordinaryCores w b) fb) :
     b-a ≤ fa-fb ∧ fa-fb ≤ w.length-J := by
   have hd := core_distance hw hab.le hfa hfb.1
@@ -121,17 +121,19 @@ theorem equal_support_width {w : List α} {J a b : ℕ}
     obtain ⟨fa,hfa⟩ := cores_greatest hw a ⟨p,hp⟩
     obtain ⟨t,ht,_⟩ := (mem_support_iff _ _ _ hw b q).mp (hs ▸ hq)
     obtain ⟨fb,hfb⟩ := cores_greatest hw b ⟨t,ht⟩
-    obtain ⟨h1,h2⟩ := equal_support_gap M R T hw hr hJ (by omega) hs ⟨q,hq⟩ hfa hfb
+    obtain ⟨h1,h2⟩ := equal_support_gap M R T hw hr hJ (by omega) hs hfa hfb
     omega
 
+omit R in
 /-- A nonempty rejected word with an `r`-letter rejected tail has depth at most
-`2 * |Q| * (r+1) - 1`. -/
+`2 * |Q| * (r+1) - 1`. Supports do not depend on the admission relation, so the
+empty relation is used. -/
 theorem rejected_depth {w : List α} {J : ℕ} (hw : w ≠ []) (hr : M.eval w ∈ T)
     (hJ : IsFirstRejectedPrefix M T w J) :
     depth w ≤ 2 * Fintype.card Q * (w.length-J+1) - 1 := by
-  apply depth_le_of_support_width E hw (by omega)
+  apply depth_le_of_support_width (ofReader M (fun _ _ => False) T) hw (by omega)
   intro a b hab _ hs hn
-  exact equal_support_width M R T hw hr hJ hab hs hn
+  exact equal_support_width M (fun _ _ => False) T hw hr hJ hab hs hn
 
 end DeciNSSE.RejectedTail
 
