@@ -1,21 +1,24 @@
 import DeciNSSE.Satisfiability.Least
 
-/-! # Solutions of least shape
+/-! # The least-shape solution
 
-Lower and upper label requirements determine a solution with minimal branching.
-Bounds on its active paths are used to obtain finite-tree solutions.
+A constructor is retained only where both lower and upper constructor support
+require it. Pruning the resulting labels gives a solution with bounded depth
+whenever there is no cycle clash.
 -/
 
 namespace DeciNSSE
 
-variable {k : ℕ} {ϕ : Constraint k}
+variable {n k : ℕ} {ϕ : Constraint n k}
 
-def UpperLabel (ϕ : Constraint k) (π : List (Fin 2)) : Sym → V k → Prop
+/-- Syntactically supported upper bounds on the label of `x` at the path `π`. -/
+def UpperLabel (ϕ : Constraint n k) (π : List (Fin n)) : Sym → V k → Prop
   | .bot, x => ∃ y, Lit.eqBot y ∈ ϕ ∧ UpperAt ϕ π x y
-  | .f, x => ∃ y y₁ y₂, Lit.leF y y₁ y₂ ∈ ϕ ∧ UpperAt ϕ π x y
+  | .f, x => ∃ y b, Lit.leF y b ∈ ϕ ∧ UpperAt ϕ π x y
   | .top, _ => True
 
-theorem UpperLabel.decompose {π π' : List (Fin 2)} {g : Sym} {x y : V k}
+/-- Cancel a lower path from an upper-supported label. -/
+theorem UpperLabel.decompose {π π' : List (Fin n)} {g : Sym} {x y : V k}
     (h : UpperLabel ϕ (π ++ π') g x) (hl : LowerAt ϕ π y x) :
     UpperLabel ϕ π' g y := by
   cases g with
@@ -24,12 +27,11 @@ theorem UpperLabel.decompose {π π' : List (Fin 2)} {g : Sym} {x y : V k}
     obtain ⟨z, hz, hp⟩ := h
     exact ⟨z, hz, hl.decompose_upper hp⟩
   | f =>
-    obtain ⟨z, z₁, z₂, hz, hp⟩ := h
-    exact ⟨z, z₁, z₂, hz, hl.decompose_upper hp⟩
+    obtain ⟨z, b, hz, hp⟩ := h
+    exact ⟨z, b, hz, hl.decompose_upper hp⟩
 
-theorem UpperLabel.cons_leF {π : List (Fin 2)} {g : Sym} {x x₁ x₂ : V k}
-    (hl : Lit.leF x x₁ x₂ ∈ ϕ) (i : Fin 2)
-    (h : UpperLabel ϕ π g (if i = 0 then x₁ else x₂)) :
+theorem UpperLabel.cons_leF {π : List (Fin n)} {g : Sym} {x : V k} {b : Fin n → V k}
+    (hl : Lit.leF x b ∈ ϕ) (i : Fin n) (h : UpperLabel ϕ π g (b i)) :
     UpperLabel ϕ (i :: π) g x := by
   cases g with
   | top => trivial
@@ -37,8 +39,8 @@ theorem UpperLabel.cons_leF {π : List (Fin 2)} {g : Sym} {x x₁ x₂ : V k}
     obtain ⟨y, hy, hp⟩ := h
     exact ⟨y, hy, .cons (.refl x) hl hp⟩
   | f =>
-    obtain ⟨y, y₁, y₂, hy, hp⟩ := h
-    exact ⟨y, y₁, y₂, hy, .cons (.refl x) hl hp⟩
+    obtain ⟨y, c, hy, hp⟩ := h
+    exact ⟨y, c, hy, .cons (.refl x) hl hp⟩
 
 @[simp] theorem upperLabel_nil_bot {x : V k} :
     UpperLabel ϕ [] .bot x ↔ UpperBot ϕ x := by
@@ -48,33 +50,34 @@ theorem UpperLabel.cons_leF {π : List (Fin 2)} {g : Sym} {x x₁ x₂ : V k}
     UpperLabel ϕ [] .f x ↔ UpperF ϕ x := by
   simp [UpperLabel, UpperF]
 
-noncomputable def shapeLabel (ϕ : Constraint k) (x : V k) (π : List (Fin 2)) : Sym := by
+/-- The three clauses of the paper's least-shape label assignment. -/
+noncomputable def shapeLabel (ϕ : Constraint n k) (x : V k) (π : List (Fin n)) : Sym := by
   classical
   exact if LowerLabel ϕ π .f x ∧ UpperLabel ϕ π .f x then .f
     else if ¬ LowerLabel ϕ π .f x ∧
       (UpperLabel ϕ π .bot x ∨ UpperLabel ϕ π .f x) then .bot else .top
 
-theorem shapeLabel_eq_f_iff {π : List (Fin 2)} {x : V k} :
+theorem shapeLabel_eq_f_iff {π : List (Fin n)} {x : V k} :
     shapeLabel ϕ x π = .f ↔ LowerLabel ϕ π .f x ∧ UpperLabel ϕ π .f x := by
   classical
   unfold shapeLabel
   split_ifs <;> simp_all
 
-theorem shapeLabel_eq_bot_iff {π : List (Fin 2)} {x : V k} :
+theorem shapeLabel_eq_bot_iff {π : List (Fin n)} {x : V k} :
     shapeLabel ϕ x π = .bot ↔ ¬ LowerLabel ϕ π .f x ∧
       (UpperLabel ϕ π .bot x ∨ UpperLabel ϕ π .f x) := by
   classical
   unfold shapeLabel
   split_ifs <;> simp_all
 
-theorem f_le_shapeLabel {π : List (Fin 2)} {x : V k}
+theorem f_le_shapeLabel {π : List (Fin n)} {x : V k}
     (h : LowerLabel ϕ π .f x) : Sym.f ≤ shapeLabel ϕ x π := by
   cases he : shapeLabel ϕ x π with
   | bot => exact False.elim ((shapeLabel_eq_bot_iff.mp he).1 h)
   | f => exact le_rfl
   | top => exact Sym.le_top _
 
-theorem shapeLabel_le_f {π : List (Fin 2)} {x : V k}
+theorem shapeLabel_le_f {π : List (Fin n)} {x : V k}
     (h : UpperLabel ϕ π .f x) : shapeLabel ϕ x π ≤ Sym.f := by
   classical
   by_cases hl : LowerLabel ϕ π .f x
@@ -82,7 +85,8 @@ theorem shapeLabel_le_f {π : List (Fin 2)} {x : V k}
   · rw [shapeLabel_eq_bot_iff.mpr ⟨hl, Or.inr h⟩]
     exact Sym.bot_le _
 
-theorem shapeLabel_mono {π τ : List (Fin 2)} {x y : V k}
+/-- Lower bounds transport forward and upper bounds backward along a comparison. -/
+theorem shapeLabel_mono {π τ : List (Fin n)} {x y : V k}
     (hl : LowerLabel ϕ π .f x → LowerLabel ϕ τ .f y)
     (hu : ∀ g, UpperLabel ϕ τ g y → UpperLabel ϕ π g x) :
     shapeLabel ϕ x π ≤ shapeLabel ϕ y τ := by
@@ -94,30 +98,31 @@ theorem shapeLabel_mono {π τ : List (Fin 2)} {x y : V k}
     · rw [shapeLabel_eq_bot_iff.mpr ⟨fun hx => hn (hl hx), Or.inl (hu .bot hb)⟩]
     · rw [shapeLabel_eq_bot_iff.mpr ⟨fun hx => hn (hl hx), Or.inr (hu .f hf)⟩]
 
-noncomputable def leastShape (ϕ : Constraint k) (x : V k) : Tree := by
+/-- Gate the labels by the same proper-prefix predicate used for `least`. -/
+noncomputable def leastShape (ϕ : Constraint n k) (x : V k) : Tree n := by
   classical
   exact {
-    fn := fun π => if LeastConstruction.Active (shapeLabel ϕ x) π then
-      some (shapeLabel ϕ x π) else none
+    fn := fun π => if Active (shapeLabel ϕ x) π then some (shapeLabel ϕ x π) else none
     wf := by
       constructor
       · simp
       · intro π i
-        simp only [LeastConstruction.active_append_singleton]
-        by_cases ha : LeastConstruction.Active (shapeLabel ϕ x) π <;> simp [ha]
+        simp only [active_append_singleton]
+        by_cases ha : Active (shapeLabel ϕ x) π <;> simp [ha]
   }
 
 open Classical in
-theorem leastShape_fn (ϕ : Constraint k) (x : V k) (π : List (Fin 2)) :
+theorem leastShape_fn (ϕ : Constraint n k) (x : V k) (π : List (Fin n)) :
     (leastShape ϕ x).fn π =
-      if LeastConstruction.Active (shapeLabel ϕ x) π then some (shapeLabel ϕ x π)
-      else none := rfl
+      if Active (shapeLabel ϕ x) π then some (shapeLabel ϕ x π) else none := by
+  classical
+  rfl
 
-@[simp] theorem leastShape_fn_nil (ϕ : Constraint k) (x : V k) :
+@[simp] theorem leastShape_fn_nil (ϕ : Constraint n k) (x : V k) :
     (leastShape ϕ x).fn [] = some (shapeLabel ϕ x []) := by
   simp [leastShape_fn]
 
-theorem leastShape_label_eq {π : List (Fin 2)} {x : V k} {a : Sym}
+theorem leastShape_label_eq {π : List (Fin n)} {x : V k} {a : Sym}
     (h : (leastShape ϕ x).fn π = some a) : a = shapeLabel ϕ x π := by
   classical
   rw [leastShape_fn] at h
@@ -125,6 +130,7 @@ theorem leastShape_label_eq {π : List (Fin 2)} {x : V k} {a : Sym}
   · exact (Option.some.inj h).symm
   · contradiction
 
+/-- A prescribed bottom is realised by the least-shape solution when there is no label clash. -/
 theorem leastShape_eq_bot (hn : ¬ LabelClash ϕ) {x : V k}
     (hl : Lit.eqBot x ∈ ϕ) : leastShape ϕ x = Tree.bot := by
   apply (Tree.root_eq_bot_iff _).mp
@@ -135,6 +141,7 @@ theorem leastShape_eq_bot (hn : ¬ LabelClash ϕ) {x : V k}
   exact ⟨fun hf => hn ⟨x, Or.inr (Or.inr ⟨lowerLabel_nil_f.mp hf, hu⟩)⟩,
     Or.inl (upperLabel_nil_bot.mpr hu)⟩
 
+/-- A prescribed top is realised by the least-shape solution when there is no label clash. -/
 theorem leastShape_eq_top (hn : ¬ LabelClash ϕ) {x : V k}
     (hl : Lit.eqTop x ∈ ϕ) : leastShape ϕ x = Tree.top := by
   classical
@@ -146,47 +153,46 @@ theorem leastShape_eq_top (hn : ¬ LabelClash ϕ) {x : V k}
   apply (Tree.root_eq_top_iff _).mp
   simp [leastShape_fn_nil, shapeLabel, hub, huf]
 
-theorem node_le_leastShape {x x₁ x₂ : V k} (hl : Lit.fLe x₁ x₂ x ∈ ϕ) :
-    Tree.node (leastShape ϕ x₁) (leastShape ϕ x₂) ≤ leastShape ϕ x := by
-  intro π a b ha hb
-  rw [leastShape_label_eq hb]
+/-- The least-shape assignment satisfies each lower constructor literal. -/
+theorem node_le_leastShape {a : Fin n → V k} {x : V k} (hl : Lit.fLe a x ∈ ϕ) :
+    Tree.node (leastShape ϕ ∘ a) ≤ leastShape ϕ x := by
+  intro π c Tree.dual hc hd
+  rw [leastShape_label_eq hd]
   cases π with
   | nil =>
-    have he : a = .f := (Option.some.inj ha).symm
-    subst a
-    exact f_le_shapeLabel ⟨x, x₁, x₂, hl, .nil (.refl x)⟩
+    have he : c = .f := (Option.some.inj hc).symm
+    subst c
+    exact f_le_shapeLabel ⟨a, x, hl, .nil (.refl x)⟩
   | cons i π =>
-    have ha' : (leastShape ϕ (if i = 0 then x₁ else x₂)).fn π = some a := by
-      fin_cases i <;> simpa using ha
-    rw [leastShape_label_eq ha']
-    have hp : LowerAt ϕ [i] (if i = 0 then x₁ else x₂) x :=
-      .cons hl (.refl x) (.nil (.refl _))
+    have hc' : (leastShape ϕ (a i)).fn π = some c := hc
+    rw [leastShape_label_eq hc']
+    have hp : LowerAt ϕ [i] (a i) x := .cons hl (.refl x) (.nil (.refl _))
     exact shapeLabel_mono (fun h => h.cons_fLe hl i)
       (fun _ h => UpperLabel.decompose (π := [i]) h hp)
 
-theorem leastShape_le_node {x x₁ x₂ : V k} (hl : Lit.leF x x₁ x₂ ∈ ϕ) :
-    leastShape ϕ x ≤ Tree.node (leastShape ϕ x₁) (leastShape ϕ x₂) := by
-  intro π a b ha hb
-  rw [leastShape_label_eq ha]
+/-- The least-shape assignment satisfies each upper constructor literal. -/
+theorem leastShape_le_node {x : V k} {b : Fin n → V k} (hl : Lit.leF x b ∈ ϕ) :
+    leastShape ϕ x ≤ Tree.node (leastShape ϕ ∘ b) := by
+  intro π c Tree.dual hc hd
+  rw [leastShape_label_eq hc]
   cases π with
   | nil =>
-    have he : b = .f := (Option.some.inj hb).symm
-    subst b
-    exact shapeLabel_le_f ⟨x, x₁, x₂, hl, .nil (.refl x)⟩
+    have he : Tree.dual = .f := (Option.some.inj hd).symm
+    subst Tree.dual
+    exact shapeLabel_le_f ⟨x, b, hl, .nil (.refl x)⟩
   | cons i π =>
-    have hb' : (leastShape ϕ (if i = 0 then x₁ else x₂)).fn π = some b := by
-      fin_cases i <;> simpa using hb
-    rw [leastShape_label_eq hb']
-    have hp : UpperAt ϕ [i] x (if i = 0 then x₁ else x₂) :=
-      .cons (.refl x) hl (.nil (.refl _))
+    have hd' : (leastShape ϕ (b i)).fn π = some Tree.dual := hd
+    rw [leastShape_label_eq hd']
+    have hp : UpperAt ϕ [i] x (b i) := .cons (.refl x) hl (.nil (.refl _))
     exact shapeLabel_mono (fun h => LowerLabel.decompose (π := [i]) h hp)
       (fun _ h => h.cons_leF hl i)
 
-theorem leastShape_sat (hn : ¬ LabelClash ϕ) : Sat (leastShape ϕ) ϕ := by
+/-- The least-shape assignment satisfies every label-clash-free system. -/
+theorem leastShape_sat (hn : ¬ LabelClash ϕ) : Covariant.Sat (leastShape ϕ) ϕ := by
   intro l hl
   cases l with
-  | leF x x₁ x₂ => exact leastShape_le_node hl
-  | fLe x₁ x₂ x => exact node_le_leastShape hl
+  | leF x b => exact leastShape_le_node hl
+  | fLe a x => exact node_le_leastShape hl
   | eqBot x => exact leastShape_eq_bot hn hl
   | eqTop x => exact leastShape_eq_top hn hl
 

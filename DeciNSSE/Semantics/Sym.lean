@@ -1,28 +1,25 @@
-import Mathlib.Data.Nat.Basic
-import Mathlib.Order.Basic
+import Mathlib
 
-/-! # Tree labels
+/-! # Ordered tree labels
 
-The labels bottom, the binary constructor and top form a three-element chain.
-Their order determines the non-structural comparison of tree labels.
+Bottom, constructor and top form the three-element chain of node labels.
 -/
 
 namespace DeciNSSE
 
-/-- The labels of a binary tree, ordered as bottom, constructor, top. -/
+/-- The three tree labels, ordered as bottom, constructor and top. -/
 inductive Sym where
   | bot | f | top
   deriving DecidableEq, Repr
 
 namespace Sym
 
-/-- The numerical rank realising the three-element label order. -/
+/-- The numerical ranks give the signature its executable linear order. -/
 def rank : Sym → Nat
   | bot => 0
   | f => 1
   | top => 2
 
-/-- Distinct tree labels have distinct ranks. -/
 theorem rank_injective : Function.Injective rank := by
   intro a b h
   cases a <;> cases b <;> simp_all [rank]

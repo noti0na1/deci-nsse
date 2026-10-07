@@ -1,19 +1,24 @@
-import Mathlib.Data.List.GetD
-import Mathlib.Data.List.ReduceOption
-import DeciNSSE.Holes.Basic
+import DeciNSSE.Holes.Desubstitution
 
-/-! # Finite enumeration and simultaneous word compression
+/-! # Finite tuples of word blocks
 
-Tuples of words are encoded by padded columns. Finite automata compress
-these encodings, while bounded lists and bounded comparisons provide
-the finite searches used to decide existence of shallow holes.
+Right-aligned padded convolutions encode tuples of blocks as words. Finite
+right congruences give shorter tuples with the same summary and preserve
+the comparisons needed by the derived monitors.
 -/
 
+section
+
+set_option autoImplicit false
+
 namespace DeciNSSE.Packets
+open DeciNSSE.Holes
+open scoped List
 
 section Horizon
 variable {β : Type*}
 
+/-- Zero-based tail comparison `Y[b:] ⪯ Y[a:]`, entrywise. -/
 theorem drop_prefix_drop_iff (Y : List β) {a b : ℕ} :
     Y.drop b <+: Y.drop a ↔ ∀ k, b + k < Y.length → Y[a + k]? = Y[b + k]? := by
   rw [List.prefix_iff_eq_take]
@@ -33,9 +38,23 @@ theorem drop_prefix_drop_iff (Y : List β) {a b : ℕ} :
 
 end Horizon
 
-section ShortWords
+end DeciNSSE.Packets
+
+end
+
+section
+
+set_option autoImplicit false
+
+namespace DeciNSSE.Packets
+open DeciNSSE.Holes
+
+section ShortestWords
 variable {α S : Type*}
 
+/-- Shortest-word lemma. For a DFA with finitely many states over an arbitrary
+alphabet, every word `x` has a sublist `y` (obtained by deleting factors) with
+`|y| < |S|` reaching the same state. -/
 theorem exists_short_evalFrom [Fintype S] (A : DFA α S) (s : S) (x : List α) :
     ∃ y, y.Sublist x ∧ y.length < Fintype.card S ∧ A.evalFrom s y = A.evalFrom s x := by
   induction hn : x.length using Nat.strong_induction_on generalizing x with
@@ -56,6 +75,8 @@ theorem exists_short_evalFrom [Fintype S] (A : DFA α S) (s : S) (x : List α) :
 
 open Classical in
 
+/-- The DFA of a right-congruent map `f : List α → S` (its step on states outside the range
+of `f` is irrelevant). -/
 noncomputable def congrDFA (f : List α → S) : DFA α S where
   step s a := if h : ∃ x, f x = s then f (h.choose ++ [a]) else s
   start := f []
@@ -73,6 +94,8 @@ theorem congrDFA_evalFrom (f : List α → S)
     rw [dite_eq_left h]
     exact hf _ _ _ h.choose_spec
 
+/-- Shortest-word lemma for right congruences. If `f : List α → S` (finite `S`) is a
+right congruence, every `x` has a sublist `y` with `|y| < |S|` and `f y = f x`. -/
 theorem exists_short_of_congr [Fintype S] (f : List α → S)
     (hf : ∀ x y a, f x = f y → f (x ++ [a]) = f (y ++ [a])) (x : List α) :
     ∃ y, y.Sublist x ∧ y.length < Fintype.card S ∧ f y = f x := by
@@ -80,26 +103,43 @@ theorem exists_short_of_congr [Fintype S] (f : List α → S)
   rw [congrDFA_evalFrom f hf, congrDFA_evalFrom f hf] at h3
   exact ⟨y, h1, h2, h3⟩
 
-end ShortWords
+end ShortestWords
 
+end DeciNSSE.Packets
+
+end
+
+section
+
+set_option autoImplicit false
+
+namespace DeciNSSE.Packets
 open DeciNSSE.Holes
 open scoped List
 
-section ColumnEncoding
+section Conv
 variable {σ : Type*} {r : ℕ}
 
+/-- Track `k` of a column sequence over `Fin r → Option σ` (`none` = padding). -/
 def tr (w : List (Fin r → Option σ)) (k : Fin r) : List (Option σ) := w.map (· k)
 
+/-- The word on track `k`, padding removed. -/
 def dec (w : List (Fin r → Option σ)) (k : Fin r) : List σ := (tr w k).reduceOption
 
+/-- A padded track: padding first, then letters (right alignment). -/
 def PadPre (l : List (Option σ)) : Prop := ∃ (a : ℕ) (P : List σ), l = List.replicate a none ++ P.map some
 
+/-- A valid (right-aligned, padded) column sequence. -/
 def Valid (w : List (Fin r → Option σ)) : Prop := ∀ k, PadPre (tr w k)
 
+/-- Left padding of `W` to length `L`. -/
 def padL (L : ℕ) (W : List σ) : List (Option σ) := List.replicate (L - W.length) none ++ W.map some
 
+/-- The convolution length `max_k |W_k|` (`0` for `r = 0`). -/
 def clen (Ws : Fin r → List σ) : ℕ := Finset.univ.sup fun k => (Ws k).length
 
+/-- The right-aligned convolution of `r` words: column `p < max_k |W_k|` carries on
+track `k` the `p`-th letter of `W_k` padded on the left. -/
 def conv (Ws : Fin r → List σ) : List (Fin r → Option σ) :=
   List.ofFn fun p : Fin (clen Ws) => fun k => (padL (clen Ws) (Ws k)).getD p none
 
@@ -165,6 +205,7 @@ theorem dec_conv (Ws : Fin r → List σ) : dec (conv Ws) = Ws := by
 
 theorem valid_conv (Ws : Fin r → List σ) : Valid (conv Ws) := fun k => ⟨_, _, tr_conv Ws k⟩
 
+/-- Column sequences are determined by their tracks. -/
 theorem eq_of_tr {w w' : List (Fin r → Option σ)} (hl : w.length = w'.length)
     (h : ∀ k, tr w k = tr w' k) : w = w' := by
   apply List.ext_getElem hl
@@ -175,6 +216,7 @@ theorem eq_of_tr {w w' : List (Fin r → Option σ)} (hl : w.length = w'.length)
     Option.map_some, Option.some_inj] at this
   exact this
 
+/-- No column of a convolution is all padding. -/
 theorem conv_noPad (Ws : Fin r → List σ) : ∀ c ∈ conv Ws, ∃ k, c k ≠ none := by
   intro c hc
   obtain ⟨p, rfl⟩ := List.mem_ofFn.mp hc
@@ -194,6 +236,7 @@ theorem conv_noPad (Ws : Fin r → List σ) : ∀ c ∈ conv Ws, ∃ k, c k ≠ 
   rw [List.getD_eq_getElem _ _ (by simp only [List.length_map, clen] at hp ⊢; rw [← hk]; exact hp)]
   simp
 
+/-- Decoding inverts the convolution on valid sequences without all-padding columns. -/
 theorem conv_dec {w : List (Fin r → Option σ)} (hv : Valid w) (hna : ∀ c ∈ w, ∃ k, c k ≠ none) :
     conv (dec w) = w := by
   have hL : clen (dec w) = w.length := by
@@ -222,6 +265,9 @@ theorem conv_dec {w : List (Fin r → Option σ)} (hv : Valid w) (hna : ∀ c �
   rw [tr_conv, hL, padL, (hv k).eq, tr_length]
   rfl
 
+/-- Shortest tuples for right congruences over the convolution. If
+`f : List (Fin r → Option σ) → S` (`S` finite) is a right congruence, every tuple `Ws` has
+a tuple `Ws'` of sublists, each of length `< |S|`, with `f (conv Ws') = f (conv Ws)`. -/
 theorem exists_short_conv {S : Type*} [Fintype S] (f : List (Fin r → Option σ) → S)
     (hf : ∀ x y a, f x = f y → f (x ++ [a]) = f (y ++ [a])) (Ws : Fin r → List σ) :
     ∃ Ws' : Fin r → List σ, (∀ k, (Ws' k).Sublist (Ws k)) ∧
@@ -234,11 +280,12 @@ theorem exists_short_conv {S : Type*} [Fintype S] (f : List (Fin r → Option σ
     rwa [dec_conv] at this
   · rw [conv_dec hv hna, he]
 
-end ColumnEncoding
+end Conv
 
 section Summary
-variable {σ : Type*} {r : ℕ}
+variable {σ Q : Type*} {r : ℕ}
 
+/-- In a valid sequence a padding entry in the last column means the track is empty. -/
 theorem dec_eq_nil_of_pad {w : List (Fin r → Option σ)} {c : Fin r → Option σ}
     (hv : Valid (w ++ [c])) (k : Fin r) (hk : c k = none) : dec w k = [] := by
   obtain ⟨a, P, hP⟩ := hv k
@@ -256,10 +303,10 @@ theorem dec_eq_nil_of_pad {w : List (Fin r → Option σ)} {c : Fin r → Option
 
 end Summary
 
-section Decide
-variable {Q : Type*}
+section Monitor
+variable {σ Q : Type*}
 
-/-- Enumerate words of length at most n whose letters lie in the given finite set. -/
+/-- All lists of length `≤ n` with entries in `S`. -/
 def boundedLists {α : Type*} [DecidableEq α] (S : Finset α) : ℕ → Finset (List α)
   | 0 => {[]}
   | n + 1 => insert [] ((S ×ˢ boundedLists S n).image fun p => p.1 :: p.2)
@@ -286,7 +333,8 @@ theorem mem_boundedLists {α : Type*} [DecidableEq α] (S : Finset α) (n : ℕ)
       · rintro ⟨hlen, ha, hl⟩
         exact ⟨a, l, ⟨ha, (ih l).mpr ⟨by omega, hl⟩⟩, rfl, rfl⟩
 
-theorem absHoleG_iff_bounded {α : Type*} (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
+/-- Holehood as a bounded statement. -/
+theorem isReaderHole_iff_bounded {α : Type*} (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
     (w : List α) :
     IsReaderHole M R T w ↔ runPrefix M w w.length ∈ T ∧
       ∀ s ∈ Finset.range (w.length + 1), ∀ e ∈ Finset.range (w.length + 1), s < e →
@@ -304,8 +352,10 @@ theorem absHoleG_iff_bounded {α : Type*} (M : DFA α Q) (R : Q → Q → Prop) 
 
 instance decHole {α : Type*} [DecidableEq α] (M : DFA α Q) (R : Q → Q → Prop) [DecidableRel R]
     (T : Set Q) [DecidablePred (· ∈ T)] (w : List α) : Decidable (IsReaderHole M R T w) :=
-  decidable_of_iff _ (absHoleG_iff_bounded M R T w).symm
+  decidable_of_iff _ (isReaderHole_iff_bounded M R T w).symm
 
-end Decide
+end Monitor
 
 end DeciNSSE.Packets
+
+end

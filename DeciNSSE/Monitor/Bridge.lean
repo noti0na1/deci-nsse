@@ -1,186 +1,182 @@
-import DeciNSSE.Monitor.AbstractMonitor
+import DeciNSSE.Monitor.Interface
+import DeciNSSE.Monitor.Reader
+import DeciNSSE.Monitor.Semantics
 
-/-! # Finite monitors and the entailment bridge
+/-! # Label holes and semantic unsafety
 
-Finite sets represent the variable readers and their visited history.
-This gives computable finite monitors with the same holes as the abstract
-monitors. Entailment holds exactly when the constraints are unsatisfiable
-or both side monitors have no hole.
+Label-monitor holes are exactly words without events. Under satisfiability
+they are precisely unsafe words, so the finite reader supplies the semantic
+interface required by the hole decision procedure.
 -/
 
-namespace DeciNSSE.Bridge
+namespace DeciNSSE.Monitor
 
-open Words ConstructedAxioms Holes
+open Events
 
-/-- A pair of finite sets of variables, giving a computable reader representation. -/
-abbrev Reader (k : ℕ) := Finset (DeciNSSE.V k) × Finset (DeciNSSE.V k)
+open Holes FiniteVariance
 
-/-- The current transition image paired with the finite set of readers already visited. -/
-abbrev State {k : ℕ} (ϕ : Constraint k) (x y : DeciNSSE.V k) (d : Side) :=
-  Image ϕ x y d × Finset (Reader k)
+variable {n k : ℕ}
 
-variable {k : ℕ} {ϕ : Constraint k} {x y : DeciNSSE.V k} {d : Side}
+section Generic
 
-/-- The two finite sets of reachable variables associated with a transition image. -/
-def reader (h : Image ϕ x y d) : Reader k :=
-  (Finset.univ.filter (fun b => (CState.pair (some x) none,
-      CState.pair (some b) none) ∈ h.val),
-   Finset.univ.filter (fun b => (CState.pair none (some y),
-      CState.pair none (some b)) ∈ h.val))
+variable {ψ : Constraint n (2 * k)} {X Y : V (2 * k)} {w : List (Fin n)}
 
-/-- Embed finite-set readers into the set-valued abstract readers. -/
-def readerEmbedding (k : ℕ) : Reader k ↪ AbstractMonitor.Reader k where
-  toFun A := (↑A.1, ↑A.2)
-  inj' := by
-    intro A B h
-    apply Prod.ext
-    · exact Finset.coe_injective (congrArg Prod.fst h)
-    · exact Finset.coe_injective (congrArg Prod.snd h)
+theorem readyAt_take_iff (j : ℕ) : ReadyAt ψ X Y (w.take j) ↔ Events.Ready ψ X Y w j := by
+  simp only [ReadyAt, Events.Ready, USet, LSet, mem_botVars, mem_topVars, Set.Nonempty,
+    Set.mem_inter_iff, Set.mem_ofPred_eq]
 
-theorem readerEmbedding_apply (A : Reader k) :
-    readerEmbedding k A = (↑A.1, ↑A.2) := rfl
+theorem acceptAt_l_iff :
+    AcceptAt ψ X Y .l w ↔ (∃ j ≤ w.length, Events.Ready ψ X Y w j) ∨ Events.Child ψ X w := by
+  have hr : ((∃ j < w.length, ReadyAt ψ X Y (w.take j)) ∨ ReadyAt ψ X Y w) ↔
+      ∃ j ≤ w.length, Events.Ready ψ X Y w j := by
+    simp only [← readyAt_take_iff]
+    constructor
+    · rintro (⟨j, hj, h⟩ | h)
+      · exact ⟨j, hj.le, h⟩
+      · exact ⟨w.length, le_rfl, by rwa [List.take_length]⟩
+    · rintro ⟨j, hj, h⟩
+      rcases Nat.lt_or_ge j w.length with hlt | hge
+      · exact Or.inl ⟨j, hlt, h⟩
+      · obtain rfl : j = w.length := le_antisymm hj hge
+        rw [List.take_length] at h
+        exact Or.inr h
+  have hc : ChildAt ψ X Y .l w ↔ Events.Child ψ X w := by
+    simp only [ChildAt, Events.Child, USet, List.take_length, Set.mem_ofPred_eq]
+    exact ⟨fun ⟨z, b, hz, hl⟩ => ⟨z, hz, b, hl⟩, fun ⟨z, hz, b, hl⟩ => ⟨z, b, hz, hl⟩⟩
+  rw [AcceptAt, ← or_assoc, hr, hc]
 
-@[simp] theorem readerEmbedding_reader (h : Image ϕ x y d) :
-    readerEmbedding k (reader h) = ReaderProjection.reader h := by
-  apply Prod.ext <;> ext b <;>
-    simp [readerEmbedding_apply, reader, ReaderProjection.reader, P, Q]
-
-/-- Enumerate the readers reachable by extending the current transition image. -/
-def reach (h : Image ϕ x y d) : Finset (Reader k) :=
-  Finset.univ.image (fun g : Image ϕ x y d => reader (h * g))
-
-/-- The side-dependent intersection test for admitting two readers. -/
-def adm (d : Side) (A B : Reader k) : Prop :=
-  match d with
-  | .l => (A.2 ∩ B.1).Nonempty
-  | .r => (A.1 ∩ B.2).Nonempty
-
-instance admDecidable (d : Side) (A B : Reader k) : Decidable (adm d A B) := by
-  cases d <;> unfold adm <;> infer_instance
-
-@[simp] theorem adm_iff (d : Side) (A B : Reader k) :
-    adm d A B ↔ ReaderProjection.SideAdm d (readerEmbedding k A)
-      (readerEmbedding k B) := by
-  cases d <;> simp [adm, ReaderProjection.SideAdm, ReaderProjection.Adm,
-    ReaderProjection.AdmRight, readerEmbedding_apply,
-    Finset.Nonempty, Set.Nonempty]
-
-/-- Admission between two states of the finite monitor. -/
-def relation (z z' : State ϕ x y d) : Prop := adm d (reader z.1) (reader z'.1)
-
-instance relationDecidable : DecidableRel (relation (ϕ := ϕ) (x := x) (y := y) (d := d)) :=
-  fun _ _ => admDecidable _ _ _
-
-/-- Monitor states with neither ordinary acceptance nor an admitted prefix extension. -/
-def target (ϕ : Constraint k) (x y : DeciNSSE.V k) (d : Side) : Set (State ϕ x y d) :=
-  {z | z.1.val ∉ EndToEnd.VA (construct ϕ x y d) ∧
-    ∀ A ∈ z.2, ∀ B ∈ reach z.1, ¬ adm d A B}
-
-instance targetDecidable : DecidablePred (· ∈ target ϕ x y d) :=
-  fun z => inferInstanceAs (Decidable (z.1.val ∉ EndToEnd.VA (construct ϕ x y d) ∧
-    ∀ A ∈ z.2, ∀ B ∈ reach z.1, ¬ adm d A B))
-
-/-- The computable finite monitor for one side of a proposed entailment. -/
-def monitor (ϕ : Constraint k) (x y : DeciNSSE.V k) (d : Side) :
-    DFA (Fin 2) (State ϕ x y d) where
-  start := (1, {reader (1 : Image ϕ x y d)})
-  step z c := (z.1 * imageμ ϕ x y d [c],
-    insert (reader (z.1 * imageμ ϕ x y d [c])) z.2)
-  accept := target ϕ x y d
-
-/-- Interpret a finite monitor state as an abstract monitor state. -/
-def toAbstract (z : State ϕ x y d) : AbstractMonitor.Z ϕ x y d :=
-  (z.1, z.2.map (readerEmbedding k))
-
-theorem reach_map (h : Image ϕ x y d) :
-    (reach h).map (readerEmbedding k) = AbstractMonitor.Reach h := by
-  classical
-  ext A
-  simp only [reach, AbstractMonitor.Reach, Finset.mem_map, Finset.mem_image,
-    Finset.mem_univ, true_and]
+theorem noWitness_iff {θ : Side} {Rs : ℕ → ℕ → Prop}
+    (hR : ∀ s e, admission θ ((reader ψ X Y θ).eval (w.take s))
+      ((reader ψ X Y θ).eval (w.take e)) ↔ Rs s e) :
+    (∀ p q, WitnessedPair (reader ψ X Y θ) w p q → ¬ admission θ p q) ↔
+      ¬ ∃ s e, s < e ∧ e ≤ w.length ∧ w.drop e <+: w.drop s ∧ Rs s e := by
   constructor
-  · rintro ⟨_, ⟨g, rfl⟩, hA⟩
-    exact ⟨g, by simpa using hA⟩
-  · rintro ⟨g, rfl⟩
-    exact ⟨_, ⟨g, rfl⟩, readerEmbedding_reader _⟩
+  · rintro h ⟨s, e, hse, he, hp, hr⟩
+    exact h _ _ ⟨s, e, hse, he, rfl, rfl, hp⟩ ((hR s e).mpr hr)
+  · rintro h p q ⟨s, e, hse, he, rfl, rfl, hp⟩ hr
+    exact h ⟨s, e, hse, he, hp, (hR s e).mp hr⟩
 
-/-- The computable and abstract target conditions agree. -/
-theorem target_iff (z : State ϕ x y d) :
-    z ∈ target ϕ x y d ↔ toAbstract z ∈ AbstractMonitor.T' ϕ x y d := by
-  classical
-  change (_ ∧ _) ↔ (z.1 ∉ imageVA ϕ x y d ∧
-    ∀ A ∈ z.2.map (readerEmbedding k),
-      ∀ B ∈ AbstractMonitor.Reach z.1, ¬ ReaderProjection.SideAdm d A B)
-  rw [← reach_map]
-  apply and_congr Iff.rfl
+/-- Left label holes are the words without left events (no hypothesis). -/
+theorem hole_left_iff (w : List (Fin n)) :
+    IsReaderHole (reader ψ X Y .l) (admission .l) (target ψ .l) w ↔ ¬ Occurs ψ X Y w := by
+  have hR : ∀ s e, admission .l ((reader ψ X Y .l).eval (w.take s))
+      ((reader ψ X Y .l).eval (w.take e)) ↔ (Events.Cross ψ X Y w s e ∨ Events.Self ψ X w s e) := by
+    intro s e
+    rw [self_iff]
+    simp only [admission, Cross, Self, mem_eval_U, mem_eval_L, Events.Cross, Set.Nonempty,
+      Set.mem_inter_iff, USet, LSet, Set.mem_ofPred_eq]
+  unfold IsReaderHole runPrefix
+  rw [List.take_length, mem_target_iff, noWitness_iff hR, acceptAt_l_iff, occurs_def,
+    ← not_or, or_assoc]
+
+theorem self_r_iff (s e : ℕ) :
+    Self .r ((reader ψ X Y .r).eval (w.take s)) ((reader ψ X Y .r).eval (w.take e)) ↔
+      (LSet ψ Y w s ∩ flipV '' LSet ψ Y w e).Nonempty := by
+  simp only [Self, mem_eval_L]
   constructor
-  · intro h A hA B hB
-    obtain ⟨A, hA', rfl⟩ := Finset.mem_map.mp hA
-    obtain ⟨B, hB', rfl⟩ := Finset.mem_map.mp hB
-    exact fun ha => h A hA' B hB' ((adm_iff d A B).mpr ha)
-  · intro h A hA B hB ha
-    exact h _ (Finset.mem_map.mpr ⟨A, hA, rfl⟩)
-      _ (Finset.mem_map.mpr ⟨B, hB, rfl⟩) ((adm_iff d A B).mp ha)
+  · rintro ⟨z, hz, hz'⟩
+    exact ⟨z, hz, flipV z, hz', flipV_flipV z⟩
+  · rintro ⟨z, hz, v, hv, rfl⟩
+    exact ⟨flipV v, hz, by rw [flipV_flipV]; exact hv⟩
 
-@[simp] theorem relation_iff (z z' : State ϕ x y d) :
-    relation z z' ↔ AbstractMonitor.R' (toAbstract z) (toAbstract z') := by
-  simp [relation, AbstractMonitor.R', toAbstract]
+/-- The events of the order dual, written on the original system. -/
+theorem occurs_dual_iff :
+    Occurs (Constraint.dual ψ) Y X w ↔
+      (∃ j ≤ w.length,
+        (∃ v ∈ LSet ψ Y w j, Lit.eqTop v ∈ ψ) ∨ (∃ v ∈ USet ψ X w j, Lit.eqBot v ∈ ψ) ∨
+        (LSet ψ Y w j ∩ USet ψ X w j).Nonempty) ∨
+      (∃ v ∈ LSet ψ Y w w.length, ∃ a, Lit.fLe a v ∈ ψ) ∨
+      ∃ s e, s < e ∧ e ≤ w.length ∧ w.drop e <+: w.drop s ∧
+        ((USet ψ X w s ∩ LSet ψ Y w e).Nonempty ∨
+          (LSet ψ Y w s ∩ flipV '' LSet ψ Y w e).Nonempty) := by
+  simp only [Occurs, Events.Ready, Events.Child, Events.Cross, uSet_dual, lSet_dual, eqBot_mem_dual,
+    eqTop_mem_dual, leF_mem_dual]
 
-theorem toAbstract_start :
-    toAbstract (monitor ϕ x y d).start = (AbstractMonitor.monitor ϕ x y d).start := by
-  classical
-  simp [toAbstract, monitor, AbstractMonitor.monitor]
+/-- Right label holes are the words without right events (no hypothesis). -/
+theorem hole_right_iff (w : List (Fin n)) :
+    IsReaderHole (reader ψ X Y .r) (admission .r) (target ψ .r) w ↔
+      ¬ Occurs (Constraint.dual ψ) Y X w := by
+  have hR : ∀ s e, admission .r ((reader ψ X Y .r).eval (w.take s))
+      ((reader ψ X Y .r).eval (w.take e)) ↔
+        ((USet ψ X w s ∩ LSet ψ Y w e).Nonempty ∨
+          (LSet ψ Y w s ∩ flipV '' LSet ψ Y w e).Nonempty) := by
+    intro s e
+    rw [admission, self_r_iff]
+    simp only [Cross, mem_eval_U, mem_eval_L, Set.Nonempty, Set.mem_inter_iff, USet, LSet,
+      Set.mem_ofPred_eq]
+  have hready : ((∃ j < w.length, ReadyAt ψ X Y (w.take j)) ∨ ReadyAt ψ X Y w) ↔
+      ∃ j ≤ w.length, (∃ v ∈ LSet ψ Y w j, Lit.eqTop v ∈ ψ) ∨
+        (∃ v ∈ USet ψ X w j, Lit.eqBot v ∈ ψ) ∨ (LSet ψ Y w j ∩ USet ψ X w j).Nonempty := by
+    have e : ∀ j, ReadyAt ψ X Y (w.take j) ↔ ((∃ v ∈ LSet ψ Y w j, Lit.eqTop v ∈ ψ) ∨
+        (∃ v ∈ USet ψ X w j, Lit.eqBot v ∈ ψ) ∨ (LSet ψ Y w j ∩ USet ψ X w j).Nonempty) := by
+      intro j
+      rw [readyAt_take_iff, Events.Ready, Set.inter_comm]
+      exact or_left_comm
+    simp only [← e]
+    constructor
+    · rintro (⟨j, hj, h⟩ | h)
+      · exact ⟨j, hj.le, h⟩
+      · exact ⟨w.length, le_rfl, by rwa [List.take_length]⟩
+    · rintro ⟨j, hj, h⟩
+      rcases Nat.lt_or_ge j w.length with hlt | hge
+      · exact Or.inl ⟨j, hlt, h⟩
+      · obtain rfl : j = w.length := le_antisymm hj hge
+        rw [List.take_length] at h
+        exact Or.inr h
+  have hc : ChildAt ψ X Y .r w ↔ ∃ v ∈ LSet ψ Y w w.length, ∃ a, Lit.fLe a v ∈ ψ := by
+    simp only [ChildAt, LSet, List.take_length, Set.mem_ofPred_eq]
+    exact ⟨fun ⟨a, z, hz, hl⟩ => ⟨z, hz, a, hl⟩, fun ⟨z, hz, a, hl⟩ => ⟨a, z, hz, hl⟩⟩
+  unfold IsReaderHole runPrefix
+  rw [List.take_length, mem_target_iff, noWitness_iff hR, AcceptAt, ← or_assoc, hready, hc,
+    occurs_dual_iff, ← not_or, or_assoc]
 
-theorem toAbstract_step (z : State ϕ x y d) (c : Fin 2) :
-    toAbstract ((monitor ϕ x y d).step z c) =
-      (AbstractMonitor.monitor ϕ x y d).step (toAbstract z) c := by
-  classical
-  simp [toAbstract, monitor, AbstractMonitor.monitor]
+end Generic
 
-/-- Evaluation commutes with interpreting finite states as abstract states. -/
-theorem toAbstract_eval (w : Word) :
-    toAbstract ((monitor ϕ x y d).eval w) = (AbstractMonitor.monitor ϕ x y d).eval w := by
-  induction w using List.reverseRecOn with
-  | nil => exact toAbstract_start
-  | append_singleton w c ih =>
-    rw [DFA.eval_append_singleton, toAbstract_step, ih, DFA.eval_append_singleton]
+section Signed
 
-/-- The finite and abstract monitors have the same holes. -/
-theorem hole_iff_abstract (w : Word) :
-    IsReaderHole (monitor ϕ x y d) relation (target ϕ x y d) w ↔
-      Holes.IsReaderHole (AbstractMonitor.monitor ϕ x y d)
-        AbstractMonitor.R' (AbstractMonitor.T' ϕ x y d) w := by
-  rw [isReaderHole_iff, isReaderHole_iff]
-  simp only [target_iff, relation_iff, toAbstract_eval]
+variable {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k}
 
-/-- Rejection by the constructed side automaton is equivalent to a finite monitor hole. -/
-theorem side_hole_iff (w : Word) :
-    w ∉ (construct ϕ x y d).Lang ↔
-      IsReaderHole (monitor ϕ x y d) relation (target ϕ x y d) w :=
-  AbstractMonitor.side_hole_iff_absHole w |>.trans (hole_iff_abstract w).symm
+/-- Label holes are the event-free words, on either side, for every arity
+and variance, with no hypothesis. -/
+theorem hole_iff_no_events (θ : Side) (w : List (Fin n)) :
+    IsReaderHole (reader (signed c ϕ) (sv x false) (sv y false) θ) (admission θ)
+      (target (signed c ϕ) θ) w ↔ ¬ Events.SideOccurs c ϕ x y θ w := by
+  cases θ
+  · exact hole_left_iff w
+  · exact hole_right_iff w
 
-/-- Failure of monoid coverage is equivalent to a monitor hole. -/
-theorem not_fullCovered_iff_hole (w : Word) :
-    ¬ FullCoverage.FullCovered (EndToEnd.transRel (construct ϕ x y d))
-      (EndToEnd.VA (construct ϕ x y d)) (EndToEnd.V (construct ϕ x y d))
-      (EndToEnd.U (construct ϕ x y d)) w ↔
-        IsReaderHole (monitor ϕ x y d) relation (target ϕ x y d) w := by
-  rw [← EndToEnd.mem_lang_iff_fullCovered]
-  exact side_hole_iff w
+/-- Label-reader holes are the unsafe words of a satisfiable system. -/
+theorem hole_iff_unsafe (hs : ∃ ρ, Sat c ρ ϕ) (θ : Side)
+    (w : List (Fin n)) :
+    IsReaderHole (reader (signed c ϕ) (sv x false) (sv y false) θ) (admission θ)
+        (target (signed c ϕ) θ) w ↔
+      Unsafe c ϕ x y θ w :=
+  (hole_iff_no_events θ w).trans (sideUnsafe_iff_not_events hs θ w).symm
 
-/-- The side automaton is universal exactly when its monitor has no hole. -/
-theorem universal_iff_no_holes (ϕ : Constraint k) (x y : DeciNSSE.V k) (d : Side) :
-    (∀ w, w ∈ (construct ϕ x y d).Lang) ↔
-      ¬ ∃ w, IsReaderHole (monitor ϕ x y d) relation (target ϕ x y d) w := by
-  classical
-  simp only [EndToEnd.mem_lang_iff_fullCovered, not_exists,
-    ← not_fullCovered_iff_hole, not_not]
+end Signed
 
-/-- Entailment holds exactly when there is no solution or neither side monitor has a hole. -/
-theorem entails_iff_unsat_or_no_holes (ϕ : Constraint k) (x y : DeciNSSE.V k) :
-    Entails ϕ x y ↔ (¬ ∃ ρ, Sat ρ ϕ) ∨
-      ((¬ ∃ w, IsReaderHole (monitor ϕ x y .l) relation (target ϕ x y .l) w) ∧
-       (¬ ∃ w, IsReaderHole (monitor ϕ x y .r) relation (target ϕ x y .r) w)) := by
-  rw [Language.entails_iff_universal, universal_iff_no_holes, universal_iff_no_holes]
+/-- Package one side of the label reader with its semantic bridge. -/
+def sideMonitor (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) (θ : Side) :
+    Monitor.SideMonitor n c ϕ x y θ where
+  Q := State (2 * k)
+  M := reader (signed c ϕ) (sv x false) (sv y false) θ
+  R := admission θ
+  T := target (signed c ϕ) θ
+  bridge hs w := hole_iff_unsafe hs θ w
 
-end DeciNSSE.Bridge
+/-- The label monitor family at every arity, including `n = 0`. -/
+def family (c : Fin n → Bool) : Monitor.Family n c :=
+  ⟨fun ϕ x y θ => sideMonitor c ϕ x y θ⟩
+
+/-- Unsafe words have a bounded witness at every arity, including zero. -/
+theorem unsafe_iff_bounded {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k}
+    {θ : Side} (hs : ∃ ρ, Sat c ρ ϕ) :
+    (∃ w, Unsafe c ϕ x y θ w) ↔
+      ∃ w, Unsafe c ϕ x y θ w ∧
+        w.length ≤ RejectedTail.holeLengthBound (2 * 4 ^ (2 * k)) := by
+  have h := (sideMonitor c ϕ x y θ).unsafe_iff_bounded hs
+  have hc : @Fintype.card (sideMonitor c ϕ x y θ).Q (sideMonitor c ϕ x y θ).instFintype =
+      2 * 4 ^ (2 * k) := card_state (2 * k)
+  rwa [hc] at h
+
+end DeciNSSE.Monitor

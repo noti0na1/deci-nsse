@@ -1,18 +1,22 @@
 import DeciNSSE.Holes.Basic
 
-/-! # Marker codes and aligned comparisons
+/-! # Marker codes and desubstitution
 
-Words ending in a distinguished marker encode letters whose bodies avoid
-that marker. Suffix comparisons align at code boundaries, allowing comparisons
-to pass between encoded words and their desubstitutions.
+Marker-terminated blocks form a prefix code. Comparisons of expanded words
+align at markers, allowing a hole to be described by block and endpoint
+conditions in a derived reader.
 -/
+
+set_option autoImplicit false
 
 namespace DeciNSSE.Desubstitution
 open DeciNSSE.Holes
+open scoped List
 
 variable {α γ Q : Type*}
 
-/-- An injective block code whose bodies avoid a distinguished terminal marker. -/
+/-- A marker code `σ(c) = β_c #`: the marker `#` occurs in no body `β_c`, and the
+bodies are pairwise distinct. -/
 structure MarkerCode (α γ : Type*) where
 
   mark : α
@@ -21,6 +25,7 @@ structure MarkerCode (α γ : Type*) where
   mark_not_mem : ∀ c, mark ∉ body c
   body_injective : Function.Injective body
 
+/-- Words of the form `y # X` with `# ∉ y` compare through their first marker. -/
 theorem mark_prefix_iff {a : α} {X Y : List α} : ∀ {y y' : List α}, a ∉ y → a ∉ y' →
     (y ++ a :: X <+: y' ++ a :: Y ↔ y = y' ∧ X <+: Y)
   | [], [], _, _ => by simp
@@ -43,13 +48,13 @@ theorem mark_prefix_iff {a : α} {X Y : List α} : ∀ {y y' : List α}, a ∉ y
 namespace MarkerCode
 variable (C : MarkerCode α γ)
 
-/-- The body of a code letter followed by the terminal marker. -/
+/-- The codeword `σ(c) = β_c #`. -/
 def code (c : γ) : List α := C.body c ++ [C.mark]
 
-/-- Encode a word by concatenating its marker-terminated code blocks. -/
+/-- `σ(v)`. -/
 def enc (v : List γ) : List α := v.flatMap C.code
 
-/-- The position of a code boundary after the first specified number of letters. -/
+/-- The cut `P_k = |σ(v[:k])|`. -/
 def cut (v : List γ) (k : ℕ) : ℕ := (C.enc (v.take k)).length
 
 @[simp] theorem enc_nil : C.enc [] = [] := rfl
@@ -64,6 +69,7 @@ theorem length_code (c : γ) : (C.code c).length = (C.body c).length + 1 := by s
 theorem mark_not_mem_of_append {c : γ} {x y : List α} (h : C.body c = x ++ y) :
     C.mark ∉ y := fun hm => C.mark_not_mem c (h ▸ List.mem_append_right x hm)
 
+/-- `σ` is a prefix code: prefix comparisons are preserved and reflected. -/
 theorem enc_prefix_iff : ∀ (v w : List γ), C.enc v <+: C.enc w ↔ v <+: w
   | [], w => by simp
   | c :: v, [] => by simp [code]
@@ -76,6 +82,7 @@ theorem enc_prefix_iff : ∀ (v w : List γ), C.enc v <+: C.enc w ↔ v <+: w
       · rintro ⟨h, h'⟩; exact ⟨C.body_injective h, h'⟩
       · rintro ⟨rfl, h'⟩; exact ⟨rfl, h'⟩
 
+/-- `σ(v) = σ(v[:k]) · β_{v[k]} · # · σ(v[k+1:])`. -/
 theorem enc_split (v : List γ) (k : ℕ) (hk : k < v.length) :
     C.enc v = C.enc (v.take k) ++ (C.body v[k] ++ C.mark :: C.enc (v.drop (k + 1))) := by
   conv_lhs => rw [← List.take_append_drop k v, List.drop_eq_getElem_cons hk]
@@ -87,6 +94,7 @@ theorem enc_split_xy (v : List γ) (k : ℕ) (hk : k < v.length) (x y : List α)
   rw [C.enc_split v k hk, hxy]
   simp
 
+/-- The suffix of `σ(v)` from a position inside block `k+1`. -/
 theorem drop_at (v : List γ) (k : ℕ) (hk : k < v.length) (x y : List α)
     (hxy : C.body v[k] = x ++ y) :
     (C.enc v).drop (C.cut v k + x.length) = y ++ C.mark :: C.enc (v.drop (k + 1)) := by
@@ -104,6 +112,7 @@ theorem cut_mono (v : List γ) {i j : ℕ} (hij : i ≤ j) : C.cut v i ≤ C.cut
   simp only [cut, ← ht, enc_append, List.length_append]
   omega
 
+/-- Every position `s < |σ(v)|` lies in a block: `s = P_k + |x|` with `β_{v[k]} = x y`. -/
 theorem pos_decomp : ∀ (v : List γ) (s : ℕ), s < (C.enc v).length →
     ∃ k, ∃ hk : k < v.length, ∃ x y, C.body v[k] = x ++ y ∧ s = C.cut v k + x.length
   | [], s, hs => by simp at hs
@@ -119,6 +128,11 @@ theorem pos_decomp : ∀ (v : List γ) (s : ℕ), s < (C.enc v).length →
         simp only [cut, List.take_succ_cons, enc_cons, List.length_append, length_code] at hk' ⊢
         omega
 
+/-- Let `s < e < |σ(v)|`. Then `(s,e)` is a comparison of
+`σ(v)` iff it is marker-aligned: `s = P_{ks} + |xs|` and `e = P_{ke} + |xe|` with
+`β_{v[ks]} = xs y`, `β_{v[ke]} = xe y` (the same distance `|y| + 1` from the ends of
+blocks `ks+1`, `ke+1`, which share their suffix `y #`), and `(ks+1, ke+1)` is a
+comparison of `v`; moreover `ks < ke`. -/
 theorem alignment (v : List γ) {s e : ℕ} (hse : s < e) (he : e < (C.enc v).length) :
     (C.enc v).drop e <+: (C.enc v).drop s ↔
       ∃ ks ke, ∃ (hks : ks < v.length) (hke : ke < v.length), ks < ke ∧
@@ -146,12 +160,16 @@ theorem alignment (v : List γ) {s e : ℕ} (hse : s < e) (he : e < (C.enc v).le
 
 end MarkerCode
 
+/-- `Vis(r,x) = {δ*(r, x[:i]) : 0 ≤ i < |x|}`. -/
 def vis (M : DFA α Q) (r : Q) (x : List α) : Set Q :=
   {q | ∃ i < x.length, M.evalFrom r (x.take i) = q}
 
+/-- `R[S] = {q : ∃ s ∈ S, (s,q) ∈ R}`. -/
 def rimg (R : Q → Q → Prop) (S : Set Q) : Set Q := {q | ∃ p ∈ S, R p q}
 
-variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
+variable (C : MarkerCode α γ) (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
+
+variable {M R}
 
 @[simp] theorem vis_nil (r : Q) : vis M r [] = ∅ := by
   ext q; simp [vis]
@@ -159,7 +177,9 @@ variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
 @[simp] theorem rimg_empty : rimg R (∅ : Set Q) = ∅ := by
   ext q; simp [rimg]
 
-theorem absHoleG_iff_split (u : List α) :
+/-- A hole condition split into: target, endpoint pairs `(x, n)`, interior pairs
+`(s, e)` with `e < n`. -/
+theorem isReaderHole_iff_split (u : List α) :
     IsReaderHole M R T u ↔
       runPrefix M u u.length ∈ T ∧ runPrefix M u u.length ∉ rimg R (vis M M.start u) ∧
         ∀ s e, s < e → e < u.length → u.drop e <+: u.drop s →

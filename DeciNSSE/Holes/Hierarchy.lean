@@ -1,20 +1,24 @@
-import DeciNSSE.Holes.Desubstitution
 import DeciNSSE.Holes.CoAlignment
+import DeciNSSE.Holes.Desubstitution
+import DeciNSSE.RejectedTail.Basic
 
-/-! # The canonical desubstitution hierarchy
+/-! # The canonical hierarchy of words
 
-Cutting at the last letter repeatedly produces a hierarchy of block words.
-Derived lettered monitors preserve holes under expansion. Canonical markers,
-start cores and bounded horizons relate this hierarchy to finite readers.
+Repeated decomposition at the last letter produces derived alphabets and
+monitors. Expansion preserves holes; each level adds one start core, while
+non-unary levels shorten the canonical word.
 -/
+
+set_option autoImplicit false
 
 namespace DeciNSSE.LetteredHierarchy
 open DeciNSSE.CoAlignment DeciNSSE.Desubstitution DeciNSSE.Holes
+open scoped List
 
 section Expand
 variable {Γ : Type*}
 
-/-- Expand a block word by appending the marker to each block and concatenating. -/
+/-- `σ_ℓ(X_0 ⋯ X_{k-1}) = X_0 ℓ X_1 ℓ ⋯ X_{k-1} ℓ`. -/
 def expand (ℓ : Γ) (v : List (List Γ)) : List Γ := v.flatMap (· ++ [ℓ])
 
 @[simp] theorem expand_nil (ℓ : Γ) : expand ℓ [] = [] := rfl
@@ -34,7 +38,7 @@ theorem expand_snoc (ℓ : Γ) (v : List (List Γ)) (X : List Γ) :
 theorem expand_eq_nil {ℓ : Γ} {v : List (List Γ)} : expand ℓ v = [] ↔ v = [] := by
   cases v <;> simp
 
-/-- The position reached after expanding the first `k` blocks. -/
+/-- The cut `P_k = |σ_ℓ(v[:k])|`. -/
 def cutP (ℓ : Γ) (v : List (List Γ)) (k : ℕ) : ℕ := (expand ℓ (v.take k)).length
 
 theorem expand_split (ℓ : Γ) (v : List (List Γ)) (k : ℕ) (hk : k < v.length) :
@@ -69,7 +73,7 @@ theorem cutP_le_length (ℓ : Γ) (v : List (List Γ)) (k : ℕ) :
   · exact cutP_mono ℓ v h.le
   · simp [cutP, List.take_of_length_le h]
 
-/-- The marker code whose bodies are precisely the words avoiding the marker. -/
+/-- The marker code whose bodies avoid the selected marker. -/
 def mcode (ℓ : Γ) : MarkerCode Γ {X : List Γ // ℓ ∉ X} where
   mark := ℓ
   body := Subtype.val
@@ -99,6 +103,7 @@ theorem prefix_map_inj {α β : Type*} {f : α → β} (hf : Function.Injective 
   rw [List.map_inj_right (fun a b h => hf h)] at he
   exact he ▸ hl
 
+/-- Every position `s < |σ_ℓ(v)|` lies in a block: `s = P_k + p` with `p ≤ |X_k|`. -/
 theorem pos_decomp (ℓ : Γ) (v : List (List Γ)) {s : ℕ} (hs : s < (expand ℓ v).length) :
     ∃ k, ∃ hk : k < v.length, ∃ p, p ≤ v[k].length ∧ s = cutP ℓ v k + p := by
   induction v generalizing s with
@@ -121,6 +126,10 @@ theorem pos_lt (ℓ : Γ) (v : List (List Γ)) {k : ℕ} (hk : k < v.length) {p 
   have h2 := cutP_le_length ℓ v (k + 1)
   omega
 
+/-- Alignment. For `s < e < |σ_ℓ(v)|` and letters
+of `v` avoiding `ℓ`: `(s,e)` is a comparison of `σ_ℓ(v)` iff `s = P_{ks} + |xs|`,
+`e = P_{ke} + |xe|` with `X_{ks} = xs y`, `X_{ke} = xe y` (a common suffix: equal distance
+to the block ends) and `(ks+1, ke+1)` a comparison of `v`, `ks < ke`. -/
 theorem alignment (ℓ : Γ) (v : List (List Γ)) (hv : ∀ X ∈ v, ℓ ∉ X) {s e : ℕ} (hse : s < e)
     (he : e < (expand ℓ v).length) :
     (expand ℓ v).drop e <+: (expand ℓ v).drop s ↔
@@ -149,7 +158,7 @@ theorem exists_some_eq_iff {β δ : Type*} (P : β → δ → Prop) (b : β) (d 
 section Der
 variable {Γ C : Type*}
 
-/-- Evaluate a word in the core automaton from a specified core. -/
+/-- `κ*`: the core reached from `c` after reading `w`. -/
 def kst (D : Lettered Γ C) (c : C) (w : List Γ) : C := D.coreDFA.evalFrom c w
 
 @[simp] theorem kst_nil (D : Lettered Γ C) (c : C) : kst D c [] = c := rfl
@@ -163,7 +172,7 @@ theorem kst_append (D : Lettered Γ C) (c : C) (w w' : List Γ) :
 theorem core_eq_kst (D : Lettered Γ C) (v : List Γ) (x : ℕ) :
     D.core v x = kst D D.start (v.take x) := rfl
 
-/-- The core-and-letter labels along a word from a specified initial core. -/
+/-- The label of cut `x` of `w` read from core `c`. -/
 def labFrom (D : Lettered Γ C) (c : C) (w : List Γ) : ℕ → Lab Γ C
   | 0 => none
   | x + 1 => (w[x]?).map fun a => (kst D c (w.take x), a)
@@ -188,33 +197,38 @@ theorem labFrom_append_add (D : Lettered Γ C) (c : C) (A B : List Γ) (q : ℕ)
 
 variable (D : Lettered Γ C) (ℓ : Γ)
 
-/-- The final core of a block, including its preceding marker when present. -/
+/-- The core after the shifted block: `fc(c, X)` reads `ℓ·X` from `c ∈ C`, and `X` from `⋆`
+for the new start core `⋆' = none`. -/
 def fcore : Option C → List Γ → C
   | none, X => kst D D.start X
   | some c, X => kst D c (ℓ :: X)
 
-/-- The label at a position within a block, accounting for its preceding marker. -/
+/-- `lab_p(c, X)`: the `𝔇`-label of position `p` of the shifted block `Ẑ(c, X)` (`ℓ·X` read
+from `c`, or `⊢·X` read from `⋆`, position `0` of `⊢` carrying `S`). -/
 def zlab : Option C → List Γ → ℕ → Lab Γ C
   | none, X, p => labFrom D D.start X p
   | some c, X, p => labFrom D c (ℓ :: X) (p + 1)
 
-/-- Admission between blocks witnessed before a common suffix of their bodies. -/
+/-- `Λ'`: the right-aligned ladder. Some common suffix `y` of `X = x y`, `X' = x' y`
+(the last `t - 1 = |y|` letters agree) has `Λ` at the labels of positions `|x|`, `|x'|`
+(the first mismatch, or the marker/`⊢` column). `S` is in no pair. -/
 def derΛ : Lab (List Γ) (Option C) → Lab (List Γ) (Option C) → Prop
   | some (c, X), some (c', X') => ∃ x x' y, X = x ++ y ∧ X' = x' ++ y ∧
       D.Λ (zlab D ℓ c X x.length) (zlab D ℓ c' X' x'.length)
   | _, _ => False
 
-/-- Admission between blocks allowing an endpoint at the final marker. -/
+/-- `Λ'^f`: `Λ'`, or some label of the block is `Λ^f`-related to the final label
+`(fc(c', X'), ℓ)` (the marker after `X'`). -/
 def derΛf : Lab (List Γ) (Option C) → Lab (List Γ) (Option C) → Prop
   | some (c, X), some (c', X') => derΛ D ℓ (some (c, X)) (some (c', X')) ∨
       ∃ p ≤ X.length, D.Λf (zlab D ℓ c X p) (some (fcore D ℓ c' X', ℓ))
   | _, _ => False
 
-/-- A block ends in a target label and contains no admitted comparison to its final marker. -/
+/-- `Tf'(c, X) = Tf(fc(c,X), ℓ) ∧ ¬∃ p, Λ^f(lab_p(c,X), (fc(c,X), ℓ))`. -/
 def derTf (c : Option C) (X : List Γ) : Prop :=
   D.Tf (fcore D ℓ c X) ℓ ∧ ¬ ∃ p ≤ X.length, D.Λf (zlab D ℓ c X p) (some (fcore D ℓ c X, ℓ))
 
-/-- The lettered monitor induced by cutting at a fixed marker. -/
+/-- The monitor induced by replacing each marker-terminated block with a letter. -/
 def der : Lettered (List Γ) (Option C) where
   start := none
   κ X c := some (fcore D ℓ c X)
@@ -229,6 +243,8 @@ theorem der_core_succ (v : List (List Γ)) (k : ℕ) (hk : k < v.length) :
   rw [core_eq_kst, core_eq_kst, List.take_succ_eq_append_getElem hk, kst_append]
   rfl
 
+/-- The core after block `k` is the `𝔇`-core before the
+marker that ends block `k`: `fc(c'_k, X_k) = κ*(⋆, σ_ℓ(v[:k]) X_k)`. -/
 theorem fcore_core (v : List (List Γ)) (k : ℕ) (hk : k < v.length) :
     fcore D ℓ ((der D ℓ).core v k) v[k] = kst D D.start (expand ℓ (v.take k) ++ v[k]) := by
   induction k with
@@ -238,6 +254,8 @@ theorem fcore_core (v : List (List Γ)) (k : ℕ) (hk : k < v.length) :
       expand_take_succ ℓ v k (by omega)]
     simp
 
+/-- The cut `P_k + p` (`p ≤ |X_k|`) of `σ_ℓ(v)` carries the
+label `lab_p(c'_k, X_k)` of position `p` of the shifted block of `X_k`. -/
 theorem label_expand (v : List (List Γ)) (k : ℕ) (hk : k < v.length) {p : ℕ}
     (hp : p ≤ v[k].length) :
     D.label (expand ℓ v) (cutP ℓ v k + p) = zlab D ℓ ((der D ℓ).core v k) v[k] p := by
@@ -260,6 +278,7 @@ theorem label_expand (v : List (List Γ)) (k : ℕ) (hk : k < v.length) {p : ℕ
           ((ℓ :: v[k + 1]) ++ ℓ :: expand ℓ (List.drop (k + 1 + 1) v)) by simp,
       labFrom_append_add, labFrom_append_le D _ _ _ (by simpa using hp)]
 
+/-- The final label of `σ_ℓ(v)` is `(fc(c'_{k-1}, X_{k-1}), ℓ)`. -/
 theorem label_expand_length (v : List (List Γ)) (j : ℕ) (hj : v.length = j + 1) :
     D.label (expand ℓ v) (expand ℓ v).length =
       some (fcore D ℓ ((der D ℓ).core v j) v[j], ℓ) := by
@@ -284,7 +303,6 @@ theorem label_expand_length (v : List (List Γ)) (j : ℕ) (hj : v.length = j + 
 @[simp] theorem derΛf_none_left (L : Lab (List Γ) (Option C)) : ¬ derΛf D ℓ none L := by
   simp [derΛf]
 
-/-- Desubstitution preserves holes for nonempty marker-free block words. -/
 theorem isHole_der_iff (v : List (List Γ)) (hv : v ≠ []) (hℓ : ∀ X ∈ v, ℓ ∉ X) :
     (der D ℓ).IsHole v ↔ D.IsHole (expand ℓ v) := by
   obtain ⟨j, hlen⟩ : ∃ j, v.length = j + 1 :=
@@ -380,7 +398,8 @@ end Der
 section Cut
 variable {Γ : Type*} [DecidableEq Γ]
 
-/-- Cut a word into marker-free blocks ending just before each occurrence of the marker. -/
+/-- `cutAt ℓ u`: cut `u` after every `ℓ`, dropping what follows the last `ℓ`
+(`u = X_0 ℓ ⋯ X_{k-1} ℓ t ↦ X_0 ⋯ X_{k-1}`). -/
 def cutAt (ℓ : Γ) : List Γ → List (List Γ)
   | [] => []
   | a :: u => if a = ℓ then [] :: cutAt ℓ u else
@@ -403,6 +422,7 @@ theorem cutAt_block {ℓ : Γ} (w : List Γ) : ∀ {X : List Γ}, ℓ ∉ X →
       have hX : ℓ ∉ X := fun h' => h (List.mem_cons_of_mem _ h')
       simp [cutAt, ha, cutAt_block w hX]
 
+/-- `cutAt ℓ (σ_ℓ(v) t) = v` for `v` avoiding `ℓ` and `ℓ ∉ t`. -/
 theorem cutAt_expand_append {ℓ : Γ} {t : List Γ} (ht : ℓ ∉ t) :
     ∀ {v : List (List Γ)}, (∀ X ∈ v, ℓ ∉ X) → cutAt ℓ (expand ℓ v ++ t) = v
   | [], _ => by simpa using cutAt_of_not_mem ht
@@ -411,10 +431,12 @@ theorem cutAt_expand_append {ℓ : Γ} {t : List Γ} (ht : ℓ ∉ t) :
         cutAt_block _ (h X List.mem_cons_self),
         cutAt_expand_append ht (fun Y hY => h Y (List.mem_cons_of_mem _ hY))]
 
+/-- The canonical next level of an expansion is the word itself. -/
 theorem cutAt_expand {ℓ : Γ} {v : List (List Γ)} (h : ∀ X ∈ v, ℓ ∉ X) :
     cutAt ℓ (expand ℓ v) = v := by
   simpa using cutAt_expand_append (t := []) (by simp) h
 
+/-- Every word is `σ_ℓ(v) t` with `v` avoiding `ℓ` and `ℓ ∉ t`. -/
 theorem exists_expand_append (ℓ : Γ) : ∀ u : List Γ,
     ∃ v t, u = expand ℓ v ++ t ∧ ℓ ∉ t ∧ ∀ X ∈ v, ℓ ∉ X
   | [] => ⟨[], [], rfl, by simp, by simp⟩
@@ -443,6 +465,7 @@ theorem avoid_cutAt (ℓ : Γ) (u : List Γ) : ∀ X ∈ cutAt ℓ u, ℓ ∉ X 
   rw [cutAt_expand_append ht hv]
   exact hv
 
+/-- If `u` ends with `ℓ`, then `σ_ℓ(cutAt ℓ u) = u`. -/
 theorem expand_cutAt {ℓ : Γ} {u : List Γ} (hu : u.getLast? = some ℓ) :
     expand ℓ (cutAt ℓ u) = u := by
   obtain ⟨v, t, rfl, ht, hv⟩ := exists_expand_append ℓ u
@@ -473,12 +496,12 @@ end Cut
 section Hierarchy
 universe u v
 
-/-- The alphabet at a hierarchy level, obtained by iterating the list construction. -/
+/-- Level-`i` letters: `Γ_0 = α`, `Γ_{i+1} = Γ_i*` (packets are kept as words). -/
 @[reducible] def Alph (α : Type u) : ℕ → Type u
   | 0 => α
   | i + 1 => List (Alph α i)
 
-/-- The core type at a hierarchy level, with one new start core per derivation. -/
+/-- Level-`i` cores: `C_0 = Q`, `C_{i+1} = C_i ⊎ {⋆_{i+1}}` (`none` is the new start core). -/
 @[reducible] def Cores (Q : Type v) : ℕ → Type v
   | 0 => Q
   | i + 1 => Option (Cores Q i)
@@ -493,18 +516,19 @@ instance instInhabitedAlph {α : Type u} [Inhabited α] : ∀ i, Inhabited (Alph
 
 variable {α : Type u} {Q : Type v}
 
-/-- Iterate the derived-monitor construction along a sequence of markers. -/
+/-- The tower `𝔇_0 = D0`, `𝔇_{i+1} = Der(𝔇_i, ℓ_i)` along a marker sequence `ℓ`. -/
 def tower (D0 : Lettered α Q) (ℓ : (i : ℕ) → Alph α i) :
     (i : ℕ) → Lettered (Alph α i) (Cores Q i)
   | 0 => D0
   | i + 1 => der (tower D0 ℓ i) (ℓ i)
 
-/-- Expand a word at a hierarchy level back to the base alphabet. -/
+/-- Expansion from level `j` down to level `0`: `σ_{ℓ_0} ∘ ⋯ ∘ σ_{ℓ_{j-1}}`. -/
 def expandTo (ℓ : (i : ℕ) → Alph α i) : (j : ℕ) → List (Alph α j) → List α
   | 0, v => v
   | j + 1, v => expandTo ℓ j (expand (ℓ j) v)
 
-/-- Every block avoids its level's marker throughout expansion to the base alphabet. -/
+/-- A level-`j` word is admissible for `ℓ` when at every level its letters avoid the
+marker below, so that the expansions are marker parses. -/
 def Admissible (ℓ : (i : ℕ) → Alph α i) : (j : ℕ) → List (Alph α j) → Prop
   | 0, _ => True
   | j + 1, v => (∀ X ∈ v, ℓ j ∉ X) ∧ Admissible ℓ j (expand (ℓ j) v)
@@ -514,7 +538,8 @@ theorem expandTo_ne_nil (ℓ : (i : ℕ) → Alph α i) :
   | 0, _, h => h
   | j + 1, v, h => expandTo_ne_nil ℓ j _ (by simpa [expand_eq_nil] using h)
 
-/-- Admissible expansion through any number of levels preserves holes. -/
+/-- For a nonempty admissible level-`j` word `v`:
+`v` is a hole of `𝔇_j` iff its expansion is a hole of `𝔇_0`. -/
 theorem isHole_tower_iff (D0 : Lettered α Q) (ℓ : (i : ℕ) → Alph α i) :
     ∀ (j : ℕ) (v : List (Alph α j)), Admissible ℓ j v → v ≠ [] →
       ((tower D0 ℓ j).IsHole v ↔ D0.IsHole (expandTo ℓ j v))
@@ -527,12 +552,12 @@ theorem isHole_tower_iff (D0 : Lettered α Q) (ℓ : (i : ℕ) → Alph α i) :
 
 variable [DecidableEq α] [Inhabited α]
 
-/-- The canonical hierarchy, obtained by repeatedly cutting at the last letter. -/
+/-- The canonical hierarchy obtained by cutting at the last letter of each level. -/
 def hierOf (w : List α) : (i : ℕ) → List (Alph α i)
   | 0 => w
   | i + 1 => cutAt ((hierOf w i).getLastD default) (hierOf w i)
 
-/-- The last letter of the canonical word at a given level, or the default if empty. -/
+/-- The canonical markers `ℓ_i` = the last letter of `u_i`. -/
 def markOf (w : List α) (i : ℕ) : Alph α i := (hierOf w i).getLastD default
 
 theorem hierOf_succ (w : List α) (i : ℕ) :
@@ -572,13 +597,13 @@ theorem admissible_hierOf : ∀ i, Admissible (markOf w) i (hierOf w i)
   | 0 => trivial
   | i + 1 => ⟨avoid_hierOf i, by rw [expand_hierOf hw i]; exact admissible_hierOf i⟩
 
-/-- Expanding a canonical hierarchy level recovers the original word. -/
 theorem expandTo_hierOf : ∀ i, expandTo (markOf w) i (hierOf w i) = w
   | 0 => rfl
   | i + 1 => by
       rw [expandTo, expand_hierOf hw i]; exact expandTo_hierOf i
 
-/-- Every canonical hierarchy level represents a hole exactly when the base word does. -/
+/-- Along the canonical hierarchy, `w` is a hole of `𝔇_0` iff `u_i` is a
+hole of `𝔇_i = Der(⋯Der(𝔇_0, ℓ_0)⋯, ℓ_{i-1})`, for every `i`. -/
 theorem isHole_hierOf_iff (D0 : Lettered α Q) (i : ℕ) :
     (tower D0 (markOf w) i).IsHole (hierOf w i) ↔ D0.IsHole w := by
   rw [isHole_tower_iff D0 (markOf w) i _ (admissible_hierOf hw i) (hierOf_ne_nil hw i),
@@ -607,12 +632,14 @@ end Hierarchy
 section StartOne
 variable {Γ C : Type*} (D : Lettered Γ C) (ℓ : Γ)
 
+/-- `σ_ℓ(v)[: P_k] = σ_ℓ(v[:k])`. -/
 theorem take_expand_cutP (v : List (List Γ)) (k : ℕ) :
     (expand ℓ v).take (cutP ℓ v k) = expand ℓ (v.take k) := by
   have h : expand ℓ v = expand ℓ (v.take k) ++ expand ℓ (v.drop k) := by
     rw [← expand_append, List.take_append_drop]
   rw [h]; exact List.take_left' rfl
 
+/-- `σ_ℓ(v)[: P_{k+1} - 1] = σ_ℓ(v[:k]) X_k` (everything before the marker ending block `k`). -/
 theorem take_expand_pre (v : List (List Γ)) (k : ℕ) (hk : k < v.length) :
     (expand ℓ v).take (cutP ℓ v (k + 1) - 1) = expand ℓ (v.take k) ++ v[k] := by
   rw [expand_split ℓ v k hk, ← List.append_assoc]
@@ -629,15 +656,19 @@ theorem cutP_succ_strictMono (v : List (List Γ)) {k m : ℕ} (hkm : k < m) (hm 
   have h2 := cutP_mono ℓ v (show k + 1 ≤ m by omega)
   omega
 
+/-- The level-`(j+1)` core at index `k+1` is the level-`j` core
+at index `E_k - 1` (just before the marker that ends block `k`). -/
 theorem der_core_succ_eq (v : List (List Γ)) (k : ℕ) (hk : k < v.length) :
     (der D ℓ).core v (k + 1) = some (D.core (expand ℓ v) (cutP ℓ v (k + 1) - 1)) := by
   rw [der_core_succ D ℓ v k hk, fcore_core D ℓ v k hk, core_eq_kst, take_expand_pre ℓ v k hk]
 
-/-- Lift the start-core predicate, marking the new initial core as a start core. -/
+/-- Start-core flags on `Option C`: the new start core `none` is one; `some c` is one iff
+`c` is. -/
 def stLift (st : C → Bool) : Option C → Bool
   | none => true
   | some c => st c
 
+/-- Reading never leaves the non-start cores. -/
 theorem stLift_closed (st : C → Bool) (hcl : ∀ c a, st c = false → st (D.κ a c) = false) :
     ∀ (c : Option C) (X : List Γ), stLift st c = false → stLift st ((der D ℓ).κ X c) = false
   | none, _, h => absurd h (by simp [stLift])
@@ -662,6 +693,8 @@ theorem count_expand {v : List (List Γ)} (hv : ∀ X ∈ v, ℓ ∉ X) :
       ih (fun Y hY => hv Y (List.mem_cons_of_mem _ hY))]
     simp
 
+/-- The prefix of length `s` contains more than `k` markers iff it contains the whole of
+blocks `0..k`. -/
 theorem count_take_expand {v : List (List Γ)} (hv : ∀ X ∈ v, ℓ ∉ X) {k : ℕ} (hk : k < v.length)
     (s : ℕ) : k + 1 ≤ ((expand ℓ v).take s).count ℓ ↔ cutP ℓ v (k + 1) ≤ s := by
   have hvt : ∀ m, ∀ X ∈ v.take m, ℓ ∉ X := fun m X hX => hv X (List.mem_of_mem_take hX)
@@ -683,6 +716,9 @@ theorem count_take_expand {v : List (List Γ)} (hv : ∀ X ∈ v, ℓ ∉ X) {k 
       Nat.min_eq_left (by omega)]
     omega
 
+/-- If the start cores of the run of `σ_ℓ(v)` occupy
+the prefix `[0, s)`, those of `v` in `Der(𝔇, ℓ)` occupy the prefix `[0, s')` with
+`s' = min(|v|, 1 + #{x < s : σ_ℓ(v)[x] = ℓ})`. -/
 theorem startCores_der (st : C → Bool) (v : List (List Γ)) (hℓ : ∀ X ∈ v, ℓ ∉ X) (s : ℕ)
     (hpre : ∀ x < (expand ℓ v).length, st (D.core (expand ℓ v) x) = true ↔ x < s) :
     ∀ x < v.length, stLift st ((der D ℓ).core v x) = true ↔
@@ -705,6 +741,8 @@ theorem startCores_der (st : C → Bool) (v : List (List Γ)) (hℓ : ∀ X ∈ 
 
 omit [DecidableEq Γ] in
 
+/-- Distinct start cores below give distinct
+start cores above. -/
 theorem startCores_der_distinct (st : C → Bool) (v : List (List Γ))
     (hdist : ∀ x y, x < (expand ℓ v).length → y < (expand ℓ v).length →
       st (D.core (expand ℓ v) x) = true → st (D.core (expand ℓ v) y) = true → x ≠ y →
@@ -739,7 +777,8 @@ section StartTower
 universe u v
 variable {α : Type u} {Q : Type v}
 
-/-- Recognise the start cores introduced by repeated derivation. -/
+/-- Start cores at level `i`: none at level `0` (where `⋆ = q0 ∈ Q`); at level `i+1` the new
+`⋆_{i+1} = none` and the start cores of level `i`. -/
 def isStart : (i : ℕ) → Cores Q i → Bool
   | 0, _ => false
   | i + 1, c => stLift (isStart i) c
@@ -759,15 +798,15 @@ theorem countP_range_of_prefix {n s : ℕ} {p : ℕ → Bool} (hs : s ≤ n)
 
 variable [DecidableEq α] [Inhabited α]
 
-/-- The number of start-core positions in a canonical hierarchy level. -/
+/-- `s_j`: the number of indices of `u_j` whose core is a start core. -/
 def sCount (D0 : Lettered α Q) (w : List α) (j : ℕ) : ℕ :=
   (List.range (hierOf w j).length).countP
     (fun x => isStart j ((tower D0 (markOf w) j).core (hierOf w j) x))
 
-/--
-Start cores occupy an initial segment of distinct cores, and transitions from ordinary cores
-remain ordinary.
--/
+/-- For a nonempty `w`, at every level `j` of its canonical
+hierarchy, the start-core indices of the run of `u_j` form the prefix `[0, s_j)`,
+`s_j ≤ |u_j|`, and their cores are pairwise distinct; transitions never leave the
+non-start cores. -/
 theorem startCore_invariants (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) : ∀ j,
     (∀ x < (hierOf w j).length,
       isStart j ((tower D0 (markOf w) j).core (hierOf w j) x) = true ↔ x < sCount D0 w j) ∧
@@ -802,6 +841,8 @@ theorem startCore_invariants (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) 
         exact this
       · exact stLift_closed (tower D0 (markOf w) j) (markOf w j) (isStart j) hcl
 
+/-- `s_0 = 0` and
+`s_{j+1} = min(|u_{j+1}|, 1 + #{x < s_j : u_j[x] = ℓ_j})` (so `s_1 = 1`). -/
 theorem sCount_zero (D0 : Lettered α Q) (w : List α) : sCount D0 w 0 = 0 := by
   simp [sCount, isStart]
 
@@ -821,35 +862,10 @@ end StartTower
 section Transfer
 variable {Γ C Γ' C' : Type*}
 
-/-- A core occurs before the end of the given word. -/
-def UsedCore (D : Lettered Γ C) (v : List Γ) (c : C) : Prop := ∃ x < v.length, D.core v x = c
-
-/-- A label is initial or consists of a used core and an occurring letter. -/
-def UsedLab (D : Lettered Γ C) (v : List Γ) : Lab Γ C → Prop
-  | none => True
-  | some (c, a) => UsedCore D v c ∧ a ∈ v
-
-/-- Map both the letter and core components of a label. -/
+/-- Renaming labels: `S ↦ S`, `(c, a) ↦ (ψ c, φ a)`. -/
 def mapLab (φ : Γ' → Γ) (ψ : C' → C) (L : Lab Γ' C') : Lab Γ C := L.map (Prod.map ψ φ)
 
-/-- A correspondence preserving letters, used cores, admission and targets along two words. -/
-structure ConfIso (E : Lettered Γ' C') (v' : List Γ') (D : Lettered Γ C) (v : List Γ) where
-
-  φ : Γ' → Γ
-
-  ψ : C' → C
-  letters_inj : ∀ a ∈ v', ∀ b ∈ v', φ a = φ b → a = b
-  letters_onto : ∀ a, a ∈ v ↔ ∃ b ∈ v', φ b = a
-  cores_inj : ∀ c d, UsedCore E v' c → UsedCore E v' d → ψ c = ψ d → c = d
-  cores_onto : ∀ c, UsedCore D v c ↔ ∃ d, UsedCore E v' d ∧ ψ d = c
-  start : ψ E.start = D.start
-  κ_comm : ∀ c a, UsedCore E v' c → a ∈ v' → UsedCore E v' (E.κ a c) →
-    ψ (E.κ a c) = D.κ (φ a) (ψ c)
-  tf : ∀ c a, UsedCore E v' c → a ∈ v' → (E.Tf c a ↔ D.Tf (ψ c) (φ a))
-  Λ : ∀ L L', UsedLab E v' L → UsedLab E v' L' →
-    (E.Λ L L' ↔ D.Λ (mapLab φ ψ L) (mapLab φ ψ L'))
-  Λf : ∀ L L', UsedLab E v' L → UsedLab E v' L' →
-    (E.Λf L L' ↔ D.Λf (mapLab φ ψ L) (mapLab φ ψ L'))
+variable {E : Lettered Γ' C'} {v' : List Γ'} {D : Lettered Γ C} {v : List Γ}
 
 end Transfer
 
@@ -861,6 +877,7 @@ theorem mem_expand {Γ : Type*} {ℓ a : Γ} {v : List (List Γ)} :
     a ∈ expand ℓ v ↔ ∃ X ∈ v, a ∈ X ++ [ℓ] := by
   simp [expand, List.mem_flatMap]
 
+/-- Admissibility only depends on the letters (for nonempty words). -/
 theorem admissible_of_subset (ℓ : (i : ℕ) → Alph α i) : ∀ (j : ℕ) (v v₀ : List (Alph α j)),
     Admissible ℓ j v₀ → v₀ ≠ [] → (∀ a ∈ v, a ∈ v₀) → Admissible ℓ j v
   | 0, _, _, _, _, _ => trivial
@@ -874,11 +891,6 @@ theorem admissible_of_subset (ℓ : (i : ℕ) → Alph α i) : ∀ (j : ℕ) (v 
       · exact mem_expand.mpr ⟨X, hsub X hX, List.mem_append_left _ haX⟩
       · obtain ⟨Y, hY⟩ := List.exists_mem_of_ne_nil v₀ hv₀
         exact mem_expand.mpr ⟨Y, hY, by simp⟩
-
-/-- Lift a map of hierarchy alphabets through further list levels. -/
-def liftMap {j j' : ℕ} (φ : Alph α j' → Alph α j) : (r : ℕ) → Alph α (j' + r) → Alph α (j + r)
-  | 0 => φ
-  | r + 1 => List.map (liftMap φ r)
 
 variable [DecidableEq α] [Inhabited α]
 
@@ -905,21 +917,23 @@ end Pumping
 
 section Bounded
 universe u v
-variable {α : Type u}
+variable {α : Type u} {Q : Type v}
 
-/-- All letters occurring in the word are equal. -/
+/-- A unary word `x^m`. -/
 def IsUnary {β : Type*} (u : List β) : Prop := ∀ a ∈ u, ∀ b ∈ u, a = b
 
-/-- Every comparison ending before the last position leaves a suffix of length at most `h`. -/
+/-- `horizon(u) ≤ h`: every nonterminal comparison `(s, e)` has `|u| - e ≤ h` (no suffix
+longer than `h` occurs earlier). -/
 def HorizonLE {β : Type*} (u : List β) (h : ℕ) : Prop :=
   ∀ s e, IsComp u s e → e < u.length → u.length - e ≤ h
 
 variable [DecidableEq α] [Inhabited α]
 
-/-- Some level at depth at most `d` is unary or has comparison horizon at most `h`. -/
+/-- A word reaches a unary level or a bounded comparison horizon within the given depth. -/
 def InL (d h : ℕ) (w : List α) : Prop :=
   ∃ i ≤ d, IsUnary (hierOf w i) ∨ HorizonLE (hierOf w i) h
 
+/-- The core run of `x^m` is the orbit of `⋆` under `κ(x, ·)`. -/
 theorem core_replicate {Γ C : Type*} (D : Lettered Γ C) (x : Γ) (m : ℕ) :
     ∀ k ≤ m, D.core (List.replicate m x) k = (D.κ x)^[k] D.start := by
   intro k hk
@@ -930,6 +944,7 @@ theorem core_replicate {Γ C : Type*} (D : Lettered Γ C) (x : Γ) (m : ℕ) :
     rw [List.replicate_succ', kst_append, ih m (by omega), Function.iterate_succ_apply']
     rfl
 
+/-- Orbits in a finite set: every iterate is an iterate of index `< |C|` and not larger. -/
 theorem iterate_small {C : Type*} [Fintype C] (f : C → C) (c : C) :
     ∀ n, ∃ t, t ≤ n ∧ t < Fintype.card C ∧ f^[t] c = f^[n] c := by
   intro n
@@ -955,7 +970,10 @@ theorem iterate_small {C : Type*} [Fintype C] (f : C → C) (c : C) :
       · exact key a b h he
       · exact key b a h he.symm
 
-/-- A unary hole exists exactly when one exists with length bounded by the number of cores. -/
+/-- A lettered instance with finitely many cores has a unary hole
+`x^m` iff it has one with `1 ≤ m ≤ |C|`: holehood of `x^m` only depends on the vertex
+colour of `x` along the orbit of `⋆`, and the final core recurs among the first `|C|`
+iterates. -/
 theorem exists_unary_hole_iff {Γ C : Type*} [Fintype C] (D : Lettered Γ C) (x : Γ) :
     (∃ m, D.IsHole (List.replicate m x)) ↔
       ∃ m, 1 ≤ m ∧ m ≤ Fintype.card C ∧ D.IsHole (List.replicate m x) := by
@@ -1003,17 +1021,18 @@ section Reader
 universe u v
 variable {α : Type u} {Q : Type v}
 
-/-- Recover the reader state from an initial or core-and-letter label. -/
+/-- The state of a label: `st(S) = q0`, `st(c, a) = δ(c, a)`. -/
 def stOf (M : DFA α Q) : Lab α Q → Q
   | none => M.start
   | some (c, a) => M.step c a
 
-/-- The reader's admission relation expressed on core-and-letter labels. -/
+/-- `Λ(L, L') = Λ^f(L, L') = [(st L, st L') ∈ R]` for `L' ≠ S` (false if `L' = S`). -/
 def readerΛ (M : DFA α Q) (R : Q → Q → Prop) : Lab α Q → Lab α Q → Prop
   | _, none => False
   | L, some p => R (stOf M L) (stOf M (some p))
 
-/-- View an ordinary finite reader as a lettered monitor. -/
+/-- `𝔇_0` of a reader `(M, R, T)`: `Γ = α`, `C = Q`, `⋆ = q0`, `κ(a, c) = δ(c, a)`,
+`Λ = Λ^f` as above, `Tf(c, a) = [δ(c, a) ∈ T]`. -/
 def ofReader (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) : Lettered α Q where
   start := M.start
   κ a c := M.step c a
@@ -1038,7 +1057,6 @@ theorem stOf_label (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List �
       rw [Lettered.label_succ _ _ (by omega), stOf, core_ofReader, runPrefix, runPrefix,
         List.take_succ_eq_append_getElem (by omega), DFA.eval_append_singleton]
 
-/-- For nonempty words, lettered-reader holes and ordinary reader holes coincide. -/
 theorem isHole_ofReader_iff (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) {w : List α}
     (hw : w ≠ []) : (ofReader M R T).IsHole w ↔ IsReaderHole M R T w := by
   obtain ⟨j, hlen⟩ : ∃ j, w.length = j + 1 :=
@@ -1051,7 +1069,7 @@ theorem isHole_ofReader_iff (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) {w
     rw [hlab] at this
     exact this
   have hfin' : stOf M (some (runPrefix M w j, w[j])) = runPrefix M w w.length := hfin
-  rw [absHoleG_iff_split]
+  rw [isReaderHole_iff_split]
   unfold Lettered.IsHole
   rw [hlab, exists_some_eq_iff]
   refine and_congr (by rw [ofReader_Tf, hfin]) (and_congr ?_ ?_)
@@ -1084,6 +1102,8 @@ theorem isHole_ofReader_iff (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) {w
       rw [← Lettered.label_succ _ _ (by omega), hst s (by have := hc.1; omega),
         hst _ (by omega)] at hr
       exact h s (e' + 1) hc.1 he hc.2.2 hr
+
+variable [DecidableEq α] [Inhabited α]
 
 end Reader
 

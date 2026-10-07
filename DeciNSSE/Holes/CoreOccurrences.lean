@@ -1,20 +1,25 @@
 import DeciNSSE.Holes.Cores
 
-/-! # Suffix occurrences and ordinary cores
+/-! # Occurrences of persistent cores
 
-Bridge suffixes characterise the original positions retained by successive
-hierarchy levels. The greatest retained position determines a suffix whose
-occurrences control comparisons between equal supports.
+Replacing or splicing at persistent cores preserves the relevant suffixes
+and identifies equal reader states across a support plateau.
 -/
+
+section
+
+set_option autoImplicit false
 
 namespace DeciNSSE.CoreOccurrences
 open DeciNSSE.LetteredHierarchy DeciNSSE.Cores
+open scoped List
 
-universe u
+universe u v
 
 section Expansion
 variable {α : Type u}
 
+/-- Iterated expansion is a word morphism. -/
 theorem expandTo_append (ℓ : (i : ℕ) → Alph α i) :
     ∀ h (a b : List (Alph α h)),
       expandTo ℓ h (a ++ b) = expandTo ℓ h a ++ expandTo ℓ h b
@@ -22,12 +27,21 @@ theorem expandTo_append (ℓ : (i : ℕ) → Alph α i) :
   | h + 1, a, b => by
       simp only [expandTo, expand_append, expandTo_append ℓ h]
 
+@[simp] theorem expandTo_nil (ℓ : (i : ℕ) → Alph α i) :
+    ∀ h, expandTo ℓ h [] = []
+  | 0 => rfl
+  | h + 1 => by simpa [expandTo] using expandTo_nil ℓ h
+
 variable [DecidableEq α] [Inhabited α]
 
+/-- The common word between a live level-`h` core and its expansion start.
+This is a word, not a hypothesis predicate. Above the live hierarchy it can be
+longer than `w`; subsequent occurrence theorems still hold. -/
 def bridge (w : List α) : ℕ → List α
   | 0 => []
   | h + 1 => bridge w h ++ expandTo (markOf w) h [markOf w h]
 
+/-- Expanding the suffix starting at a packet's closing marker. -/
 theorem drop_before_cut {Γ : Type*} (ℓ : Γ) (v : List (List Γ))
     (x : ℕ) (hx : x < v.length) :
     (expand ℓ v).drop (cutP ℓ v (x + 1) - 1) = ℓ :: expand ℓ (v.drop (x + 1)) := by
@@ -36,6 +50,7 @@ theorem drop_before_cut {Γ : Type*} (ℓ : Γ) (v : List (List Γ))
   rw [cutP_succ ℓ v x hx]
   simp [cutP]
 
+/-- Live cores form a suffix of the level word. -/
 theorem corePos_live_mono {w : List α} (hw : w ≠ []) :
     ∀ h x y, x ≤ y → y < (hierOf w h).length →
       ∀ p, corePos w h x = some p → ∃ q, corePos w h y = some q
@@ -50,6 +65,7 @@ theorem corePos_live_mono {w : List α} (hw : w ≠ []) :
         rw [expand_hierOf hw h] at hc
         omega
 
+/-- The full expansion identity, valid at every live core. -/
 theorem drop_corePos {w : List α} (hw : w ≠ []) :
     ∀ h x, x < (hierOf w h).length → ∀ p, corePos w h x = some p →
       w.drop p = bridge w h ++ expandTo (markOf w) h ((hierOf w h).drop x)
@@ -71,11 +87,13 @@ theorem drop_corePos {w : List α} (hw : w ≠ []) :
       rw [expandTo_append, ← List.append_assoc]
       rfl
 
+/-- The last letter of a hierarchy level is its marker. -/
 theorem drop_hier_last {w : List α} (hw : w ≠ []) (h : ℕ) :
     (hierOf w h).drop ((hierOf w h).length - 1) = [markOf w h] := by
   rw [List.drop_length_sub_one (hierOf_ne_nil hw h)]
   simp [markOf, List.getLast?_eq_some_getLast (hierOf_ne_nil hw h)]
 
+/-- A successor core is exactly a live, non-final marker core at the lower level. -/
 theorem corePos_succ_iff {w : List α} (hw : w ≠ []) (h p : ℕ) :
     (∃ y < (hierOf w (h + 1)).length, corePos w (h + 1) y = some p) ↔
       ∃ x, x + 1 < (hierOf w h).length ∧
@@ -105,6 +123,8 @@ theorem corePos_succ_iff {w : List α} (hw : w ≠ []) (h p : ℕ) :
       rw [he']
       exact hp
 
+/-- Exact occurrence alignment for the common core-to-start words. No
+canonical-occurrence or disjointness assumption is made. -/
 theorem corePos_iff_bridge {w : List α} (hw : w ≠ []) :
     ∀ h p, (∃ x < (hierOf w h).length, corePos w h x = some p) ↔
       p + (bridge w h).length < w.length ∧ bridge w h <+: w.drop p
@@ -154,6 +174,7 @@ theorem corePos_iff_bridge {w : List α} (hw : w ≠ []) :
           omega
         exact (corePos_succ_iff hw h p).mpr ⟨x, hxn, hm, hp⟩
 
+/-- A defined chain word is the next common core-to-start word. -/
 theorem rho_eq_bridge {w r : List α} {h : ℕ} (hr : rho w h = some r) :
     r = bridge w (h + 1) := by
   by_cases hw : w = []
@@ -164,6 +185,7 @@ theorem rho_eq_bridge {w r : List α} {h : ℕ} (hr : rho w h = some r) :
     rw [drop_corePos hw h _ (by omega) p hp, drop_hier_last hw h]
     rfl
 
+/-- Any live core makes the chain word at that level defined. -/
 theorem rho_defined_of_live {w : List α} (hw : w ≠ []) (h x p : ℕ)
     (hx : x < (hierOf w h).length) (hp : corePos w h x = some p) :
     ∃ r, rho w h = some r := by
@@ -171,6 +193,7 @@ theorem rho_defined_of_live {w : List α} (hw : w ≠ []) (h x p : ℕ)
     (by omega) (by omega) p hp
   exact ⟨w.drop q, by simp [rho, hw, hq]⟩
 
+/-- Undefined chain levels have no live cores one level up. -/
 theorem no_live_succ_of_rho_none {w : List α} (hw : w ≠ []) (h : ℕ)
     (hr : rho w h = none) :
     ¬ ∃ x < (hierOf w (h + 1)).length, ∃ p, corePos w (h + 1) x = some p := by
@@ -180,6 +203,8 @@ theorem no_live_succ_of_rho_none {w : List α} (hw : w ≠ []) (h : ℕ)
   rw [hr] at he
   cases he
 
+/-- All non-final occurrences of the chain word are precisely the live cores
+of the next level, including noncanonical and overlapping occurrences. -/
 theorem corePos_succ_iff_occurrence {w : List α} (hw : w ≠ []) (h p : ℕ) :
     (∃ x < (hierOf w (h + 1)).length, corePos w (h + 1) x = some p) ↔
       ∃ r, rho w h = some r ∧ p + r.length < w.length ∧ r <+: w.drop p := by
@@ -199,22 +224,36 @@ end Expansion
 
 end DeciNSSE.CoreOccurrences
 
+end
+
+section
+
+set_option autoImplicit false
+
 namespace DeciNSSE.CoreOccurrences
 open DeciNSSE.Cores DeciNSSE.LetteredHierarchy
+open scoped List
 
-universe u
-variable {α : Type u} [DecidableEq α]
+universe u v
+variable {α : Type u} {Q : Type v} [DecidableEq α]
 
-/-- The original positions represented by ordinary cores at a canonical hierarchy level. -/
+/-- All ordinary (defined, non-symbolic) core positions at level `j`. -/
 def ordinaryCores [Inhabited α] (w : List α) (j : ℕ) : Set ℕ :=
   {p | ∃ x < (hierOf w j).length, corePos w j x = some p}
 
 end DeciNSSE.CoreOccurrences
 
+end
+
+section
+
+set_option autoImplicit false
+
 namespace DeciNSSE.CoreOccurrences
 open DeciNSSE.Cores DeciNSSE.LetteredHierarchy
-universe u
-variable {α : Type u} [DecidableEq α]
+open scoped List
+universe u v
+variable {α : Type u} {Q : Type v} [DecidableEq α]
 
 private theorem corePos_order [Inhabited α] {w : List α} (hw : w ≠ []) :
     ∀ j x y, x ≤ y → y < (hierOf w j).length →
@@ -233,6 +272,7 @@ private theorem corePos_order [Inhabited α] {w : List α} (hw : w ≠ []) :
         rw [expand_hierOf hw j] at hc
         omega
 
+/-- The chain word at a level is the suffix at its greatest live core. -/
 theorem rho_at_greatest [Inhabited α] {w : List α} {j f : ℕ}
     (hw : w ≠ []) (hmax : IsGreatest (ordinaryCores w j) f) :
     rho w j = some (w.drop f) := by
@@ -247,3 +287,5 @@ theorem rho_at_greatest [Inhabited α] {w : List α} {j f : ℕ}
   simp [rho, hw, hq]
 
 end DeciNSSE.CoreOccurrences
+
+end

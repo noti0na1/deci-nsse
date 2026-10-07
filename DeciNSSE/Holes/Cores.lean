@@ -1,19 +1,23 @@
 import DeciNSSE.Holes.Supports
 
-/-! # Original positions of hierarchy cores
+/-! # Persistent cores and support plateaus
 
-Ordinary cores at a derived level correspond to positions in the original word.
-Their suffixes describe membership in the decreasing hierarchy supports.
+Prefix decoding follows cores through admissible expansions. Equal nonempty
+supports at two levels force a repeated original reader core.
 -/
+
+set_option autoImplicit false
 
 namespace DeciNSSE.Cores
 open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy DeciNSSE.Supports
+open scoped List
 
 universe u v
 
 section PrefixCode
 variable {Γ : Type*}
 
+/-- The one-level packet code reflects prefixes, including empty packet bodies. -/
 theorem expand_prefix_iff {ℓ : Γ} {a b : List (List Γ)}
     (ha : ∀ X ∈ a, ℓ ∉ X) (hb : ∀ X ∈ b, ℓ ∉ X) :
     expand ℓ a <+: expand ℓ b ↔ a <+: b := by
@@ -24,6 +28,7 @@ theorem expand_prefix_iff {ℓ : Γ} {a b : List (List Γ)}
 
 variable {α : Type u}
 
+/-- Prefix decoding through the entire admissible tower). -/
 theorem expandTo_prefix_iff (ℓ : (i : ℕ) → Alph α i) :
     ∀ (j : ℕ) (a b : List (Alph α j)), Admissible ℓ j a → Admissible ℓ j b →
       (expandTo ℓ j a <+: expandTo ℓ j b ↔ a <+: b)
@@ -33,6 +38,7 @@ theorem expandTo_prefix_iff (ℓ : (i : ℕ) → Alph α i) :
         expandTo ℓ j (expand (ℓ j) b) ↔ a <+: b
       rw [expandTo_prefix_iff ℓ j _ _ ha.2 hb.2, expand_prefix_iff ha.1 hb.1]
 
+/-- Admissibility is inherited by a word using a subset of the letters. -/
 theorem admissible_of_subset (ℓ : (i : ℕ) → Alph α i) :
     ∀ (j : ℕ) (a b : List (Alph α j)), a ⊆ b → Admissible ℓ j b → Admissible ℓ j a
   | 0, _, _, _, _ => trivial
@@ -42,23 +48,27 @@ theorem admissible_of_subset (ℓ : (i : ℕ) → Alph α i) :
       obtain ⟨X, hX, hx⟩ := List.mem_flatMap.mp hx
       exact List.mem_flatMap.mpr ⟨X, hab hX, hx⟩
 
+variable [DecidableEq α] [Inhabited α]
+
 end PrefixCode
 
 section Coordinates
 variable {α : Type u} [DecidableEq α] [Inhabited α]
 
-/-- The original word position corresponding to a derived core, or none for a start core. -/
+/-- The original position of a live core. `none` represents a symbolic start core.
+At a successor level the core is that of the preceding packet's closing marker. -/
 def corePos (w : List α) : ℕ → ℕ → Option ℕ
   | 0, x => some x
   | _ + 1, 0 => none
   | h + 1, x + 1 =>
       corePos w h (cutP (markOf w h) (hierOf w (h + 1)) (x + 1) - 1)
 
-/-- The suffix at the final core position of a canonical level, when that core is ordinary. -/
+/-- The hierarchy form is partial: an undefined final core does not give a chain word. -/
 def rho (w : List α) (h : ℕ) : Option (List α) :=
   if w = [] then none else
     (corePos w h ((hierOf w h).length - 1)).map (w.drop ·)
 
+/-- A live core really is a position in the original word. -/
 theorem corePos_lt {w : List α} (hw : w ≠ []) :
     ∀ h x, x < (hierOf w h).length → ∀ p, corePos w h x = some p → p < w.length
   | 0, x, hx, p, hp => by
@@ -74,6 +84,7 @@ theorem corePos_lt {w : List α} (hw : w ≠ []) :
 
 variable {Q : Type v}
 
+/-- The positional core map realizes the existing tower's original-state map. -/
 theorem orig_core_eq (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) :
     ∀ h x, x < (hierOf w h).length →
       orig h ((tower D0 (markOf w) h).core (hierOf w h) x) =
@@ -96,6 +107,8 @@ theorem orig_core_eq (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) :
 
 variable [DecidableEq Q]
 
+/-- Support as the states at all live positional cores. This does not yet identify
+those positions with occurrences of `rho`. -/
 theorem mem_supp_iff_corePos (D0 : Lettered α Q) {w : List α} (hw : w ≠ [])
     (h : ℕ) (q : Q) :
     q ∈ supp D0 w h ↔ ∃ x < (hierOf w h).length,
@@ -113,6 +126,9 @@ end Coordinates
 section Occurrences
 variable {α : Type u} [DecidableEq α] [Inhabited α]
 
+variable {Q : Type v} [DecidableEq Q]
+
+/-- At the first level, live cores are exactly non-final occurrences of the marker. -/
 theorem corePos_one_iff {w : List α} (hw : w ≠ []) (p : ℕ) :
     (∃ x < (hierOf w 1).length, corePos w 1 x = some p) ↔
       p + 1 < w.length ∧ w[p]? = some (markOf w 0) := by

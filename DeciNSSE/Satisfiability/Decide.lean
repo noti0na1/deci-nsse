@@ -1,142 +1,173 @@
 import DeciNSSE.Satisfiability.Finite
 
-/-! # Deciding satisfiability
+/-! # Finite searches for satisfiability
 
-Finite closure and bounded path enumeration decide label and cycle clashes.
-The resulting Boolean procedures decide unrestricted and finite satisfiability.
+Finite closure and bounded path searches decide label and cycle clashes,
+and hence arbitrary-tree and finite-tree covariant satisfiability.
 -/
+
+section
 
 namespace DeciNSSE
 
-variable {k : ℕ}
+variable {n k : ℕ}
 
 namespace PathDecision
 
-def lower (ϕ : Constraint k) (pairs : Finset (V k × V k)) :
-    List (Fin 2) → V k → V k → Bool
+/-- The shared closure is data, so recursive path checks do not recompute it. -/
+def lower (ϕ : Constraint n k) (pairs : Finset (V k × V k)) :
+    List (Fin n) → V k → V k → Bool
   | [], x, y => decide ((x, y) ∈ pairs)
-  | i :: π, x, y => ϕ.any fun
-      | .fLe z₁ z₂ z => decide ((z, y) ∈ pairs) && lower ϕ pairs π x (if i = 0 then z₁ else z₂)
-      | _ => false
+  | i :: π, x, y => (lowerLits ϕ).any fun l =>
+      decide ((l.2, y) ∈ pairs) && lower ϕ pairs π x (l.1 i)
 
-def upper (ϕ : Constraint k) (pairs : Finset (V k × V k)) :
-    List (Fin 2) → V k → V k → Bool
+/-- The symmetric recursion with the same precomputed closure. -/
+def upper (ϕ : Constraint n k) (pairs : Finset (V k × V k)) :
+    List (Fin n) → V k → V k → Bool
   | [], x, y => decide ((x, y) ∈ pairs)
-  | i :: π, x, y => ϕ.any fun
-      | .leF z z₁ z₂ => decide ((x, z) ∈ pairs) && upper ϕ pairs π (if i = 0 then z₁ else z₂) y
-      | _ => false
+  | i :: π, x, y => (upperLits ϕ).any fun m =>
+      decide ((x, m.1) ∈ pairs) && upper ϕ pairs π (m.2 i) y
 
 end PathDecision
 
-def lowerAtB (ϕ : Constraint k) (π : List (Fin 2)) (x y : V k) : Bool :=
+/-- Read a lower path judgment from the root, searching the finite literal list. -/
+def lowerAtB (ϕ : Constraint n k) (π : List (Fin n)) (x y : V k) : Bool :=
   PathDecision.lower ϕ (derivedPairs ϕ) π x y
 
-def upperAtB (ϕ : Constraint k) (π : List (Fin 2)) (x y : V k) : Bool :=
+/-- The symmetric executable upper path judgment. -/
+def upperAtB (ϕ : Constraint n k) (π : List (Fin n)) (x y : V k) : Bool :=
   PathDecision.upper ϕ (derivedPairs ϕ) π x y
 
-theorem lowerAtB_iff (ϕ : Constraint k) (π : List (Fin 2)) (x y : V k) :
+/-- The Boolean lower-path test agrees with the inductive path judgement. -/
+theorem lowerAtB_iff (ϕ : Constraint n k) (π : List (Fin n)) (x y : V k) :
     lowerAtB ϕ π x y = true ↔ LowerAt ϕ π x y := by
   induction π generalizing x y with
   | nil => simp [lowerAtB, PathDecision.lower, mem_derivedPairs]
   | cons i π ih =>
-    change (ϕ.any fun
-      | .fLe z₁ z₂ z => derivesB ϕ z y && lowerAtB ϕ π x (if i = 0 then z₁ else z₂)
-      | _ => false) = true ↔ _
-    simp only [List.any_eq_true]
+    change ((lowerLits ϕ).any fun l =>
+      derivesB ϕ l.2 y && lowerAtB ϕ π x (l.1 i)) = true ↔ _
+    simp only [List.any_eq_true, Bool.and_eq_true, derivesB_iff, ih]
     constructor
-    · rintro ⟨l, hl, h⟩
-      cases l <;> simp only [Bool.false_eq_true, Bool.and_eq_true, derivesB_iff, ih] at h
-      exact .cons hl h.1 h.2
+    · rintro ⟨⟨a, u⟩, hl, hd, hp⟩
+      exact .cons ((mem_lowerLits ϕ a u).mp hl) hd hp
     · intro h
       cases h with
-      | cons hl hd hp =>
-        refine ⟨_, hl, ?_⟩
-        simp only [Bool.and_eq_true, derivesB_iff, ih]
-        exact ⟨hd, hp⟩
+      | @cons a u _ _ _ _ hl hd hp =>
+        exact ⟨(a, u), (mem_lowerLits ϕ a u).mpr hl, hd, hp⟩
 
-theorem upperAtB_iff (ϕ : Constraint k) (π : List (Fin 2)) (x y : V k) :
+/-- The Boolean upper-path test agrees with the inductive path judgement. -/
+theorem upperAtB_iff (ϕ : Constraint n k) (π : List (Fin n)) (x y : V k) :
     upperAtB ϕ π x y = true ↔ UpperAt ϕ π x y := by
   induction π generalizing x y with
   | nil => simp [upperAtB, PathDecision.upper, mem_derivedPairs]
   | cons i π ih =>
-    change (ϕ.any fun
-      | .leF z z₁ z₂ => derivesB ϕ x z && upperAtB ϕ π (if i = 0 then z₁ else z₂) y
-      | _ => false) = true ↔ _
-    simp only [List.any_eq_true]
+    change ((upperLits ϕ).any fun m =>
+      derivesB ϕ x m.1 && upperAtB ϕ π (m.2 i) y) = true ↔ _
+    simp only [List.any_eq_true, Bool.and_eq_true, derivesB_iff, ih]
     constructor
-    · rintro ⟨l, hl, h⟩
-      cases l <;> simp only [Bool.false_eq_true, Bool.and_eq_true, derivesB_iff, ih] at h
-      exact .cons h.1 hl h.2
+    · rintro ⟨⟨v, b⟩, hm, hd, hp⟩
+      exact .cons hd ((mem_upperLits ϕ v b).mp hm) hp
     · intro h
       cases h with
-      | cons hd hl hp =>
-        refine ⟨_, hl, ?_⟩
-        simp only [Bool.and_eq_true, derivesB_iff, ih]
-        exact ⟨hd, hp⟩
+      | @cons _ v b _ _ _ hd hm hp =>
+        exact ⟨(v, b), (mem_upperLits ϕ v b).mpr hm, hd, hp⟩
 
-/-- Enumerate the nonempty binary paths of length at most the given bound. -/
-def pathsUpTo : ℕ → List (List (Fin 2))
+/-- Satisfiability over arbitrary, possibly infinite path trees. -/
+def satInfB (ϕ : Constraint n k) : Bool := !labelClashB ϕ
+
+theorem satInfB_iff_not_labelClash (ϕ : Constraint n k) :
+    satInfB ϕ = true ↔ ¬ LabelClash ϕ := by
+  simp [satInfB, Bool.eq_false_iff, labelClashB_iff]
+
+/-- The covariant satisfiability test succeeds exactly when an arbitrary-tree solution exists. -/
+theorem satInfB_iff (ϕ : Constraint n k) :
+    satInfB ϕ = true ↔ ∃ ρ : V k → Tree n, Covariant.Sat ρ ϕ := by
+  rw [satisfiable_iff_not_labelClash, satInfB_iff_not_labelClash]
+
+end DeciNSSE
+
+end
+
+section
+
+namespace DeciNSSE
+
+variable {n k : ℕ}
+
+/-- All nonempty paths over `Fin n` of length at most the supplied bound. -/
+def pathsUpTo (n : ℕ) : ℕ → List (List (Fin n))
   | 0 => []
-  | n + 1 => [[0], [1]] ++ (pathsUpTo n).map (0 :: ·) ++ (pathsUpTo n).map (1 :: ·)
+  | m + 1 => (List.finRange n).map (fun i => [i]) ++
+      (List.finRange n).flatMap (fun i => (pathsUpTo n m).map (i :: ·))
 
-theorem mem_pathsUpTo (ρ : List (Fin 2)) (n : ℕ) :
-    ρ ∈ pathsUpTo n ↔ 0 < ρ.length ∧ ρ.length ≤ n := by
-  induction n generalizing ρ with
-  | zero => cases ρ <;> simp [pathsUpTo]
-  | succ n ih =>
+theorem mem_pathsUpTo (ρ : List (Fin n)) (m : ℕ) :
+    ρ ∈ pathsUpTo n m ↔ 0 < ρ.length ∧ ρ.length ≤ m := by
+  induction m generalizing ρ with
+  | zero =>
+    simp only [pathsUpTo, List.not_mem_nil, false_iff, not_and]
+    omega
+  | succ m ih =>
     cases ρ with
     | nil => simp [pathsUpTo]
     | cons i ρ =>
-      fin_cases i <;> simp [pathsUpTo, ih] <;>
-        cases ρ <;> simp_all
+      have h1 : i :: ρ ∈ (List.finRange n).map (fun j => [j]) ↔ ρ = [] := by
+        simp only [List.mem_map, List.mem_finRange, true_and]
+        constructor
+        · rintro ⟨j, hj⟩
+          exact (List.cons.inj hj).2.symm
+        · rintro rfl
+          exact ⟨i, rfl⟩
+      have h2 : i :: ρ ∈ (List.finRange n).flatMap
+          (fun j => (pathsUpTo n m).map (j :: ·)) ↔ ρ ∈ pathsUpTo n m := by
+        simp only [List.mem_flatMap, List.mem_finRange, true_and, List.mem_map]
+        constructor
+        · rintro ⟨j, σ, hσ, he⟩
+          obtain ⟨rfl, rfl⟩ := List.cons.inj he
+          exact hσ
+        · intro h
+          exact ⟨i, ρ, h, rfl⟩
+      rw [pathsUpTo, List.mem_append, h1, h2, ih]
+      cases ρ <;> simp
 
-/-- Search for a cycle clash along paths of length at most the number of variable pairs. -/
-def cycleClashB (ϕ : Constraint k) : Bool :=
+/-- Search the bounded witnesses; completeness needs absence of a label clash. -/
+def cycleClashB (ϕ : Constraint n k) : Bool :=
   let pairs := derivedPairs ϕ
-  (pathsUpTo (k * k)).any fun ρ =>
+  (pathsUpTo n (k * k)).any fun ρ =>
     (List.finRange k).any fun x => (List.finRange k).any fun y =>
       PathDecision.lower ϕ pairs ρ x x && decide ((x, y) ∈ pairs) &&
         PathDecision.upper ϕ pairs ρ y y
 
-theorem cycleClashB_iff_bounded (ϕ : Constraint k) :
+theorem cycleClashB_iff_bounded (ϕ : Constraint n k) :
     cycleClashB ϕ = true ↔ ∃ ρ x y,
       0 < ρ.length ∧ ρ.length ≤ k * k ∧
       LowerAt ϕ ρ x x ∧ Derives ϕ x y ∧ UpperAt ϕ ρ y y := by
-  change (pathsUpTo (k * k)).any (fun ρ => (List.finRange k).any fun x =>
+  change (pathsUpTo n (k * k)).any (fun ρ => (List.finRange k).any fun x =>
     (List.finRange k).any fun y =>
       lowerAtB ϕ ρ x x && derivesB ϕ x y && upperAtB ϕ ρ y y) = true ↔ _
-  simp only [List.any_eq_true, mem_pathsUpTo, List.mem_finRange,
-    true_and, Bool.and_eq_true,
-    lowerAtB_iff, derivesB_iff, upperAtB_iff]
-  aesop
+  simp only [List.any_eq_true, mem_pathsUpTo, List.mem_finRange, true_and,
+    Bool.and_eq_true, lowerAtB_iff, derivesB_iff, upperAtB_iff]
+  constructor
+  · rintro ⟨ρ, ⟨h1, h2⟩, x, y, ⟨hl, hd⟩, hu⟩
+    exact ⟨ρ, x, y, h1, h2, hl, hd, hu⟩
+  · rintro ⟨ρ, x, y, h1, h2, hl, hd, hu⟩
+    exact ⟨ρ, ⟨h1, h2⟩, x, y, ⟨hl, hd⟩, hu⟩
 
-theorem cycleClashB_sound {ϕ : Constraint k} (h : cycleClashB ϕ = true) :
+theorem cycleClashB_sound {ϕ : Constraint n k} (h : cycleClashB ϕ = true) :
     CycleClash ϕ := by
   obtain ⟨ρ, x, y, hp, _, hl, hd, hu⟩ := (cycleClashB_iff_bounded ϕ).mp h
   exact ⟨ρ, x, y, List.ne_nil_of_length_pos hp, hl, hd, hu⟩
 
-theorem cycleClashB_complete {ϕ : Constraint k} (hn : ¬ LabelClash ϕ)
+theorem cycleClashB_complete {ϕ : Constraint n k} (hn : ¬ LabelClash ϕ)
     (h : CycleClash ϕ) : cycleClashB ϕ = true :=
   (cycleClashB_iff_bounded ϕ).mpr ((cycleClash_iff_bounded hn).mp h)
 
-/-- Decide satisfiability over arbitrary trees by excluding label clashes. -/
-def satInfB (ϕ : Constraint k) : Bool := !labelClashB ϕ
+/-- Satisfiability over finite trees. -/
+def Covariant.satFinB (ϕ : Constraint n k) : Bool := !labelClashB ϕ && !cycleClashB ϕ
 
-/-- Decide satisfiability over finite trees by excluding label and cycle clashes. -/
-def satFinB (ϕ : Constraint k) : Bool := !labelClashB ϕ && !cycleClashB ϕ
-
-theorem satInfB_iff (ϕ : Constraint k) :
-    satInfB ϕ = true ↔ ∃ ρ : V k → Tree, Sat ρ ϕ := by
-  rw [satisfiable_iff_not_labelClash]
-  simp [satInfB, Bool.eq_false_iff, labelClashB_iff]
-
-theorem satFinB_iff (ϕ : Constraint k) :
-    satFinB ϕ = true ↔ ∃ σ : V k → FTree, Sat (FTree.toTree ∘ σ) ϕ := by
-  rw [satFin_iff]
-  have hl : satInfB ϕ = true ↔ ¬ LabelClash ϕ :=
-    (satInfB_iff ϕ).trans satisfiable_iff_not_labelClash
+theorem Covariant.satFinB_iff_not_clash (ϕ : Constraint n k) :
+    Covariant.satFinB ϕ = true ↔ ¬ LabelClash ϕ ∧ ¬ CycleClash ϕ := by
   change (satInfB ϕ && !cycleClashB ϕ) = true ↔ _
-  rw [Bool.and_eq_true, hl]
+  rw [Bool.and_eq_true, satInfB_iff_not_labelClash]
   constructor
   · rintro ⟨hn, hc⟩
     refine ⟨hn, fun h => ?_⟩
@@ -146,22 +177,11 @@ theorem satFinB_iff (ϕ : Constraint k) :
     have hb : cycleClashB ϕ ≠ true := fun h => hc (cycleClashB_sound h)
     cases h : cycleClashB ϕ <;> simp_all
 
-namespace Lit
-
-def rename {m : ℕ} (r : V k → V m) : Lit k → Lit m
-  | .leF x a b => .leF (r x) (r a) (r b)
-  | .fLe a b x => .fLe (r a) (r b) (r x)
-  | .eqBot x => .eqBot (r x)
-  | .eqTop x => .eqTop (r x)
-
-@[simp] theorem holds_rename {m : ℕ} (r : V k → V m) (ρ : V m → Tree)
-    (l : Lit k) : (l.rename r).holds ρ ↔ l.holds (ρ ∘ r) := by
-  cases l <;> rfl
-
-end Lit
-
-theorem sat_rename {m : ℕ} (r : V k → V m) (ρ : V m → Tree) (ϕ : Constraint k) :
-    Sat ρ (ϕ.map (Lit.rename r)) ↔ Sat (ρ ∘ r) ϕ := by
-  simp [Sat]
+/-- The covariant finite satisfiability test succeeds exactly when a finite solution exists. -/
+theorem Covariant.satFinB_iff (ϕ : Constraint n k) :
+    Covariant.satFinB ϕ = true ↔ ∃ σ : V k → FTree n, Covariant.Sat (FTree.toTree ∘ σ) ϕ := by
+  rw [satFin_iff, Covariant.satFinB_iff_not_clash]
 
 end DeciNSSE
+
+end

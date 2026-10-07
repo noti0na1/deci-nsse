@@ -1,21 +1,24 @@
-import DeciNSSE.Holes.Hierarchy
+import DeciNSSE.Holes.Depth
 
 /-! # Supports of hierarchy levels
 
-Each derived core is either a new start core or comes from an original state.
-The finite sets of original states occurring at successive levels decrease,
-providing the supports used to bound hierarchy depth.
+The support of a level is the set of original reader cores still represented
+in it. These supports decrease as the hierarchy is desubstituted.
 -/
+
+set_option autoImplicit false
 
 namespace DeciNSSE.Supports
 open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy
+open scoped List
 
 universe u v
 
 section Orig
 variable {Q : Type v}
 
-/-- Recover the original core, if a derived core is not one of the new start cores. -/
+/-- The original core of a level-`i` core: `some q` for an ordinary core (a level-`0` core
+`q` lifted through the `some`s), `none` for the start cores `⋆_k`. -/
 def orig : (i : ℕ) → Cores Q i → Option Q
   | 0, q => some q
   | _ + 1, none => none
@@ -33,7 +36,7 @@ end Orig
 section Supports
 variable {α : Type u} {Q : Type v} [DecidableEq α] [Inhabited α] [DecidableEq Q]
 
-/-- The finite set of original cores occurring before the end of a canonical hierarchy level. -/
+/-- The original reader cores represented at a hierarchy level. -/
 def supp (D0 : Lettered α Q) (w : List α) (j : ℕ) : Finset Q :=
   ((List.range (hierOf w j).length).filterMap
     fun x => orig j ((tower D0 (markOf w) j).core (hierOf w j) x)).toFinset
@@ -66,7 +69,7 @@ theorem supp_succ_subset (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) (j :
     rw [expand_hierOf hw j] at h1
     omega
 
-/-- The supports of the canonical hierarchy decrease with the level. -/
+/-- Supports form a descending chain. -/
 theorem supp_anti (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) {i j : ℕ} (hij : i ≤ j) :
     supp D0 w j ⊆ supp D0 w i := by
   obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le hij

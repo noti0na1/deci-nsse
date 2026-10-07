@@ -1,8 +1,9 @@
 import DeciNSSE.Main
+import DeciNSSE.Instances
+import DeciNSSE.Semantics.Characterisation
 
 /-! # Non-structural subtype entailment
 
-The decision procedures cover unrestricted, regular and finite trees.
-Their proof combines satisfiability, finite monitors, bounds on rejected tails
-and finite search through holes of bounded hierarchy depth.
+Decision procedures for one constructor of arbitrary finite arity and variance,
+over arbitrary, regular and finite trees.
 -/

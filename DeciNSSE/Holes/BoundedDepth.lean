@@ -1,35 +1,32 @@
-import Mathlib.Data.Fintype.BigOperators
-import Mathlib.Algebra.Order.BigOperators.Group.Finset
 import DeciNSSE.Holes.Hierarchy
 import DeciNSSE.Holes.Packets
 
-/-! # Decidability of holes at bounded depth
+/-! # Finite search at bounded hierarchy depth
 
-Finite summaries shorten tuples of blocks while preserving derived monitors.
-Iterating this compression shows: if a hole of bounded hierarchy depth and
-horizon exists, then such a hole exists whose length is at most a computable
-bound. Enumeration up to this bound decides whether such a hole exists.
-
-`ColumnSummary` records transitions, final admissions, block equalities and
-pairwise admissions. `columnStateBound` counts these summaries. The recursive
-`blockLengthBound` controls expansion through earlier levels; `topLengthBound`
-controls the number of letters at the final level. Their products give
-`holeBound`. Each bound is uniform in the reader and depends only on the stated
-cardinalities, hierarchy depth and comparison horizon.
+Finite summaries record transitions, admissions and block equalities.
+Short representatives preserve the derived monitor on its support. Iterating
+this compression bounds the length of a witness at bounded depth and
+comparison horizon; it does not bound every hole at that depth.
 -/
+
+set_option autoImplicit false
 
 namespace DeciNSSE.BoundedDepth
 open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy
+open scoped List
 
 section Agree
 variable {Γ C : Type*}
 
-/-- A label is initial or has its letter in the specified finite list. -/
+/-- Labels whose letter lies in `E` (and the start label `S`). -/
 def LabIn (E : List Γ) : Lab Γ C → Prop
   | none => True
   | some (_, a) => a ∈ E
 
-/-- A letter map preserves transitions, admissions and targets on a specified set of letters. -/
+/-- Agreement on a support. `φ` carries the atomic type of the letters of `E` in `D` to
+that of their images in `D'`: the start core is the same, `φ` is injective on
+`E`, and `κ`, `Tf`, `Λ`, `Λ^f` (the `S`-rows included) are preserved on all labels whose
+letters lie in `E`, for all cores. -/
 structure Agree (D D' : Lettered Γ C) (φ : Γ → Γ) (E : List Γ) : Prop where
   start : D'.start = D.start
   inj : ∀ a ∈ E, ∀ b ∈ E, φ a = φ b → a = b
@@ -64,6 +61,7 @@ theorem LabIn.map {E : List Γ} (φ : Γ → Γ) {L : Lab Γ C} (h : LabIn E L) 
   · trivial
   · exact List.mem_map_of_mem h
 
+/-- Composition of agreements. -/
 theorem Agree.comp {D D' D'' : Lettered Γ C} {ψ φ : Γ → Γ} {E : List Γ}
     (h₁ : Agree D D' ψ E) (h₂ : Agree D' D'' φ (E.map ψ)) : Agree D D'' (φ ∘ ψ) E where
   start := h₂.start.trans h₁.start
@@ -118,6 +116,8 @@ theorem Agree.isComp_iff (h : Agree D D' φ E) {v : List Γ} (hv : ∀ a ∈ v, 
   isComp_map_iff φ v (fun _ _ _ _ _ _ he => h.inj _ (hv _ (List.getElem_mem _)) _
     (hv _ (List.getElem_mem _)) he) s e
 
+/-- Transfer. Under an agreement on a support containing the letters of
+`v`, `φ(v)` is a hole of `D'` iff `v` is a hole of `D`. -/
 theorem Agree.isHole_iff (h : Agree D D' φ E) {v : List Γ} (hv : ∀ a ∈ v, a ∈ E) :
     D'.IsHole (v.map φ) ↔ D.IsHole v := by
   have hl := h.label_map hv
@@ -204,6 +204,9 @@ theorem Agree.blockΛf_map {X : List Γ} (hX : ∀ a ∈ X, a ∈ E) (c : Option
   rw [h.zlab_map hℓ hX, show (some (d, φ ℓ) : Lab Γ C) = mapLab φ id (some (d, ℓ)) from rfl]
   exact h.Λf _ _ (labIn_zlab hℓ D hX c p) hℓ
 
+/-- Agreement passes through `Der(·, ℓ)`. If `φ` agrees on a support `E ∋ ℓ`, then the
+letterwise map agrees on every list of level-`(j+1)` letters over `E`, between `Der(D, ℓ)` and
+`Der(D', φ ℓ)`. -/
 theorem Agree.derive (F : List (List Γ)) (hF : ∀ X ∈ F, ∀ a ∈ X, a ∈ E) :
     Agree (der D ℓ) (der D' (φ ℓ)) (List.map φ) F where
   start := rfl
@@ -234,7 +237,7 @@ end Agree
 section Column
 variable {Γ C : Type*} (D : Lettered Γ C) (ℓ : Γ)
 
-/-- The label at the start of a block with an optional preceding core. -/
+/-- The label of position `0` of a shifted block: `(c, ℓ)`, or `S` for the new start core. -/
 def lab0 (c : Option C) : Lab Γ C := c.map fun c => (c, ℓ)
 
 theorem zlab_zero (c : Option C) (X : List Γ) : zlab D ℓ c X 0 = lab0 ℓ c := by
@@ -354,15 +357,19 @@ theorem derΛ_snoc_snoc (c c' : Option C) (X Y : List Γ) (z z' : Γ) :
       rwa [zlab_snoc_le D ℓ c X z (p := x.length) (by rw [hX]; simp),
         zlab_snoc_le D ℓ c' Y z' (p := x'.length) (by rw [hY]; simp)]
 
-/-- Summaries of block transitions, final admissions, equality and pairwise admissions. -/
-abbrev ColumnSummary (C : Type*) (k : ℕ) :=
+/-- States of the column automaton for `k` tracks over cores `C`: the exits `fc(c, X_a)`, the
+sets `B_a(c) ∋ d` (some label of the shifted block `Ẑ_a(c)` is `Λ^f`-related to `(d, ℓ)`),
+the equality relation of the tracks, and the ladders `Λ'` for all pairs of tracks and start
+cores. -/
+abbrev CS (C : Type*) (k : ℕ) :=
   (Fin k → Option C → C) × (Fin k → Option C → C → Prop) × (Fin k → Fin k → Prop) ×
     (Fin k → Fin k → Option C → Option C → Prop)
 
 variable (k : ℕ)
 
-/-- Update a tuple summary after reading one column of optional letters. -/
-def colStep (x : ColumnSummary C k) (col : Fin k → Option Γ) : ColumnSummary C k :=
+/-- The transition of the column automaton on a column (`none` = padding; columns are
+right-aligned, so a padded track is still empty). -/
+def colStep (x : CS C k) (col : Fin k → Option Γ) : CS C k :=
   (fun a c => match col a with
       | none => x.1 a c
       | some z => D.κ z (x.1 a c),
@@ -377,19 +384,19 @@ def colStep (x : ColumnSummary C k) (col : Fin k → Option Γ) : ColumnSummary 
       | some z, some z' =>
           D.Λ (some (x.1 a c, z)) (some (x.1 b c', z')) ∨ (z = z' ∧ x.2.2.2 a b c c'))
 
-/-- The summary of a tuple of empty blocks. -/
-def colStart : ColumnSummary C k :=
+/-- The initial state (all tracks empty). -/
+def colStart : CS C k :=
   (fun _ c => fcore D ℓ c [], fun _ c d => D.Λf (lab0 ℓ c) (some (d, ℓ)), fun _ _ => True,
     fun _ _ c c' => D.Λ (lab0 ℓ c) (lab0 ℓ c'))
 
-/-- The automaton accumulating summaries of a column-encoded tuple. -/
-def colDFA : DFA (Fin k → Option Γ) (ColumnSummary C k) where
+/-- The finite reader that accumulates a summary of padded word columns. -/
+def colDFA : DFA (Fin k → Option Γ) (CS C k) where
   step := colStep D ℓ k
   start := colStart D ℓ k
   accept := ∅
 
-/-- The transition and admission summary of a tuple of blocks. -/
-def blockSummary (Ws : Fin k → List Γ) : ColumnSummary C k :=
+/-- The intended value of the column automaton on a tuple of level-`(j+1)` letters. -/
+def summ (Ws : Fin k → List Γ) : CS C k :=
   (fun a c => fcore D ℓ c (Ws a),
    fun a c d => ∃ p ≤ (Ws a).length, D.Λf (zlab D ℓ c (Ws a) p) (some (d, ℓ)),
    fun a b => Ws a = Ws b,
@@ -398,12 +405,12 @@ def blockSummary (Ws : Fin k → List Γ) : ColumnSummary C k :=
 open DeciNSSE.Packets in
 
 theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
-    (colDFA D ℓ k).eval w = blockSummary D ℓ k (dec w) := by
+    (colDFA D ℓ k).eval w = summ D ℓ k (dec w) := by
   induction w using List.reverseRecOn with
   | nil =>
     have hd : ∀ a, dec ([] : List (Fin k → Option Γ)) a = [] := fun _ => rfl
-    show colStart D ℓ k = blockSummary D ℓ k (dec [])
-    simp only [colStart, blockSummary, hd]
+    show colStart D ℓ k = summ D ℓ k (dec [])
+    simp only [colStart, summ, hd]
     refine Prod.ext rfl (Prod.ext ?_ (Prod.ext ?_ ?_))
     · funext a c d; exact propext (blockΛf_nil D ℓ c _).symm
     · funext a b; simp
@@ -411,8 +418,8 @@ theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
   | append_singleton w col ih =>
     rw [DFA.eval_append_singleton, ih (hw.sublist (List.sublist_append_left _ _))]
     have hpad : ∀ a, col a = none → dec w a = [] := dec_eq_nil_of_pad hw
-    show colStep D ℓ k (blockSummary D ℓ k (dec w)) col = blockSummary D ℓ k (dec (w ++ [col]))
-    simp only [colStep, blockSummary, dec_snoc]
+    show colStep D ℓ k (summ D ℓ k (dec w)) col = summ D ℓ k (dec (w ++ [col]))
+    simp only [colStep, summ, dec_snoc]
     refine Prod.ext ?_ (Prod.ext ?_ (Prod.ext ?_ ?_))
     · funext a c
       dsimp only
@@ -453,21 +460,24 @@ theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
       · simp only [Option.toList_some]
         exact (derΛ_snoc_snoc D ℓ c c' _ _ z z').symm
 
-instance instFintypeColumnSummary [Fintype C] [DecidableEq C] : Fintype (ColumnSummary C k) :=
+instance instFintypeCS [Fintype C] [DecidableEq C] : Fintype (CS C k) :=
   @instFintypeProd _ _ inferInstance
     (@instFintypeProd _ _ inferInstance (@instFintypeProd _ _ inferInstance inferInstance))
 
-/-- A cardinality bound for the automaton summarising a tuple of blocks. -/
-def columnStateBound (N k : ℕ) : ℕ :=
+/-- The number of column-automaton states for `N` cores and `k` tracks. -/
+def colBound (N k : ℕ) : ℕ :=
   (N ^ (N + 1)) ^ k * ((2 ^ N) ^ (N + 1)) ^ k * (2 ^ k) ^ k *
     (((2 ^ (N + 1)) ^ (N + 1)) ^ k) ^ k
 
-theorem card_columnSummary [Fintype C] [DecidableEq C] :
-    Fintype.card (ColumnSummary C k) = columnStateBound (Fintype.card C) k := by
+theorem card_CS [Fintype C] [DecidableEq C] :
+    Fintype.card (CS C k) = colBound (Fintype.card C) k := by
   rw [Fintype.card_prod, Fintype.card_prod, Fintype.card_prod]
-  simp [Fintype.card_option, columnStateBound, mul_assoc]
+  simp [Fintype.card_option, colBound, mul_assoc]
 
-theorem der_type_of_blockSummary {Ws Ws' : Fin k → List Γ} (hs : blockSummary D ℓ k Ws' = blockSummary D ℓ k Ws)
+/-- The summary determines the atomic type at level `j + 1`:
+two `k`-tuples with the same column summary have the same equality pattern and the same
+`κ'`, `Tf'`, `Λ'`, `Λ'^f` in `Der(D, ℓ)` (all start cores). -/
+theorem der_type_of_summ {Ws Ws' : Fin k → List Γ} (hs : summ D ℓ k Ws' = summ D ℓ k Ws)
     (a b : Fin k) :
     (Ws' a = Ws' b ↔ Ws a = Ws b) ∧
     (∀ c, (der D ℓ).κ (Ws' a) c = (der D ℓ).κ (Ws a) c) ∧
@@ -496,28 +506,32 @@ theorem der_type_of_blockSummary {Ws Ws' : Fin k → List Γ} (hs : blockSummary
 
 open DeciNSSE.Packets in
 
-/-- A tuple of blocks has a bounded column encoding with the same finite summary. -/
+/-- Short realisers of a summary. Every `k`-tuple of level-`(j+1)` letters has a tuple of
+sub-words, each shorter than `colBound |C| k`, with the same column summary. -/
 theorem exists_short_tuple [Fintype C] [DecidableEq C] (Ws : Fin k → List Γ) :
     ∃ Ws' : Fin k → List Γ, (∀ a, (Ws' a).Sublist (Ws a)) ∧
-      (∀ a, (Ws' a).length < columnStateBound (Fintype.card C) k) ∧ blockSummary D ℓ k Ws' = blockSummary D ℓ k Ws := by
+      (∀ a, (Ws' a).length < colBound (Fintype.card C) k) ∧ summ D ℓ k Ws' = summ D ℓ k Ws := by
   obtain ⟨Ws', h1, h2, h3⟩ := exists_short_conv (fun x => (colDFA D ℓ k).eval x)
     (fun x y a h => by simp only [DFA.eval_append_singleton]; rw [h]) Ws
-  refine ⟨Ws', h1, fun a => (h2 a).trans_eq (card_columnSummary k), ?_⟩
+  refine ⟨Ws', h1, fun a => (h2 a).trans_eq (card_CS k), ?_⟩
   have e1 := colEval D ℓ k _ (valid_conv Ws')
   have e2 := colEval D ℓ k _ (valid_conv Ws)
   rw [dec_conv] at e1 e2
   rw [← e1, ← e2]
   exact h3
 
-/-- A finite block alphabet can be replaced by bounded words preserving derived behaviour. -/
+/-- For every list `E` of at most `k`
+level-`(j+1)` letters (words over the level-`j` alphabet) there is a map `ψ` sending each
+`X ∈ E` to a sub-word of `X` of length `< colBound |C| k` and preserving the atomic type of `E`
+in `Der(D, ℓ)`. -/
 theorem exists_short_letters [Fintype C] [DecidableEq C] (E : List (List Γ))
     (hk : E.length ≤ k) :
     ∃ ψ : List Γ → List Γ, Agree (der D ℓ) (der D ℓ) ψ E ∧
-      ∀ X ∈ E, (ψ X).Sublist X ∧ (ψ X).length < columnStateBound (Fintype.card C) k := by
+      ∀ X ∈ E, (ψ X).Sublist X ∧ (ψ X).length < colBound (Fintype.card C) k := by
   classical
   set Ws : Fin k → List Γ := fun a => E.getD a.1 [] with hWs
   obtain ⟨Ws', hsub, hlen, hsumm⟩ := exists_short_tuple D ℓ k Ws
-  have hT := der_type_of_blockSummary D ℓ k hsumm
+  have hT := der_type_of_summ D ℓ k hsumm
   have hidx : ∀ X ∈ E, E.idxOf X < k := fun X hX =>
     (List.idxOf_lt_length_of_mem hX).trans_le hk
   let idx : ∀ X ∈ E, Fin k := fun X hX => ⟨E.idxOf X, hidx X hX⟩
@@ -558,11 +572,13 @@ end Column
 section Top
 variable {Γ C : Type*}
 
-/-- A core together with bounded-horizon admission data used to identify deletable intervals. -/
+/-- The key of a cut: the core, the `Λ`-row of its label against every window label
+`(c, v[m+t])` (`m = |v| - (h+1)`, `t ≤ h`), and the look-ahead pattern
+`v[x+t] = v[m+t']` against the window `v[m:]`. -/
 abbrev Key (C : Type*) (h : ℕ) :=
   C × (C → Fin (h + 1) → Prop) × (Fin (h + 1) → Fin (h + 1) → Prop)
 
-/-- The core and bounded-horizon comparison data at a word position. -/
+/-- The key of the cut `x` of `v`. -/
 def key (D : Lettered Γ C) (h : ℕ) (v : List Γ) (x : ℕ) : Key C h :=
   (D.core v x,
    fun c t => D.Λ (D.label v x) ((v[v.length - (h + 1) + t]?).map fun a => (c, a)),
@@ -573,9 +589,11 @@ theorem card_key [Fintype C] [DecidableEq C] (h : ℕ) :
       Fintype.card C * (2 ^ (h + 1)) ^ Fintype.card C * (2 ^ (h + 1)) ^ (h + 1) := by
   simp [Key, Fintype.card_prod, mul_assoc]
 
-/-- The finite length bound for shortening a word at the top hierarchy level. -/
+/-- The top length bound for `N` cores. -/
 def topBound (N h : ℕ) : ℕ := N * (2 ^ (h + 1)) ^ N * (2 ^ (h + 1)) ^ (h + 1) + h
 
+/-- One deletion. If the cuts `a < b ≤ |v| - (h+1)` of a hole `v` of horizon `≤ h` have
+equal keys, deleting `v[a:b]` gives a hole of horizon `≤ h`. -/
 theorem delete_step (D : Lettered Γ C) (h : ℕ) {v : List Γ} (hv : D.IsHole v)
     (hH : HorizonLE v h) {a b : ℕ} (hab : a < b) (hb : b + (h + 1) ≤ v.length)
     (hkey : key D h v a = key D h v b) :
@@ -725,7 +743,8 @@ theorem delete_step (D : Lettered Γ C) (h : ℕ) {v : List Γ} (hv : D.IsHole v
       rw [hlet2 (e + t) (by omega), hlet2 (s + t) (by omega)] at e0
       rw [gq (show s + δ + t = s + t + δ by omega), e0]; exact gq (by omega)
 
-/-- A hole with bounded comparison horizon has a short hole with the same bound. -/
+/-- A lettered instance with finitely many cores that has a hole
+of horizon `≤ h` has one of length `≤ topBound |C| h`, using only letters of the first. -/
 theorem top_shorten [Fintype C] [DecidableEq C] (D : Lettered Γ C) (h : ℕ) (v : List Γ)
     (hv : D.IsHole v) (hH : HorizonLE v h) :
     ∃ v' : List Γ, D.IsHole v' ∧ HorizonLE v' h ∧ (∀ a ∈ v', a ∈ v) ∧
@@ -776,6 +795,8 @@ instance instFintypeCores [Fintype Q] : ∀ i, Fintype (Cores Q i)
   | 0 => (inferInstance : Fintype Q)
   | i + 1 => by haveI := instFintypeCores i; exact (inferInstance : Fintype (Option (Cores Q i)))
 
+/-- Size of the derived instances. The level-`i` instance has
+`|C_i| = N + i` cores (the reader's states and one start core per level). -/
 theorem card_cores [Fintype Q] : ∀ i, Fintype.card (Cores Q i) = Fintype.card Q + i
   | 0 => rfl
   | i + 1 => by
@@ -817,6 +838,7 @@ theorem expandTo_nil (ℓ : (i : ℕ) → Alph α i) : ∀ j, expandTo ℓ j [] 
   | 0 => rfl
   | j + 1 => expandTo_nil ℓ j
 
+/-- The level-`0` length of a level-`j` word is the sum of the lengths of its letters. -/
 theorem length_expandTo_le (ℓ : (i : ℕ) → Alph α i) (j : ℕ) {B : ℕ} :
     ∀ u : List (Alph α j), (∀ z ∈ u, (expandTo ℓ j [z]).length ≤ B) →
       (expandTo ℓ j u).length ≤ u.length * B
@@ -837,19 +859,20 @@ theorem length_flatten_le {β : Type*} {B : ℕ} :
       have h2 := h l List.mem_cons_self
       omega
 
-/-- The recursive bound on block lengths when shortening successive hierarchy levels. -/
-def blockLengthBound (N : ℕ) : ℕ → ℕ → ℕ
+/-- The size bound: `sizeB N 0 k = 1`; a level-`(j+1)` letter of a `k`-tuple is shortened to at
+most `colBound (N + j) k` level-`j` letters (its body and the marker), each of size at most
+`sizeB N j (1 + k · colBound (N + j) k)`. -/
+def sizeB (N : ℕ) : ℕ → ℕ → ℕ
   | 0, _ => 1
-  | j + 1, k => columnStateBound (N + j) k * blockLengthBound N j (1 + k * columnStateBound (N + j) k)
+  | j + 1, k => colBound (N + j) k * sizeB N j (1 + k * colBound (N + j) k)
 
-/-- Shortening a derived level bounds its block lengths while preserving its hole. -/
 theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
     ∀ (j k : ℕ) (ℓ : (i : ℕ) → Alph α i) (E : List (Alph α j)), E.length ≤ k →
       Admissible ℓ j E →
       ∃ (ℓ' : (i : ℕ) → Alph α i) (φ : Alph α j → Alph α j),
         Agree (tower D0 ℓ j) (tower D0 ℓ' j) φ E ∧ Admissible ℓ' j (E.map φ) ∧
-        ∀ x ∈ E, (expandTo ℓ' j [φ x]).length ≤ blockLengthBound (Fintype.card Q) j k
-  | 0, k, ℓ, E, _, _ => ⟨ℓ, id, Agree.refl _ _, trivial, fun x _ => by simp [expandTo, blockLengthBound]⟩
+        ∀ x ∈ E, (expandTo ℓ' j [φ x]).length ≤ sizeB (Fintype.card Q) j k
+  | 0, k, ℓ, E, _, _ => ⟨ℓ, id, Agree.refl _ _, trivial, fun x _ => by simp [expandTo, sizeB]⟩
   | j + 1, k, ℓ, E, hk, hadm => by
       classical
       by_cases hE : E = []
@@ -863,13 +886,13 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
       have hmemBig : ∀ X ∈ E, ∀ a ∈ ψ X, a ∈ Ebig := fun X hX a ha =>
         List.mem_cons_of_mem _ (List.mem_flatten.mpr ⟨ψ X, List.mem_map_of_mem hX, ha⟩)
       have hℓBig : ℓ j ∈ Ebig := List.mem_cons_self
-      have hlenBig : Ebig.length ≤ 1 + k * columnStateBound (N + j) k := by
-        have h1 := length_flatten_le (B := columnStateBound (N + j) k) (E.map ψ) (by
+      have hlenBig : Ebig.length ≤ 1 + k * colBound (N + j) k := by
+        have h1 := length_flatten_le (B := colBound (N + j) k) (E.map ψ) (by
           intro l hl
           obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hl
           exact (hψ X hX).2.le)
         rw [List.length_map] at h1
-        have h2 := Nat.mul_le_mul_right (columnStateBound (N + j) k) hk
+        have h2 := Nat.mul_le_mul_right (colBound (N + j) k) hk
         simp only [hEbig, List.length_cons]
         omega
       have hadmBig : Admissible ℓ j Ebig := by
@@ -883,7 +906,7 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hl
           exact mem_expand.mpr ⟨X, hX, List.mem_append_left _ ((hψ X hX).1.subset hal)⟩
       obtain ⟨ℓ'', φ₀, hA, hadm'', hsize⟩ :=
-        shorten_level D0 j (1 + k * columnStateBound (N + j) k) ℓ Ebig hlenBig hadmBig
+        shorten_level D0 j (1 + k * colBound (N + j) k) ℓ Ebig hlenBig hadmBig
       set ℓ' : (i : ℕ) → Alph α i := Function.update ℓ'' j (φ₀ (ℓ j)) with hℓ'
       have hℓ'j : ℓ' j = φ₀ (ℓ j) := Function.update_self _ _ _
       have hℓ'lt : ∀ t < j, ℓ' t = ℓ'' t := fun t ht =>
@@ -924,7 +947,7 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           rw [expandTo_congr j hℓ'lt, hℓ'j]
           simp [expand]
         rw [e1]
-        refine (length_expandTo_le ℓ'' j _ (B := blockLengthBound N j (1 + k * columnStateBound (N + j) k))
+        refine (length_expandTo_le ℓ'' j _ (B := sizeB N j (1 + k * colBound (N + j) k))
           ?_).trans ?_
         · intro z hz
           obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hz
@@ -934,7 +957,7 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           · rw [List.mem_singleton] at h1
             rw [h1]
             exact hℓBig
-        · show _ ≤ columnStateBound (N + j) k * blockLengthBound N j (1 + k * columnStateBound (N + j) k)
+        · show _ ≤ colBound (N + j) k * sizeB N j (1 + k * colBound (N + j) k)
           rw [List.length_map, List.length_append, List.length_singleton]
           exact Nat.mul_le_mul_right _ (hψ X hX).2
 
@@ -944,17 +967,19 @@ section Final
 universe u v
 variable {α : Type u} {Q : Type v}
 
-/-- The combined bound on the number of letters needed at a shortened top level. -/
-def topLengthBound (N h : ℕ) : ℕ := N + topBound N h
+/-- The size of a shortened top word at a level with `N` cores: a unary top needs at most `N`
+letters (`exists_unary_hole_iff`), a horizon-`≤ h` top at most `topBound N h`. -/
+def topK (N h : ℕ) : ℕ := N + topBound N h
 
-/-- The computable length bound for holes of given depth and comparison horizon. -/
+/-- The computable length bound for a hole of bounded hierarchy depth and horizon. -/
 def holeBound (N d h : ℕ) : ℕ :=
-  ∑ i ∈ Finset.range (d + 1), topLengthBound (N + i) h * blockLengthBound N i (topLengthBound (N + i) h)
+  ∑ i ∈ Finset.range (d + 1), topK (N + i) h * sizeB N i (topK (N + i) h)
 
 variable [DecidableEq α] [Inhabited α]
 
-/-- If a hole has bounded hierarchy depth and horizon, some such hole has length at most
-`holeBound`. The bound applies to a chosen witness, not to every hole. -/
+/-- If a lettered instance with `N` cores (over any alphabet)
+has a hole in `𝓛(d, h)`, it has one of length `≤ holeBound N d h`. Nothing is assumed about
+the variety, degeneracy or run lengths of the levels below the top. -/
 theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : List α}
     (hw : D0.IsHole w) (hL : InL d h w) :
     ∃ w', D0.IsHole w' ∧ InL d h w' ∧ w'.length ≤ holeBound (Fintype.card Q) d h := by
@@ -968,7 +993,7 @@ theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : 
 
   obtain ⟨v₁, hv₁, htop₁, hsub₁, hlen₁⟩ : ∃ v₁ : List (Alph α i),
       (tower D0 (markOf w) i).IsHole v₁ ∧ (IsUnary v₁ ∨ HorizonLE v₁ h) ∧
-        (∀ a ∈ v₁, a ∈ hierOf w i) ∧ v₁.length ≤ topLengthBound (N + i) h := by
+        (∀ a ∈ v₁, a ∈ hierOf w i) ∧ v₁.length ≤ topK (N + i) h := by
     rcases htop with hu | hH
     · obtain ⟨x, hx⟩ := List.exists_mem_of_ne_nil _ (hierOf_ne_nil hw0 i)
       have hrep : hierOf w i = List.replicate (hierOf w i).length x :=
@@ -978,19 +1003,19 @@ theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : 
       refine ⟨List.replicate m x, hm, Or.inl fun a ha b hb => by
         rw [List.eq_of_mem_replicate ha, List.eq_of_mem_replicate hb], fun a ha => by
         rw [List.eq_of_mem_replicate ha]; exact hx, ?_⟩
-      rw [List.length_replicate, topLengthBound]
+      rw [List.length_replicate, topK]
       rw [hcard] at hm2
       omega
     · obtain ⟨v₁, h1, h2, h3, h4⟩ := top_shorten (tower D0 (markOf w) i) h _ hv hH
       refine ⟨v₁, h1, Or.inr h2, h3, ?_⟩
       rw [hcard] at h4
-      rw [topLengthBound]
+      rw [topK]
       omega
 
   have hadm₁ : Admissible (markOf w) i v₁ :=
     admissible_of_subset _ i v₁ _ hadm (hierOf_ne_nil hw0 i) hsub₁
   obtain ⟨ℓ', φ, hA, hadm', hsize⟩ :=
-    shorten_level D0 i (topLengthBound (N + i) h) (markOf w) v₁ hlen₁ hadm₁
+    shorten_level D0 i (topK (N + i) h) (markOf w) v₁ hlen₁ hadm₁
   have hv₁0 : v₁ ≠ [] := hv₁.ne_nil
   have hv₂ : (tower D0 ℓ' i).IsHole (v₁.map φ) := (hA.isHole_iff (v := v₁) fun a ha => ha).mpr hv₁
   have hv₂0 : v₁.map φ ≠ [] := by simpa using hv₁0
@@ -1009,19 +1034,16 @@ theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) {w : 
       rw [List.length_map] at he ⊢
       exact hH s e hc he
   · calc (expandTo ℓ' i (v₁.map φ)).length
-          ≤ (v₁.map φ).length * blockLengthBound N i (topLengthBound (N + i) h) :=
+          ≤ (v₁.map φ).length * sizeB N i (topK (N + i) h) :=
           length_expandTo_le ℓ' i _ (fun z hz => by
             obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hz
             exact hsize y hy)
-      _ ≤ topLengthBound (N + i) h * blockLengthBound N i (topLengthBound (N + i) h) :=
+      _ ≤ topK (N + i) h * sizeB N i (topK (N + i) h) :=
           Nat.mul_le_mul_right _ (by rw [List.length_map]; exact hlen₁)
       _ ≤ holeBound N d h :=
-          Finset.single_le_sum (f := fun i => topLengthBound (N + i) h * blockLengthBound N i (topLengthBound (N + i) h))
+          Finset.single_le_sum (f := fun i => topK (N + i) h * sizeB N i (topK (N + i) h))
             (fun _ _ => Nat.zero_le _) (Finset.mem_range.mpr (by omega))
 
-/--
-Existence of a bounded-depth hole is equivalent to existence below a computable length bound.
--/
 theorem exists_hole_InL_iff_bounded (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) :
     (∃ w, D0.IsHole w ∧ InL d h w) ↔
       ∃ w, D0.IsHole w ∧ InL d h w ∧ w.length ≤ holeBound (Fintype.card Q) d h :=
@@ -1029,83 +1051,14 @@ theorem exists_hole_InL_iff_bounded (D0 : Lettered α Q) [Fintype Q] (d h : ℕ)
 
 end Final
 
-section Decide
+section Monitor
 universe u v
 open DeciNSSE.Holes
-
-/-- The final-target predicate on a label, excluding the initial label. -/
-def TfLab {Γ C : Type*} (D : Lettered Γ C) : Lab Γ C → Prop
-  | none => False
-  | some (c, a) => D.Tf c a
-
-instance decTfLab {Γ C : Type*} (D : Lettered Γ C) [∀ c a, Decidable (D.Tf c a)] :
-    ∀ L, Decidable (TfLab D L)
-  | none => isFalse id
-  | some (c, a) => (inferInstance : Decidable (D.Tf c a))
-
-theorem isHole_iff_bounded {Γ C : Type*} (D : Lettered Γ C) (v : List Γ) :
-    D.IsHole v ↔ TfLab D (D.label v v.length) ∧
-      (∀ s < v.length, ¬ D.Λf (D.label v s) (D.label v v.length)) ∧
-      (∀ e < v.length, ∀ s < e, v.drop e <+: v.drop s → ¬ D.Λ (D.label v s) (D.label v e)) := by
-  unfold Lettered.IsHole
-  refine and_congr ?_ (and_congr Iff.rfl ?_)
-  · rcases D.label v v.length with _ | ⟨c, a⟩
-    · simp [TfLab]
-    · simp [TfLab]
-  · constructor
-    · intro H e he s hs hp; exact H s e ⟨hs, he.le, hp⟩ he
-    · intro H s e hc he; exact H e he s hc.1 hc.2.2
-
-instance decIsHole {Γ C : Type*} [DecidableEq Γ] (D : Lettered Γ C)
-    [∀ L L', Decidable (D.Λ L L')] [∀ L L', Decidable (D.Λf L L')]
-    [∀ c a, Decidable (D.Tf c a)] (v : List Γ) : Decidable (D.IsHole v) :=
-  decidable_of_iff _ (isHole_iff_bounded D v).symm
-
-theorem horizonLE_iff_bounded {β : Type*} (u : List β) (h : ℕ) :
-    HorizonLE u h ↔ ∀ e < u.length, ∀ s < e, u.drop e <+: u.drop s → u.length - e ≤ h := by
-  constructor
-  · intro H e he s hs hp; exact H s e ⟨hs, he.le, hp⟩ he
-  · intro H s e hc he; exact H e he s hc.1 hc.2.2
-
-instance decHorizonLE {β : Type*} [DecidableEq β] (u : List β) (h : ℕ) :
-    Decidable (HorizonLE u h) :=
-  decidable_of_iff _ (horizonLE_iff_bounded u h).symm
 
 instance decIsUnary {β : Type*} [DecidableEq β] (u : List β) : Decidable (IsUnary u) :=
   inferInstanceAs (Decidable (∀ a ∈ u, ∀ b ∈ u, a = b))
 
 variable {α : Type u} {Q : Type v} [DecidableEq α] [Inhabited α]
-
-theorem inL_iff_range (d h : ℕ) (w : List α) :
-    InL d h w ↔ ∃ i ∈ List.range (d + 1), IsUnary (hierOf w i) ∨ HorizonLE (hierOf w i) h := by
-  simp only [InL, List.mem_range, Nat.lt_succ_iff]
-
-instance decInL (d h : ℕ) (w : List α) : Decidable (InL d h w) :=
-  decidable_of_iff _ (inL_iff_range d h w).symm
-
-open DeciNSSE.Packets in
-
-/-- A finite enumeration decides existence of holes of bounded hierarchy depth and horizon. -/
-theorem exists_hole_InL_iff_search [Fintype α] (D0 : Lettered α Q) [Fintype Q] (d h : ℕ) :
-    (∃ w, D0.IsHole w ∧ InL d h w) ↔
-      ∃ w ∈ boundedLists (Finset.univ : Finset α) (holeBound (Fintype.card Q) d h),
-        D0.IsHole w ∧ InL d h w := by
-  rw [exists_hole_InL_iff_bounded]
-  constructor
-  · rintro ⟨w, hw, hL, hlen⟩
-    exact ⟨w, (mem_boundedLists _ _ _).mpr ⟨hlen, fun x _ => Finset.mem_univ x⟩, hw, hL⟩
-  · rintro ⟨w, hmem, hw, hL⟩
-    exact ⟨w, hw, hL, ((mem_boundedLists _ _ _).mp hmem).1⟩
-
-instance decExistsInL [Fintype α] (D0 : Lettered α Q) [Fintype Q]
-    [∀ L L', Decidable (D0.Λ L L')] [∀ L L', Decidable (D0.Λf L L')]
-    [∀ c a, Decidable (D0.Tf c a)] (d h : ℕ) : Decidable (∃ w, D0.IsHole w ∧ InL d h w) :=
-  decidable_of_iff _ (exists_hole_InL_iff_search D0 d h).symm
-
-instance decReaderΛ (M : DFA α Q) (R : Q → Q → Prop) [DecidableRel R] :
-    ∀ L L', Decidable (readerΛ M R L L')
-  | _, none => isFalse id
-  | L, some p => (inferInstance : Decidable (R (stOf M L) (stOf M (some p))))
 
 omit [DecidableEq α] [Inhabited α] in
 theorem isHole_ofReader_iff' (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) :
@@ -1113,16 +1066,17 @@ theorem isHole_ofReader_iff' (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (
   ⟨fun h => ⟨h.ne_nil, (isHole_ofReader_iff M R T h.ne_nil).mp h⟩,
     fun ⟨h0, h⟩ => (isHole_ofReader_iff M R T h0).mpr h⟩
 
-instance decExistsReaderInL [Fintype α] (M : DFA α Q) (R : Q → Q → Prop) [DecidableRel R]
-    (T : Set Q) [DecidablePred (· ∈ T)] [Fintype Q] (d h : ℕ) :
-    Decidable (∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d h w) :=
-  haveI : ∀ L L', Decidable ((ofReader M R T).Λ L L') := decReaderΛ M R
-  haveI : ∀ L L', Decidable ((ofReader M R T).Λf L L') := decReaderΛ M R
-  haveI : ∀ c a, Decidable ((ofReader M R T).Tf c a) := fun c a =>
-    (inferInstance : Decidable (M.step c a ∈ T))
-  decidable_of_iff (∃ w, (ofReader M R T).IsHole w ∧ InL d h w)
-    (by simp only [isHole_ofReader_iff', and_assoc])
+/-- A reader `(M, R, T)` with `N` states having a
+hole in `𝓛(d, h)` has one of length `≤ holeBound N d h`. -/
+theorem exists_reader_hole_InL_iff_bounded (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
+    [Fintype Q] (d h : ℕ) :
+    (∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d h w) ↔
+      ∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d h w ∧
+        w.length ≤ holeBound (Fintype.card Q) d h := by
+  have := exists_hole_InL_iff_bounded (ofReader M R T) d h
+  simp only [isHole_ofReader_iff', and_assoc] at this
+  exact this
 
-end Decide
+end Monitor
 
 end DeciNSSE.BoundedDepth

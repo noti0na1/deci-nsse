@@ -2,14 +2,17 @@ import DeciNSSE.Holes.BoundedDepth
 
 /-! # Canonical hierarchy depth
 
-A non-unary hierarchy level strictly decreases in length. Thus every word
-reaches a unary level, and the least such level defines its canonical depth.
+The first unary level of the canonical hierarchy exists because every
+non-unary step strictly decreases word length. This level defines depth.
 -/
 
-namespace DeciNSSE.HierarchyDepth
-open DeciNSSE.LetteredHierarchy
+set_option autoImplicit false
 
-universe u
+namespace DeciNSSE.HierarchyDepth
+open DeciNSSE.LetteredHierarchy DeciNSSE.BoundedDepth
+open scoped List
+
+universe u v
 
 section Depth
 variable {α : Type u} [DecidableEq α] [Inhabited α]
@@ -21,7 +24,7 @@ theorem getLast?_hierOf_of_ne_nil {w : List α} {k : ℕ} (h : hierOf w k ≠ []
     (by simpa using h : (hierOf w k).getLast? ≠ none)
   simp [ha]
 
-/-- Desubstitution strictly shortens every non-unary canonical level. -/
+/-- A level that is not unary is strictly longer than the next one. -/
 theorem length_hierOf_succ_lt {w : List α} {k : ℕ} (h : ¬ IsUnary (hierOf w k)) :
     (hierOf w (k + 1)).length < (hierOf w k).length := by
   have hn : hierOf w k ≠ [] := by
@@ -39,7 +42,6 @@ theorem length_hierOf_succ_lt {w : List α} {k : ℕ} (h : ¬ IsUnary (hierOf w 
     have heq := List.count_eq_length.mp (le_antisymm hle hge)
     exact h fun a ha b hb => by rw [← heq a ha, ← heq b hb]
 
-/-- Every word reaches a unary level after finitely many canonical desubstitutions. -/
 theorem exists_isUnary_hierOf (w : List α) : ∃ k, IsUnary (hierOf w k) := by
   by_contra hne
   push Not at hne
@@ -51,7 +53,7 @@ theorem exists_isUnary_hierOf (w : List α) : ∃ k, IsUnary (hierOf w k) := by
   have := key (w.length + 1)
   omega
 
-/-- The first unary level of the canonical desubstitution hierarchy. -/
+/-- The canonical depth `D(w)`: the first unary level of the canonical hierarchy. -/
 def depth (w : List α) : ℕ := Nat.find (exists_isUnary_hierOf w)
 
 theorem isUnary_depth (w : List α) : IsUnary (hierOf w (depth w)) :=

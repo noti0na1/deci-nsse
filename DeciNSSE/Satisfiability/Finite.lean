@@ -1,73 +1,39 @@
-import Mathlib.Data.Fintype.Pigeonhole
-import Mathlib.Tactic.IntervalCases
-import DeciNSSE.Satisfiability.LeastShape
 import DeciNSSE.Satisfiability.Cycle
+import DeciNSSE.Satisfiability.LeastShape
 
-/-! # Characterisation of finite satisfiability
+/-! # Finite covariant satisfiability
 
-Long paths yield bounded cycle clashes. Without label or cycle clashes the
-least-shape solution has bounded depth and can be represented by finite trees.
+Finite solutions exist exactly when there are neither label nor cycle clashes.
+Repeated pairs of path endpoints bound the depth of the least-shape solution.
 -/
 
 namespace DeciNSSE
 
-variable {k : ℕ} {ϕ : Constraint k}
-
-theorem LowerAt.comp {π π' : List (Fin 2)} {x w z : V k}
-    (h' : LowerAt ϕ π' x w) (h : LowerAt ϕ π w z) :
-    LowerAt ϕ (π ++ π') x z := by
-  induction h with
-  | nil hd => exact h'.trans_right hd
-  | cons hl hd _ ih => exact .cons hl hd (ih h')
-
-theorem UpperAt.comp {π π' : List (Fin 2)} {z w y : V k}
-    (h : UpperAt ϕ π z w) (h' : UpperAt ϕ π' w y) :
-    UpperAt ϕ (π ++ π') z y := by
-  induction h with
-  | nil hd => exact UpperAt.trans_left hd h'
-  | cons hd hl _ ih => exact .cons hd hl (ih h')
-
-theorem LowerAt.factor {π π' : List (Fin 2)} {x z : V k}
-    (h : LowerAt ϕ (π ++ π') x z) :
-    ∃ w, LowerAt ϕ π w z ∧ LowerAt ϕ π' x w := by
-  induction π generalizing z with
-  | nil => exact ⟨z, .nil (.refl z), h⟩
-  | cons i π ih =>
-    cases h with
-    | cons hl hd hp =>
-      obtain ⟨w, hw, hw'⟩ := ih hp
-      exact ⟨w, .cons hl hd hw, hw'⟩
-
-theorem UpperAt.factor {π π' : List (Fin 2)} {z y : V k}
-    (h : UpperAt ϕ (π ++ π') z y) :
-    ∃ w, UpperAt ϕ π z w ∧ UpperAt ϕ π' w y := by
-  induction π generalizing z with
-  | nil => exact ⟨z, .nil (.refl z), h⟩
-  | cons i π ih =>
-    cases h with
-    | cons hd hl hp =>
-      obtain ⟨w, hw, hw'⟩ := ih hp
-      exact ⟨w, .cons hd hl hw, hw'⟩
+variable {n k : ℕ} {ϕ : Constraint n k}
 
 namespace FiniteSat
 
-def PathChain {α : Type*} (R : List (Fin 2) → α → α → Prop)
-    (π : List (Fin 2)) (z x : α) : Prop :=
+/-- Chains include every interval, so singleton steps and prefix judgments
+are immediate instances. Only indices through `π.length` are used. -/
+def PathChain {α : Type*} (R : List (Fin n) → α → α → Prop)
+    (π : List (Fin n)) (z x : α) : Prop :=
   ∃ w : ℕ → α, w 0 = z ∧ w π.length = x ∧
     ∀ i j, i ≤ j → j ≤ π.length → R ((π.take j).drop i) (w i) (w j)
 
-theorem pathChain_of_nonempty {α : Type*} (R : List (Fin 2) → α → α → Prop)
+/-- At length zero a path judgment need not equate its endpoints; exact
+endpoint chains therefore require a nonempty path. -/
+theorem pathChain_of_nonempty {α : Type*} (R : List (Fin n) → α → α → Prop)
     (hrefl : ∀ x, R [] x x)
     (hcomp : ∀ {π τ x y z}, R π x y → R τ y z → R (π ++ τ) x z)
     (hfactor : ∀ {π τ x z}, R (π ++ τ) x z → ∃ y, R π x y ∧ R τ y z)
-    {π : List (Fin 2)} {z x : α} (hπ : π ≠ []) (h : R π z x) :
+    {π : List (Fin n)} {z x : α} (hπ : π ≠ []) (h : R π z x) :
     PathChain R π z x := by
   induction π generalizing z with
   | nil => exact False.elim (hπ rfl)
   | cons a π ih =>
     cases π with
     | nil =>
-      refine ⟨fun n => if n = 0 then z else x, by simp, by simp, ?_⟩
+      refine ⟨fun m => if m = 0 then z else x, by simp, by simp, ?_⟩
       intro i j hij hj
       have hj' : j ≤ 1 := by simpa using hj
       interval_cases j
@@ -79,7 +45,7 @@ theorem pathChain_of_nonempty {α : Type*} (R : List (Fin 2) → α → α → P
     | cons b π =>
       obtain ⟨q, hq, ht⟩ := hfactor (π := [a]) (τ := b :: π) h
       obtain ⟨w, hw0, hwn, hw⟩ := ih (by simp) ht
-      refine ⟨fun n => match n with | 0 => z | n + 1 => w n,
+      refine ⟨fun m => match m with | 0 => z | m + 1 => w m,
         rfl, hwn, ?_⟩
       intro i j hij hj
       cases j with
@@ -98,19 +64,21 @@ theorem pathChain_of_nonempty {α : Type*} (R : List (Fin 2) → α → α → P
 
 end FiniteSat
 
-theorem LowerAt.chain {π : List (Fin 2)} {x z : V k}
+theorem LowerAt.chain {π : List (Fin n)} {x z : V k}
     (h : LowerAt ϕ π x z) (hπ : π ≠ []) :
     FiniteSat.PathChain (fun τ u v => LowerAt ϕ τ v u) π z x :=
   FiniteSat.pathChain_of_nonempty _ (fun u => .nil (.refl u))
     (fun h₁ h₂ => h₂.comp h₁) (fun hp => hp.factor) hπ h
 
-theorem UpperAt.chain {π : List (Fin 2)} {z y : V k}
+theorem UpperAt.chain {π : List (Fin n)} {z y : V k}
     (h : UpperAt ϕ π z y) (hπ : π ≠ []) :
     FiniteSat.PathChain (UpperAt ϕ) π z y :=
   FiniteSat.pathChain_of_nonempty _ (fun u => .nil (.refl u))
     (fun h₁ h₂ => h₁.comp h₂) (fun hp => hp.factor) hπ h
 
-theorem cycleClash_bounded_of_long_path (π : List (Fin 2)) (x y z : V k)
+/-- Use just the first `k*k+1` positions, ensuring that the repeated
+pair encloses a nonempty path of length at most `k*k`. -/
+theorem cycleClash_bounded_of_long_path (π : List (Fin n)) (x y z : V k)
     (hl : LowerAt ϕ π x z) (hu : UpperAt ϕ π z y) (hlen : k * k < π.length) :
     ∃ ρ x' y', 0 < ρ.length ∧ ρ.length ≤ k * k ∧
       LowerAt ϕ ρ x' x' ∧ Derives ϕ x' y' ∧ UpperAt ϕ ρ y' y' := by
@@ -118,7 +86,7 @@ theorem cycleClash_bounded_of_long_path (π : List (Fin 2)) (x y z : V k)
   obtain ⟨w, hw0, _, hw⟩ := hl.chain hπ
   obtain ⟨v, hv0, _, hv⟩ := hu.chain hπ
   obtain ⟨i, j, hne, he⟩ := Fintype.exists_ne_map_eq_of_card_lt
-    (fun n : Fin (k * k + 1) => (w n.val, v n.val)) (by simp [V])
+    (fun m : Fin (k * k + 1) => (w m.val, v m.val)) (by simp [V])
   have hpair : ∃ i j : Fin (k * k + 1), i < j ∧
       (w i.val, v i.val) = (w j.val, v j.val) := by
     rcases lt_or_gt_of_ne hne with hij | hji
@@ -142,7 +110,9 @@ theorem cycleClash_bounded_of_long_path (π : List (Fin 2)) (x y z : V k)
   · exact upperAt_nil_iff.mp (hlp.decompose_upper (π' := []) (by simpa using hup))
   · simpa only [← hv_eq] using hv i.val j.val (by omega) hj
 
-theorem leastShape_bounded_cycle_of_long_path {z : V k} {π : List (Fin 2)}
+/-- A domain path beyond the proposed depth bound already supplies a
+bounded cycle witness; no label-clash assumption is needed. -/
+theorem leastShape_bounded_cycle_of_long_path {z : V k} {π : List (Fin n)}
     (hdom : ((leastShape ϕ z).fn π).isSome) (hlen : k * k + 1 < π.length) :
     ∃ ρ x y, 0 < ρ.length ∧ ρ.length ≤ k * k ∧
       LowerAt ϕ ρ x x ∧ Derives ϕ x y ∧ UpperAt ϕ ρ y y := by
@@ -153,11 +123,12 @@ theorem leastShape_bounded_cycle_of_long_path {z : V k} {π : List (Fin 2)}
   have hne : τ ≠ π := by intro he; have := congrArg List.length he; omega
   have hf := (leastShape ϕ z).label_eq_f_of_proper_prefix hprefix hne hdom
   obtain ⟨hl, hu⟩ := shapeLabel_eq_f_iff.mp (leastShape_label_eq hf).symm
-  obtain ⟨x, x₁, x₂, _, hx⟩ := hl
-  obtain ⟨y, y₁, y₂, _, hy⟩ := hu
+  obtain ⟨a, x, _, hx⟩ := hl
+  obtain ⟨y, b, _, hy⟩ := hu
   exact cycleClash_bounded_of_long_path τ x y z hx hy (by omega)
 
-theorem leastShape_depth (hn : ¬ CycleClash ϕ) (z : V k) (π : List (Fin 2))
+/-- Without cycle clashes, every least-shape domain path has bounded length. -/
+theorem leastShape_depth (hn : ¬ CycleClash ϕ) (z : V k) (π : List (Fin n))
     (hdom : ((leastShape ϕ z).fn π).isSome) : π.length ≤ k * k + 1 := by
   by_contra hlen
   obtain ⟨ρ, x, y, hp, _, hl, hd, hu⟩ :=
@@ -166,18 +137,23 @@ theorem leastShape_depth (hn : ¬ CycleClash ϕ) (z : V k) (π : List (Fin 2))
 
 namespace FTree
 
-def ofTree : ℕ → Tree → FTree
+/-- Read at most `d` edges of a tree. A constructor root at depth zero becomes
+`f(top, …, top)`: exact at arity zero, and never used at positive arity under
+the depth hypothesis of `toTree_ofTree`. -/
+def ofTree : ℕ → Tree n → FTree n
   | 0, t => match t.fn [] with
     | some .bot => .bot
+    | some .f => .node fun _ => .top
     | _ => .top
   | d + 1, t =>
     if h : t.fn [] = some .f then
-      .node (ofTree d (t.branch 0 h)) (ofTree d (t.branch 1 h))
+      .node fun i => ofTree d (t.branch i h)
     else match t.fn [] with
       | some .bot => .bot
       | _ => .top
 
-theorem toTree_ofTree {d : ℕ} {t : Tree}
+/-- Bounded-depth path trees are exactly represented by finite trees. -/
+theorem toTree_ofTree {d : ℕ} {t : Tree n}
     (hdepth : ∀ π, (t.fn π).isSome → π.length ≤ d) : (ofTree d t).toTree = t := by
   induction d generalizing t with
   | zero =>
@@ -190,8 +166,16 @@ theorem toTree_ofTree {d : ℕ} {t : Tree}
       | top =>
         simpa [ofTree, hr, toTree] using ((Tree.root_eq_top_iff t).mp hr).symm
       | f =>
-        have hd := hdepth [0] ((t.child_isSome_iff [] 0).mpr hr)
-        simp at hd
+        have hc : ∀ i, (Tree.top : Tree n) = t.branch i hr := fun i => by
+          have hd := hdepth [i] ((t.child_isSome_iff [] i).mpr hr)
+          simp at hd
+        calc (ofTree 0 t).toTree = Tree.node fun _ => Tree.top := by
+                simp [ofTree, hr]
+          _ = Tree.node fun i => t.branch i hr := by
+                congr 1
+                funext i
+                exact hc i
+          _ = t := (t.eq_node_of_root_eq_f hr).symm
   | succ d ih =>
     cases hr : t.fn [] with
     | none => exact False.elim (t.wf.1 hr)
@@ -202,27 +186,30 @@ theorem toTree_ofTree {d : ℕ} {t : Tree}
       | top =>
         simpa [ofTree, hr, toTree] using ((Tree.root_eq_top_iff t).mp hr).symm
       | f =>
-        have hb (i : Fin 2) : ∀ π, ((t.branch i hr).fn π).isSome → π.length ≤ d := by
+        have hb (i : Fin n) : ∀ π, ((t.branch i hr).fn π).isSome → π.length ≤ d := by
           intro π hp
           have hd := hdepth (i :: π) hp
           simp only [List.length_cons] at hd
           omega
-        simp only [ofTree, dite_eq_left hr, toTree]
-        rw [ih (hb 0), ih (hb 1)]
+        have hc : ∀ i, (ofTree d (t.branch i hr)).toTree = t.branch i hr :=
+          fun i => ih (hb i)
+        simp only [ofTree, dite_eq_left hr, toTree_node, hc]
         exact (t.eq_node_of_root_eq_f hr).symm
 
 end FTree
 
+/-- A uniform depth bound turns the least-shape assignment into a finite solution. -/
 theorem satFin_of_leastShape_depth (hn : ¬ LabelClash ϕ)
     (hd : ∀ z π, ((leastShape ϕ z).fn π).isSome → π.length ≤ k * k + 1) :
-    ∃ σ : V k → FTree, Sat (FTree.toTree ∘ σ) ϕ := by
+    ∃ σ : V k → FTree n, Covariant.Sat (FTree.toTree ∘ σ) ϕ := by
   let σ := fun z => FTree.ofTree (k * k + 1) (leastShape ϕ z)
   have hσ : FTree.toTree ∘ σ = leastShape ϕ := by
     funext z
     exact FTree.toTree_ofTree (hd z)
   exact ⟨σ, hσ.symm ▸ leastShape_sat hn⟩
 
-theorem satFin_iff : (∃ σ : V k → FTree, Sat (FTree.toTree ∘ σ) ϕ) ↔
+/-- Finite satisfiability is equivalent to the absence of label and cycle clashes. -/
+theorem satFin_iff : (∃ σ : V k → FTree n, Covariant.Sat (FTree.toTree ∘ σ) ϕ) ↔
     ¬ LabelClash ϕ ∧ ¬ CycleClash ϕ := by
   constructor
   · intro hfin
@@ -232,6 +219,8 @@ theorem satFin_iff : (∃ σ : V k → FTree, Sat (FTree.toTree ∘ σ) ϕ) ↔
   · rintro ⟨hl, hc⟩
     exact satFin_of_leastShape_depth hl (leastShape_depth hc)
 
+/-- Without a label clash, every cycle clash has a witness of length
+between one and the number of variable pairs. -/
 theorem cycleClash_iff_bounded (hn : ¬ LabelClash ϕ) :
     CycleClash ϕ ↔ ∃ ρ x y, 0 < ρ.length ∧ ρ.length ≤ k * k ∧
       LowerAt ϕ ρ x x ∧ Derives ϕ x y ∧ UpperAt ϕ ρ y y := by

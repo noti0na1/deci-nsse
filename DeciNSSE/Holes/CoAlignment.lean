@@ -2,25 +2,30 @@ import DeciNSSE.Holes.Basic
 
 /-! # Lettered monitors and comparison alignment
 
-Comparisons are suffix-prefix relations between distinct positions. Lettered
-monitors record a core together with the preceding letter; their
-admission and target predicates support desubstitution of holes.
+Lettered monitors distinguish current cores and letters. A letter map that
+introduces no new boundary comparison preserves the hole condition.
 -/
+
+set_option autoImplicit false
 
 namespace DeciNSSE.CoAlignment
 open DeciNSSE.Holes
+open scoped List
 
 section Comparisons
 variable {α β : Type*}
 
-/-- A suffix-prefix comparison between two distinct positions of a word. -/
+/-- A comparison `(s,e)` of `u`: `s < e ≤ |u|` and `u[e:] ⪯ u[s:]`. -/
 def IsComp (u : List α) (s e : ℕ) : Prop := s < e ∧ e ≤ u.length ∧ u.drop e <+: u.drop s
 
+/-- One step to the left: for `a < b < |u|`, `u[b:] ⪯ u[a:]` iff the letters agree and
+`u[b+1:] ⪯ u[a+1:]`. -/
 theorem drop_prefix_iff_succ (u : List α) {a b : ℕ} (hab : a < b) (hb : b < u.length) :
     u.drop b <+: u.drop a ↔ u[b] = u[a] ∧ u.drop (b + 1) <+: u.drop (a + 1) := by
   rw [List.drop_eq_getElem_cons hb, List.drop_eq_getElem_cons (by omega : a < u.length),
     List.cons_prefix_cons]
 
+/-- Letter maps preserve comparisons. -/
 theorem IsComp.map (f : α → β) {u : List α} {s e : ℕ} (h : IsComp u s e) :
     IsComp (u.map f) s e := by
   obtain ⟨hse, he, hc⟩ := h
@@ -28,6 +33,9 @@ theorem IsComp.map (f : α → β) {u : List α} {s e : ℕ} (h : IsComp u s e) 
   rw [← List.map_drop, ← List.map_drop]
   exact hc.map f
 
+/-- Collapse. A comparison of `f(u)` that is not a comparison of `u` extends to a
+left-maximal comparison `(s+1, e+1)` of `u` whose boundary letters are distinct with
+equal `f`-images (the rightmost mismatch). -/
 theorem exists_collapse (f : α → β) (u : List α) :
     ∀ k a b, u.length - b = k → a < b → b ≤ u.length →
       (u.map f).drop b <+: (u.map f).drop a → ¬ u.drop b <+: u.drop a →
@@ -51,6 +59,8 @@ theorem exists_collapse (f : α → β) (u : List α) :
       exact hn ((drop_prefix_iff_succ u hab hb').mpr ⟨hab'.symm, hc⟩)
     · exact ih (a + 1) (b + 1) (by omega) (by omega) (by omega) hm hc
 
+/-- General identification lemma. If a letter map `f` collapses no boundary pair of a
+left-maximal comparison of `u`, then `f(u)` has exactly the comparisons of `u`. -/
 theorem isComp_map_iff (f : α → β) (u : List α)
     (hf : ∀ s e (hs : s < u.length) (he : e < u.length), s < e →
       IsComp u (s + 1) (e + 1) → f u[s] = f u[e] → u[s] = u[e])
@@ -66,47 +76,38 @@ theorem isComp_map_iff (f : α → β) (u : List α)
 
 variable [DecidableEq α]
 
-/-- Identify one letter with another, leaving every other letter fixed. -/
-def identify (a b : α) (z : α) : α := if z = a then b else z
-
-@[simp] theorem identify_self_left (a b : α) : identify a b a = b := by simp [identify]
-
 end Comparisons
 
-/-- An initial label or a pair consisting of a core and the preceding letter. -/
+/-- Labels: `none` is the label `S` of cut 0; `some (c, a)` is the letter `a` read from
+core `c`. -/
 abbrev Lab (Γ C : Type*) := Option (C × Γ)
 
-/-- A core reader with separate admission relations for internal and final comparisons. -/
+/-- A monitor with core transitions, interior and terminal admissions, and a final target. -/
 structure Lettered (Γ C : Type*) where
-
   /-- The initial core. -/
   start : C
-
-  /-- The core transition associated with a letter. -/
+  /-- The core transition on a letter. -/
   κ : Γ → C → C
-
-  /-- Admission for comparisons ending before the final position. -/
+  /-- Admission for comparisons ending before the terminal cut. -/
   Λ : Lab Γ C → Lab Γ C → Prop
-
-  /-- Admission for comparisons ending at the final position. -/
+  /-- Admission for comparisons ending at the terminal cut. -/
   Λf : Lab Γ C → Lab Γ C → Prop
-
-  /-- The target predicate on the final core and letter. -/
+  /-- The target condition on the final core and letter. -/
   Tf : C → Γ → Prop
 
 namespace Lettered
 variable {Γ C : Type*} (D : Lettered Γ C)
 
-/-- The deterministic automaton of core transitions, with no accepting states. -/
+/-- The core reader. -/
 def coreDFA : DFA Γ C where
   step c a := D.κ a c
   start := D.start
   accept := ∅
 
-/-- The core reached after the prefix ending at a given position. -/
+/-- The core run: `c_0 = ⋆`, `c_{x+1} = κ(v_x, c_x)`. -/
 def core (v : List Γ) (x : ℕ) : C := runPrefix D.coreDFA v x
 
-/-- The initial label at zero, or the preceding core and letter at a positive position. -/
+/-- The label of cut `x`: `L_0 = S`, `L_{x+1} = (c_x, v_x)`. -/
 def label (v : List Γ) : ℕ → Lab Γ C
   | 0 => none
   | x + 1 => (v[x]?).map fun a => (D.core v x, a)
@@ -115,7 +116,7 @@ theorem label_succ (v : List Γ) {x : ℕ} (hx : x < v.length) :
     D.label v (x + 1) = some (D.core v x, v[x]) := by
   simp [label, List.getElem?_eq_getElem hx]
 
-/-- A nonempty target word without admitted internal or final comparisons. -/
+/-- The final label is a target and no interior or terminal comparison is admitted. -/
 def IsHole (v : List Γ) : Prop :=
   (∃ c a, D.label v v.length = some (c, a) ∧ D.Tf c a) ∧
     (∀ s, s < v.length → ¬ D.Λf (D.label v s) (D.label v v.length)) ∧
@@ -126,18 +127,7 @@ theorem IsHole.ne_nil {D : Lettered Γ C} {v : List Γ} (h : D.IsHole v) : v ≠
   obtain ⟨⟨c, a, hl, -⟩, -⟩ := h
   simp [label] at hl
 
-/--
-Two letters have identical admission rows and columns on the specified sets of cores and
-letters.
--/
-structure PairRows (P : Lab Γ C → Lab Γ C → Prop) (Qo U : Set C) (Z : Set Γ) (x y : Γ) :
-    Prop where
-  self : ∀ q ∈ Qo, ∀ q' ∈ Qo, P (some (q, x)) (some (q', x)) ↔ P (some (q, y)) (some (q', y))
-  left : ∀ q ∈ Qo, ∀ c ∈ U, ∀ z ∈ Z, P (some (q, x)) (some (c, z)) ↔ P (some (q, y)) (some (c, z))
-  right : ∀ q ∈ Qo, ∀ c ∈ U, ∀ z ∈ Z,
-    P (some (c, z)) (some (q, x)) ↔ P (some (c, z)) (some (q, y))
-  /-- The initial core. -/
-  start : ∀ q ∈ Qo, P none (some (q, x)) ↔ P none (some (q, y))
+variable [DecidableEq Γ]
 
 end Lettered
 
