@@ -1,5 +1,4 @@
 import DeciNSSE.Constraints.Dual
-import DeciNSSE.Satisfiability.LeastGraph
 import DeciNSSE.Semantics.Selector
 
 /-! # A finite graph for the least shape
@@ -9,8 +8,8 @@ and upper bounds at that path, and both sets are updated letter by letter.
 Pairs of such sets are the states of a finite graph whose unfolding is the
 least shape. A polarity bit realises selection and normalisation on graphs.
 Hence the selected least shape of a flip-closed, sign-coherent system without
-label clash is a regular solution fixed by sign duality, and its decoding is a
-regular variance solution.
+label clash is a regular solution fixed by sign duality, and decoding a regular
+solution fixed by sign duality gives a regular variance solution.
 -/
 
 namespace DeciNSSE
@@ -109,6 +108,75 @@ end RGraph
 section ShapeGraph
 
 variable {ϕ : Constraint n k}
+
+/-- The lower bounds of `z` at a path, computed by reading the path from the root. -/
+def lowerSet (ϕ : Constraint n k) (z : V k) : List (Fin n) → Finset (V k)
+  | [] => Finset.univ.filter (fun y => derivesB ϕ y z = true)
+  | i :: π => Finset.univ.filter (fun x => ∃ l ∈ lowerLits ϕ,
+      derivesB ϕ l.2 z = true ∧ x ∈ lowerSet ϕ (l.1 i) π)
+
+theorem mem_lowerSet (ϕ : Constraint n k) (z y : V k) (π : List (Fin n)) :
+    y ∈ lowerSet ϕ z π ↔ LowerAt ϕ π y z := by
+  induction π generalizing z with
+  | nil => simp [lowerSet, derivesB_iff]
+  | cons i π ih =>
+    simp only [lowerSet, Finset.mem_filter, Finset.mem_univ, true_and,
+      derivesB_iff, ih]
+    constructor
+    · rintro ⟨⟨a, u⟩, hl, hd, hp⟩
+      exact .cons ((mem_lowerLits ϕ a u).mp hl) hd hp
+    · intro h
+      cases h with
+      | @cons a u _ _ _ _ hl hd hp =>
+        exact ⟨(a, u), (mem_lowerLits ϕ a u).mpr hl, hd, hp⟩
+
+/-- A lower path ending in a letter factors through the lower bounds before it. -/
+theorem lowerAt_append_singleton_iff (π : List (Fin n)) (i : Fin n) (x y : V k) :
+    LowerAt ϕ (π ++ [i]) x y ↔ ∃ z a,
+      LowerAt ϕ π z y ∧ Lit.fLe a z ∈ ϕ ∧ Derives ϕ x (a i) := by
+  induction π generalizing y with
+  | nil =>
+    constructor
+    · intro h
+      cases h with
+      | cons hl hd hp => exact ⟨_, _, .nil hd, hl, lowerAt_nil_iff.mp hp⟩
+    · rintro ⟨z, a, hp, hl, hd⟩
+      exact .cons hl (lowerAt_nil_iff.mp hp) (.nil hd)
+  | cons j π ih =>
+    constructor
+    · intro h
+      cases h with
+      | cons hl hd hp =>
+        obtain ⟨z, a, hp, hfl, hdx⟩ := (ih _).mp hp
+        exact ⟨z, a, .cons hl hd hp, hfl, hdx⟩
+    · rintro ⟨z, a, hp, hfl, hdx⟩
+      cases hp with
+      | cons hl hd hp =>
+        exact .cons hl hd ((ih _).mpr ⟨z, a, hp, hfl, hdx⟩)
+
+/-- One letter of lower bounds: the variables below the chosen child of a lower
+constructor bound of the set. -/
+def step (ϕ : Constraint n k) (S : Finset (V k)) (i : Fin n) : Finset (V k) :=
+  Finset.univ.filter (fun x => ∃ l ∈ lowerLits ϕ, l.2 ∈ S ∧ derivesB ϕ x (l.1 i) = true)
+
+theorem mem_step (ϕ : Constraint n k) (S : Finset (V k)) (i : Fin n) (x : V k) :
+    x ∈ step ϕ S i ↔ ∃ z ∈ S, ∃ a, Lit.fLe a z ∈ ϕ ∧ Derives ϕ x (a i) := by
+  simp only [step, Finset.mem_filter, Finset.mem_univ, true_and, derivesB_iff]
+  constructor
+  · rintro ⟨⟨a, z⟩, hl, hz, hd⟩
+    exact ⟨z, hz, a, (mem_lowerLits ϕ a z).mp hl, hd⟩
+  · rintro ⟨z, hz, a, hl, hd⟩
+    exact ⟨(a, z), (mem_lowerLits ϕ a z).mpr hl, hz, hd⟩
+
+theorem lowerSet_append (ϕ : Constraint n k) (z : V k) (π : List (Fin n))
+    (i : Fin n) : lowerSet ϕ z (π ++ [i]) = step ϕ (lowerSet ϕ z π) i := by
+  ext x
+  simp only [mem_lowerSet, mem_step, lowerAt_append_singleton_iff]
+  constructor
+  · rintro ⟨w, a, hp, hl, hd⟩
+    exact ⟨w, hp, a, hl, hd⟩
+  · rintro ⟨w, hp, a, hl, hd⟩
+    exact ⟨w, a, hp, hl, hd⟩
 
 /-- A set of lower bounds supports a constructor label. -/
 def SupportsF (ϕ : Constraint n k) (S : Finset (V k)) : Prop :=
@@ -246,21 +314,24 @@ theorem unfold_decodedGraph (c : Fin n → Bool) {g : V (2 * k) → RGraph n}
   exact RGraph.unfold_normalize c false (g (sv u false))
 
 /-- A flip-closed, sign-coherent system without label clash has a regular solution fixed by
-sign duality: the selected least shape, presented by `selectGraph c (shapeGraph ψ)`. Its
-regular decoding solves every variance system whose signed translation belongs to `ψ`. -/
+sign duality: the selected least shape, presented by `selectGraph c (shapeGraph ψ)`. -/
 theorem regular_fixed_solution (c : Fin n → Bool) {ψ : Constraint n (2 * k)}
     (hc : FlipClosed ψ) (hs : SignCoherent c ψ) (hn : ¬ LabelClash ψ) :
     Covariant.Sat (RGraph.unfold ∘ selectGraph c (shapeGraph ψ)) ψ ∧
       Signed.dual (RGraph.unfold ∘ selectGraph c (shapeGraph ψ)) =
-        RGraph.unfold ∘ selectGraph c (shapeGraph ψ) ∧
-      ∀ ϕ : Constraint n k, (∀ l ∈ signed c ϕ, l ∈ ψ) →
-        Sat c (RGraph.unfold ∘ decodedGraph c (selectGraph c (shapeGraph ψ))) ϕ := by
-  rw [unfold_decodedGraph c rfl, unfold_selectGraph_shapeGraph c hc]
-  have hsat := select_sat_of_coherent hs (leastShape_sat hn)
-    (sat_signedDual_of_flipClosed hc (leastShape_sat hn)) (leastShape_sameShape_dual hc)
-  have hfix := select_fixed c (leastShape ψ) (leastShape_sameShape_dual hc)
-  refine ⟨hsat, hfix, fun ϕ hϕ => ?_⟩
-  rw [sat_iff_signed, normalized_decoded c hfix]
-  exact fun l hl => hsat l (hϕ l hl)
+        RGraph.unfold ∘ selectGraph c (shapeGraph ψ) := by
+  rw [unfold_selectGraph_shapeGraph c hc]
+  exact ⟨select_sat_of_coherent hs (leastShape_sat hn)
+      (sat_signedDual_of_flipClosed hc (leastShape_sat hn)) (leastShape_sameShape_dual hc),
+    select_fixed c (leastShape ψ) (leastShape_sameShape_dual hc)⟩
+
+/-- A signed solution fixed by sign duality and presented by graphs decodes to a regular
+variance solution. -/
+theorem sat_decodedGraph (c : Fin n → Bool) {ϕ : Constraint n k} {g : V (2 * k) → RGraph n}
+    (hs : Covariant.Sat (RGraph.unfold ∘ g) (signed c ϕ))
+    (hfix : Signed.dual (RGraph.unfold ∘ g) = RGraph.unfold ∘ g) :
+    Sat c (RGraph.unfold ∘ decodedGraph c g) ϕ := by
+  rw [sat_iff_signed, unfold_decodedGraph c rfl, normalized_decoded c hfix]
+  exact hs
 
 end DeciNSSE

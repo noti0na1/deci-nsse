@@ -1,15 +1,53 @@
-import DeciNSSE.Satisfiability.Least
+import DeciNSSE.Constraints.PathBounds
 
 /-! # The least-shape solution
 
-A constructor is retained only where both lower and upper constructor support
-require it. Pruning the resulting labels gives a solution with bounded depth
-whenever there is no cycle clash.
+Lower and upper bounds along a path support labels syntactically. A
+constructor is retained only where both lower and upper constructor support
+require it, and the labels are pruned below every leaf. Without a label clash
+the result is a solution; a label clash is therefore exactly the obstruction
+to a covariant solution. The solution has bounded depth whenever there is no
+cycle clash.
 -/
 
 namespace DeciNSSE
 
 variable {n k : ℕ} {ϕ : Constraint n k}
+
+/-- Syntactically supported lower bounds on the label of `x` at the path `π`. -/
+def LowerLabel (ϕ : Constraint n k) (π : List (Fin n)) : Sym → V k → Prop
+  | .top, x => ∃ y, Lit.eqTop y ∈ ϕ ∧ LowerAt ϕ π y x
+  | .f, x => ∃ a y, Lit.fLe a y ∈ ϕ ∧ LowerAt ϕ π y x
+  | .bot, _ => True
+
+@[simp] theorem lowerLabel_nil_f {x : V k} :
+    LowerLabel ϕ [] .f x ↔ LowerF ϕ x := by
+  simp [LowerLabel, LowerF]
+
+theorem LowerLabel.cons_fLe {π : List (Fin n)} {g : Sym} {a : Fin n → V k} {x : V k}
+    (hl : Lit.fLe a x ∈ ϕ) (i : Fin n) (h : LowerLabel ϕ π g (a i)) :
+    LowerLabel ϕ (i :: π) g x := by
+  cases g with
+  | bot => trivial
+  | f =>
+    obtain ⟨b, y, hy, hp⟩ := h
+    exact ⟨b, y, hy, .cons hl (.refl x) hp⟩
+  | top =>
+    obtain ⟨y, hy, hp⟩ := h
+    exact ⟨y, hy, .cons hl (.refl x) hp⟩
+
+/-- Cancel an upper path from a lower-supported label. -/
+theorem LowerLabel.decompose {π π' : List (Fin n)} {g : Sym} {x y : V k}
+    (h : LowerLabel ϕ (π ++ π') g x) (hu : UpperAt ϕ π x y) :
+    LowerLabel ϕ π' g y := by
+  cases g with
+  | bot => trivial
+  | f =>
+    obtain ⟨a, z, hz, hp⟩ := h
+    exact ⟨a, z, hz, hp.decompose_lower hu⟩
+  | top =>
+    obtain ⟨z, hz, hp⟩ := h
+    exact ⟨z, hz, hp.decompose_lower hu⟩
 
 /-- Syntactically supported upper bounds on the label of `x` at the path `π`. -/
 def UpperLabel (ϕ : Constraint n k) (π : List (Fin n)) : Sym → V k → Prop
@@ -98,7 +136,39 @@ theorem shapeLabel_mono {π τ : List (Fin n)} {x y : V k}
     · rw [shapeLabel_eq_bot_iff.mpr ⟨fun hx => hn (hl hx), Or.inl (hu .bot hb)⟩]
     · rw [shapeLabel_eq_bot_iff.mpr ⟨fun hx => hn (hl hx), Or.inr (hu .f hf)⟩]
 
-/-- Gate the labels by the same proper-prefix predicate used for `least`. -/
+/-- A path survives precisely when its proper prefixes carry the constructor. -/
+def Active (labels : List (Fin n) → Sym) (π : List (Fin n)) : Prop :=
+  ∀ τ, τ <+: π → τ ≠ π → labels τ = .f
+
+@[simp] theorem active_nil (labels : List (Fin n) → Sym) : Active labels [] := by
+  intro τ hp hn
+  exact False.elim (hn (List.prefix_nil.mp hp))
+
+theorem active_append_singleton (labels : List (Fin n) → Sym)
+    (π : List (Fin n)) (i : Fin n) :
+    Active labels (π ++ [i]) ↔ Active labels π ∧ labels π = .f := by
+  constructor
+  · intro h
+    have hlen : π ≠ π ++ [i] := by intro he; have := congrArg List.length he; simp at this
+    refine ⟨?_, h π (List.prefix_append _ _) hlen⟩
+    intro τ hp hn
+    apply h τ (hp.trans (List.prefix_append _ _))
+    intro he
+    have := hp.length_le
+    simp [he] at this
+  · rintro ⟨h, hf⟩ τ hp hn
+    have hlen : τ.length ≤ π.length := by
+      have hle := hp.length_le
+      have hneq : τ.length ≠ (π ++ [i]).length := fun he => hn (hp.eq_of_length he)
+      simp only [List.length_append, List.length_singleton] at hle hneq
+      omega
+    have hprefix : τ <+: π :=
+      List.prefix_of_prefix_length_le hp (List.prefix_append _ _) hlen
+    by_cases he : τ = π
+    · simpa [he] using hf
+    · exact h τ hprefix he
+
+/-- Prune the least-shape labels below every leaf. -/
 noncomputable def leastShape (ϕ : Constraint n k) (x : V k) : Tree n := by
   classical
   exact {
@@ -156,7 +226,7 @@ theorem leastShape_eq_top (hn : ¬ LabelClash ϕ) {x : V k}
 /-- The least-shape assignment satisfies each lower constructor literal. -/
 theorem node_le_leastShape {a : Fin n → V k} {x : V k} (hl : Lit.fLe a x ∈ ϕ) :
     Tree.node (leastShape ϕ ∘ a) ≤ leastShape ϕ x := by
-  intro π c Tree.dual hc hd
+  intro π c d hc hd
   rw [leastShape_label_eq hd]
   cases π with
   | nil =>
@@ -173,15 +243,15 @@ theorem node_le_leastShape {a : Fin n → V k} {x : V k} (hl : Lit.fLe a x ∈ �
 /-- The least-shape assignment satisfies each upper constructor literal. -/
 theorem leastShape_le_node {x : V k} {b : Fin n → V k} (hl : Lit.leF x b ∈ ϕ) :
     leastShape ϕ x ≤ Tree.node (leastShape ϕ ∘ b) := by
-  intro π c Tree.dual hc hd
+  intro π c d hc hd
   rw [leastShape_label_eq hc]
   cases π with
   | nil =>
-    have he : Tree.dual = .f := (Option.some.inj hd).symm
-    subst Tree.dual
+    have he : d = .f := (Option.some.inj hd).symm
+    subst d
     exact shapeLabel_le_f ⟨x, b, hl, .nil (.refl x)⟩
   | cons i π =>
-    have hd' : (leastShape ϕ (b i)).fn π = some Tree.dual := hd
+    have hd' : (leastShape ϕ (b i)).fn π = some d := hd
     rw [leastShape_label_eq hd']
     have hp : UpperAt ϕ [i] x (b i) := .cons (.refl x) hl (.nil (.refl _))
     exact shapeLabel_mono (fun h => LowerLabel.decompose (π := [i]) h hp)
@@ -195,5 +265,9 @@ theorem leastShape_sat (hn : ¬ LabelClash ϕ) : Covariant.Sat (leastShape ϕ) �
   | fLe a x => exact node_le_leastShape hl
   | eqBot x => exact leastShape_eq_bot hn hl
   | eqTop x => exact leastShape_eq_top hn hl
+
+/-- A covariant system is satisfiable exactly when it has no label clash. -/
+theorem satisfiable_iff_not_labelClash : (∃ ρ, Covariant.Sat ρ ϕ) ↔ ¬ LabelClash ϕ :=
+  ⟨fun hs hc => hc.unsatisfiable hs, fun hn => ⟨leastShape ϕ, leastShape_sat hn⟩⟩
 
 end DeciNSSE

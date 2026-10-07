@@ -3,8 +3,7 @@ import DeciNSSE.Semantics.Safety
 /-! # Median of trees
 
 Pointwise median of extended labels, pruned below extreme labels, defines a
-monotone tree operation. Median with the full constructor tree symmetrises
-signed solutions while preserving a top or bottom witness.
+monotone tree operation that commutes with duality.
 -/
 
 namespace DeciNSSE
@@ -24,16 +23,6 @@ def Tree.trace (t : Tree n) (w : List (Fin n)) : Sym :=
 @[simp] theorem trace_node_cons (a : Fin n → Tree n) (i : Fin n) (w : List (Fin n)) :
     Tree.trace (Tree.node a) (i :: w) = Tree.trace (a i) w := by
   simp [Tree.trace]
-
-theorem trace_of_fn {t : Tree n} {w : List (Fin n)} {s : Sym}
-    (h : t.fn w = some s) : Tree.trace t w = s := by
-  induction w generalizing t with
-  | nil => simp [Tree.trace, h]
-  | cons i w ih =>
-    rcases t.eq_bot_or_eq_top_or_node with rfl | rfl | ⟨a, rfl⟩
-    · simp at h
-    · simp at h
-    · rw [trace_node_cons]; exact ih (by simpa using h)
 
 theorem trace_step (t : Tree n) (w : List (Fin n)) (i : Fin n) :
     Tree.trace t (w ++ [i]) = (t.fn (w ++ [i])).getD (Tree.trace t w) := by
@@ -227,25 +216,5 @@ theorem median_node (a b c : Fin n → Tree n) :
 
 theorem dual_median (a b c : Tree n) : Tree.dual (Tree.median a b c) = Tree.median (Tree.dual a) (Tree.dual b) (Tree.dual c) := by
   apply trace_injective; funext w; simp [medianSym_flip]
-
-/-- The tree with the constructor at every path; for `n = 0` it is the constant `f()`. -/
-def Tree.full : Tree n where
-  fn _ := some .f
-  wf := by simp
-
-@[simp] theorem full_fn (w : List (Fin n)) : (Tree.full : Tree n).fn w = some .f := rfl
-
-@[simp] theorem trace_full (w : List (Fin n)) : Tree.trace (Tree.full : Tree n) w = .f := trace_of_fn rfl
-
-@[simp] theorem dual_full : Tree.dual (Tree.full : Tree n) = Tree.full := by
-  apply trace_injective; funext w; simp
-
-theorem full_eq_node : (Tree.full : Tree n) = Tree.node (fun _ => Tree.full) := by
-  apply Tree.ext; funext w; cases w <;> rfl
-
-theorem full_bounds :
-    (Tree.full : Tree n) ≤ Tree.node (fun _ => Tree.full) ∧
-      Tree.node (fun _ => Tree.full) ≤ (Tree.full : Tree n) := by
-  rw [← full_eq_node]; exact ⟨le_rfl, le_rfl⟩
 
 end DeciNSSE

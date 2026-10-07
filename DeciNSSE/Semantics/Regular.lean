@@ -66,12 +66,6 @@ def reroot (g : RGraph n) (p : Fin g.size) : RGraph n := { g with root := p }
 @[simp] theorem unfold_root (g : RGraph n) :
     g.unfold.fn [] = some (g.label g.root) := rfl
 
-theorem unfold_bot (g : RGraph n) (h : g.label g.root = Sym.bot) :
-    g.unfold = Tree.bot := (Tree.root_eq_bot_iff _).mp (congrArg some h)
-
-theorem unfold_top (g : RGraph n) (h : g.label g.root = Sym.top) :
-    g.unfold = Tree.top := (Tree.root_eq_top_iff _).mp (congrArg some h)
-
 theorem walkFrom_reroot (g : RGraph n) (p q : Fin g.size) (w : List (Fin n)) :
     (g.reroot p).walkFrom q w = g.walkFrom q w := by
   induction w generalizing q with
@@ -82,17 +76,6 @@ theorem walkFrom_reroot (g : RGraph n) (p q : Fin g.size) (w : List (Fin n)) :
     split
     · exact ih _
     · rfl
-
-theorem unfold_node (g : RGraph n) (h : g.label g.root = Sym.f) :
-    g.unfold = Tree.node (fun i => (g.reroot (g.child g.root i)).unfold) := by
-  apply Tree.ext
-  funext w
-  cases w with
-  | nil => exact congrArg some h
-  | cons i w =>
-    change (g.walkFrom g.root (i :: w)).map g.label =
-      ((g.reroot (g.child g.root i)).walkFrom (g.child g.root i) w).map g.label
-    rw [walkFrom, ite_eq_left h, walkFrom_reroot]
 
 /-- One state with every edge returning to itself. -/
 def allF (n : ℕ) : RGraph n where

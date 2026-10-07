@@ -194,8 +194,7 @@ and [Semantics/Selector.lean](DeciNSSE/Semantics/Selector.lean).
 Closure derives variable inequalities by reflexivity, transitivity and
 constructor decomposition. Upper and lower path judgements describe the
 bounds at a tree path. A label clash is exactly the obstruction to a
-covariant solution; without one, a least solution has a finite graph
-representation.
+covariant solution; without one, the least shape is a solution.
 
 Four fresh constraint spines enforce the prefix conditions for an unsafe
 word: a lower spine from `x⁺` ending in top, a lower spine from `y⁻` ending in
@@ -293,10 +292,15 @@ See [RejectedTail/Decision.lean](DeciNSSE/RejectedTail/Decision.lean) and
 
 ### 7. Transfer to regular and finite trees
 
-Finite graphs realise the least solution, duality, normalisation and median.
-Applying them to the spine extension gives a regular countermodel whenever
-an arbitrary countermodel exists. Hence regular entailment coincides with
-unrestricted entailment.
+The least-shape label at a path depends only on the sets of lower and upper
+bounds at that path, and both sets are updated letter by letter. Pairs of such
+sets are the states of a finite graph whose unfolding is the least shape; a
+polarity bit realises the selector and decoding on graphs. For an unsafe word,
+the selected least shape of the four-spine extension is therefore regular, and
+decoding its restriction gives a regular countermodel at the same word. Hence
+regular entailment coincides with unrestricted entailment.
+See [Satisfiability/ShapeGraph.lean](DeciNSSE/Satisfiability/ShapeGraph.lean)
+and [Transfer/Regular.lean](DeciNSSE/Transfer/Regular.lean).
 
 Finite satisfiability additionally excludes cycle clashes. The least-shape
 solution and its sign dual have identical constructor positions; a polarity
@@ -401,7 +405,7 @@ procedures also relies on the compiler.
 | [Semantics](DeciNSSE/Semantics) | Trees, variance order, normalisation and median |
 | [Characterisation](DeciNSSE/Semantics/Characterisation.lean) | Fixed points, representation domains and flat expressiveness |
 | [Constraints](DeciNSSE/Constraints) | Flat syntax, satisfaction, entailment and signed closure |
-| [Satisfiability](DeciNSSE/Satisfiability) | Least solutions, label clashes and cycle clashes |
+| [Satisfiability](DeciNSSE/Satisfiability) | Least shapes, their finite graphs, label clashes and cycle clashes |
 | [Transfer](DeciNSSE/Transfer) | Spines, symmetrisation and countermodel transfer |
 | [Monitor](DeciNSSE/Monitor) | Exact clash analysis, label readers and semantic bridge |
 | [Holes](DeciNSSE/Holes) | Desubstitution, supports and finite compression |
