@@ -728,11 +728,9 @@ theorem fixedWitness_iff_not_labelClash (hf : FlipClosed ψ) (hc : SignCoherent 
   · rintro ⟨A, hA, hfix, hx, hy⟩ hl
     exact hl.unsatisfiable ⟨_, extend_sat hA hfix hx hy⟩
   · intro hl
-    have hf' : FlipClosed (Spine.extension c ψ X Y w) := extension_flipClosed hf
-    have hB := leastShape_sat hl
-    have hM := select_sat_of_coherent (extension_signCoherent hc) hB
-      (sat_signedDual_of_flipClosed hf' hB) (leastShape_sameShape_dual hf')
-    exact ⟨_, witness_of_sat hM (select_fixed _ _ _)⟩
+    obtain ⟨hM, hfix⟩ :=
+      select_leastShape_sat_fixed (extension_flipClosed hf) (extension_signCoherent hc) hl
+    exact ⟨_, witness_of_sat hM hfix⟩
 
 end Solutions
 

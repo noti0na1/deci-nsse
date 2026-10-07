@@ -333,10 +333,15 @@ theorem select_sat_of_coherent {c : Fin n → Bool} {ψ : Constraint n (2 * k)}
       · rw [ite_eq_right he] at hr'
         exact hb (i :: π) _ _ hr' hs'
 
-/-- `M` satisfies the signed translation whenever `B` does. -/
-theorem select_sat {c : Fin n → Bool} {ϕ : Constraint n k} {B : V (2 * k) → Tree n}
-    (hs : Covariant.Sat B (signed c ϕ)) (h : ∀ z, SameShape (B z) (Signed.dual B z)) :
-    Covariant.Sat (select c B h) (signed c ϕ) :=
-  select_sat_of_coherent (signed_signCoherent c ϕ) hs (sat_signedDual c hs) h
+/-- The selected least shape of a flip-closed, sign-coherent system without label
+clash is a solution fixed by sign duality. -/
+theorem select_leastShape_sat_fixed {c : Fin n → Bool} {ψ : Constraint n (2 * k)}
+    (hf : FlipClosed ψ) (hc : SignCoherent c ψ) (hn : ¬ LabelClash ψ) :
+    Covariant.Sat (select c (leastShape ψ) (leastShape_sameShape_dual hf)) ψ ∧
+      Signed.dual (select c (leastShape ψ) (leastShape_sameShape_dual hf)) =
+        select c (leastShape ψ) (leastShape_sameShape_dual hf) :=
+  ⟨select_sat_of_coherent hc (leastShape_sat hn)
+      (sat_signedDual_of_flipClosed hf (leastShape_sat hn)) _,
+    select_fixed _ _ _⟩
 
 end DeciNSSE.FiniteVariance

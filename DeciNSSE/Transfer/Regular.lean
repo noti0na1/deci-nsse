@@ -7,9 +7,9 @@ An unsafe word of a side leaves the four-spine extension of that side without
 label clash. The selected least shape of the extension is then a solution fixed
 by sign duality, presented by a finite graph; restricted to the old variables
 it is a sign-fixed witness of the side. Decoding the witness gives a regular
-countermodel at the same word. On the bottom-prefix side the witness belongs to
-the order dual, so the decoding reads its negative coordinates. Regular
-entailment therefore coincides with unrestricted entailment.
+countermodel that fails the query at the same word. On the bottom-prefix side
+the witness belongs to the order dual, so the decoding reads its negative
+coordinates. Regular entailment therefore coincides with unrestricted entailment.
 -/
 
 namespace DeciNSSE
@@ -64,18 +64,21 @@ def countermodel (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
   | .r, w => decodedGraph c
       (witnessGraph c (Constraint.dual (signed c ϕ)) (sv y false) (sv x false) w ∘ flipV)
 
-/-- If `w` is unsafe on side `θ`, the regular assignment `countermodel c ϕ x y θ w` is a
-countermodel. -/
+/-- If `w` is unsafe on side `θ`, the regular assignment `countermodel c ϕ x y θ w`
+solves the system and fails the query at `w`: there `w` reaches a polarized top in `x`
+but not in `y`, or a polarized bottom in `y` but not in `x`. -/
 theorem countermodel_spec {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k} {θ : Side}
     {w : List (Fin n)} (hu : Unsafe c ϕ x y θ w) :
     Sat c (RGraph.unfold ∘ countermodel c ϕ x y θ w) ϕ ∧
-      ¬ Tree.Le c (countermodel c ϕ x y θ w x).unfold (countermodel c ϕ x y θ w y).unfold := by
+      ¬ ((prefTop c w (countermodel c ϕ x y θ w x).unfold →
+          prefTop c w (countermodel c ϕ x y θ w y).unfold) ∧
+        (prefBot c w (countermodel c ϕ x y θ w y).unfold →
+          prefBot c w (countermodel c ϕ x y θ w x).unfold)) := by
   obtain ⟨hs, hfix, hX, hY⟩ := witnessGraph_spec (sideSystem_flipClosed θ)
     (sideSystem_signCoherent θ) ((sideUnsafe_iff_not_labelClash θ w).mp hu)
   cases θ <;> simp only [sideSystem, sideQuery] at hs hfix hX hY
-  · refine ⟨sat_decodedGraph c hs hfix, fun hle => hY ?_⟩
-    exact (prefTop_decodedGraph c _ y w).mp
-      (((treeLe_iff_safe c _ _).mp hle w).1 ((prefTop_decodedGraph c _ x w).mpr hX))
+  · refine ⟨sat_decodedGraph c hs hfix, fun h => hY ?_⟩
+    exact (prefTop_decodedGraph c _ y w).mp (h.1 ((prefTop_decodedGraph c _ x w).mpr hX))
   · set g := witnessGraph c (Constraint.dual (signed c ϕ)) (sv y false) (sv x false) w
     have hd : RGraph.unfold ∘ (g ∘ flipV) = Tree.dual ∘ (RGraph.unfold ∘ g) :=
       funext fun z => fixed_flipV hfix z
@@ -88,8 +91,8 @@ theorem countermodel_spec {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k}
       rw [prefBot_decodedGraph, ← Function.comp_apply (f := RGraph.unfold), hd,
         Function.comp_apply, covPrefBot_dual]
       rfl
-    refine ⟨sat_decodedGraph c (hd ▸ ConstraintDual.sat_of_dual hs) hfix', fun hle => hY ?_⟩
-    exact (hbot x).mp (((treeLe_iff_safe c _ _).mp hle w).2 ((hbot y).mpr hX))
+    refine ⟨sat_decodedGraph c (hd ▸ ConstraintDual.sat_of_dual hs) hfix', fun h => hY ?_⟩
+    exact (hbot x).mp (h.2 ((hbot y).mpr hX))
 
 end RegularTransfer
 
@@ -103,7 +106,8 @@ theorem explicit_countermodel (c : Fin n → Bool) {ϕ : Constraint n k} {x y : 
       ¬ Tree.Le c (countermodel c ϕ x y θ w x).unfold (countermodel c ϕ x y θ w y).unfold := by
   simp only [entails_iff_not_sideUnsafe, not_forall, not_not] at hn
   obtain ⟨θ, w, hu⟩ := hn
-  exact ⟨θ, w, countermodel_spec hu⟩
+  obtain ⟨hs, hw⟩ := countermodel_spec hu
+  exact ⟨θ, w, hs, fun hle => hw ((treeLe_iff_safe c _ _).mp hle w)⟩
 
 /-- Every non-entailment, at any arity and variance, has a regular countermodel. -/
 theorem regular_countermodel (c : Fin n → Bool) {ϕ : Constraint n k} {x y : V k}

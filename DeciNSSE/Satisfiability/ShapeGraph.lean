@@ -321,9 +321,7 @@ theorem regular_fixed_solution (c : Fin n → Bool) {ψ : Constraint n (2 * k)}
       Signed.dual (RGraph.unfold ∘ selectGraph c (shapeGraph ψ)) =
         RGraph.unfold ∘ selectGraph c (shapeGraph ψ) := by
   rw [unfold_selectGraph_shapeGraph c hc]
-  exact ⟨select_sat_of_coherent hs (leastShape_sat hn)
-      (sat_signedDual_of_flipClosed hc (leastShape_sat hn)) (leastShape_sameShape_dual hc),
-    select_fixed c (leastShape ψ) (leastShape_sameShape_dual hc)⟩
+  exact select_leastShape_sat_fixed hc hs hn
 
 /-- A signed solution fixed by sign duality and presented by graphs decodes to a regular
 variance solution. -/

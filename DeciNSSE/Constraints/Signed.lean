@@ -82,17 +82,6 @@ def Signed.dual (A : V (2 * k) → Tree n) (z : V (2 * k)) : Tree n :=
     obtain ⟨l, hl, hm⟩ := List.mem_flatMap.mp hm
     exact h l hl m hm
 
-theorem sat_signedLit_dual_iff (c : Fin n → Bool) (A : V (2 * k) → Tree n) (l : Lit n k) :
-    Covariant.Sat (Signed.dual A) (signedLit c l) ↔ Covariant.Sat A (signedLit c l) := by
-  cases l <;> simp [signedLit, Covariant.Sat, Covariant.holds, Function.comp_def, ← dual_node, and_comm]
-
-/-- Sign complementation and leaf duality exchange each pair of translated literals. -/
-theorem sat_signedDual (c : Fin n → Bool) {A : V (2 * k) → Tree n} {ϕ : Constraint n k}
-    (h : Covariant.Sat A (signed c ϕ)) : Covariant.Sat (Signed.dual A) (signed c ϕ) := by
-  rw [sat_signed_iff] at h ⊢
-  intro l hl
-  exact (sat_signedLit_dual_iff c A l).mpr (h l hl)
-
 /-- The assignment induced by an actual variance-tree assignment. -/
 def normalized (c : Fin n → Bool) (ρ : V k → Tree n) (z : V (2 * k)) : Tree n :=
   Tree.normalize c (sign z) (ρ (base z))

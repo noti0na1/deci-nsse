@@ -32,19 +32,18 @@ theorem finite_fixedWitness (hf : FlipClosed ψ) (hc : SignCoherent c ψ)
     (hl : ¬ LabelClash (Spine.extension c ψ X Y w)) (hcy : ¬ CycleClash ψ) :
     ∃ B : V (2 * k) → FTree n, Covariant.Sat (FTree.toTree ∘ B) ψ ∧
       Signed.dual (FTree.toTree ∘ B) = FTree.toTree ∘ B ∧
-        covPrefTop w (B X).toTree ∧ ¬ covPrefTop w (B Y).toTree := by
-  have hf' : FlipClosed (Spine.extension c ψ X Y w) := extension_flipClosed hf
-  have hB := leastShape_sat hl
-  have hM := select_sat_of_coherent (extension_signCoherent hc) hB
-    (sat_signedDual_of_flipClosed hf' hB) (leastShape_sameShape_dual hf')
+        covPrefTop w (B X).toTree ∧ ¬ covPrefTop w (B Y).toTree ∧
+          FTree.toTree ∘ B = select c (leastShape (Spine.extension c ψ X Y w))
+            (leastShape_sameShape_dual (extension_flipClosed hf)) ∘ lift := by
+  obtain ⟨hM, hfix⟩ :=
+    select_leastShape_sat_fixed (extension_flipClosed hf) (extension_signCoherent hc) hl
   have hcy' : ¬ CycleClash (Spine.extension c ψ X Y w) :=
     fun h => hcy ((extension_ranked c X Y w ψ).cycleClash_iff.mp h)
-  obtain ⟨hA, hfix, hx, hy⟩ := witness_of_sat hM (select_fixed _ _ _)
+  obtain ⟨hA, hfix', hx, hy⟩ := witness_of_sat hM hfix
   obtain ⟨B, he⟩ := FTree.exists_eq_of_depth
-    (ρ := select c (leastShape (Spine.extension c ψ X Y w)) (leastShape_sameShape_dual hf') ∘ lift)
     fun z π hπ => select_depth c _ _ (leastShape_depth hcy') (lift z) π hπ
   have he' (z : V (2 * k)) : (B z).toTree = _ := congrFun he z
-  exact ⟨B, he ▸ hA, he ▸ hfix, he' X ▸ hx, he' Y ▸ hy⟩
+  exact ⟨B, he ▸ hA, he ▸ hfix', he' X ▸ hx, he' Y ▸ hy, he⟩
 
 end Witness
 
@@ -81,7 +80,7 @@ theorem finite_countermodel_of_unsafe (hs : SatisfiableFin c ϕ) {θ : Side} {w 
     (hu : Unsafe c ϕ x y θ w) :
     ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ ∧
       ¬ Tree.Le c (σ x).toTree (σ y).toTree := by
-  obtain ⟨B, hB, hfix, hX, hY⟩ := finite_fixedWitness (sideSystem_flipClosed θ)
+  obtain ⟨B, hB, hfix, hX, hY, -⟩ := finite_fixedWitness (sideSystem_flipClosed θ)
     (sideSystem_signCoherent θ) ((sideUnsafe_iff_not_labelClash θ w).mp hu)
     (sideSystem_not_cycleClash hs θ)
   have hne : ¬ (B (sideQuery x y θ).1).toTree ≤ (B (sideQuery x y θ).2).toTree :=

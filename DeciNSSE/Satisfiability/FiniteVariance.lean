@@ -20,7 +20,7 @@ noncomputable def selectedShape (c : Fin n → Bool) (ϕ : Constraint n k) :
 /-- Without a signed label clash, the selected least shape satisfies the signed system. -/
 theorem selectedShape_sat {c : Fin n → Bool} {ϕ : Constraint n k}
     (hl : ¬ LabelClash (signed c ϕ)) : Covariant.Sat (selectedShape c ϕ) (signed c ϕ) :=
-  select_sat (leastShape_sat hl) _
+  (select_leastShape_sat_fixed (signed_flipClosed c ϕ) (signed_signCoherent c ϕ) hl).1
 
 /-- The selected least shape is fixed by sign duality. -/
 theorem selectedShape_fixed (c : Fin n → Bool) (ϕ : Constraint n k) :
