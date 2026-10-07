@@ -3,69 +3,59 @@ import DeciNSSE.RejectedTail.Depth
 
 /-! # Decidable holes for finite readers
 
-Predecessor refinement preserves holes and supplies the return-gap invariant.
-A quadratic tail bound gives a depth bound, and bounded-depth compression
-gives an executable finite search over words, including the empty alphabet.
+A hole can be chosen with a quadratic rejected tail. The return gap turns this
+tail bound into a depth bound in the number of reader states, and bounded-depth
+compression gives an executable finite search over words, including the empty
+alphabet.
 -/
 
 set_option autoImplicit false
 namespace DeciNSSE.RejectedTail
 
-open Refinement
 open Holes LetteredHierarchy HierarchyDepth
 variable {α Q : Type*}
 
-/-- The depth bound combines the quadratic tail bound with the refined state count. -/
+/-- The depth bound combines the quadratic tail bound with the state count. -/
 def holeDepthBound (N : ℕ) : ℕ :=
-  2 * (2*N+1) * max 1 (N^2+4*N) - 1
+  2 * N * (N^2+4*N+1) - 1
 
 /-- An explicit total witness-length bound, including epsilon. -/
 def holeLengthBound (N : ℕ) : ℕ :=
-  BoundedDepth.holeBound (2*N+1) (holeDepthBound N) 0
-
-@[simp] theorem card_state [Fintype Q] :
-    Fintype.card (State Q) = 2 * Fintype.card Q + 1 := by
-  simp [State, Fintype.card_prod, Nat.mul_comm]
+  BoundedDepth.holeBound N (holeDepthBound N) 0
 
 variable [DecidableEq α] [Fintype Q] [DecidableEq Q]
-variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
-variable [DecidablePred (· ∈ T)] [RejectedPath M R T]
+variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) [RejectedPath M R T]
 
-/-- The rejected-tail and refined depth bounds reduce hole existence to bounded depth. -/
+/-- The rejected-tail and depth bounds reduce hole existence to bounded depth. -/
 theorem hole_iff_bounded_depth [Inhabited α] :
     (∃ w, IsReaderHole M R T w) ↔
-      IsReaderHole (reader M T) (relation M R) (target M T) [] ∨
-      ∃ w, w ≠ [] ∧ IsReaderHole (reader M T) (relation M R) (target M T) w ∧
-        InL (holeDepthBound (Fintype.card Q)) 0 w := by
+      IsReaderHole M R T [] ∨
+      ∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL (holeDepthBound (Fintype.card Q)) 0 w := by
   constructor
   · intro hh
     obtain ⟨w,J,hw,hJ,hb⟩ := boundedRejectedTail_of_rejectedPath M R T hh
-    have hrw := (hole_iff M R T w).mpr hw
     by_cases hn : w = []
-    · exact Or.inl (hn ▸ hrw)
-    · refine Or.inr ⟨w, hn, hrw, depth w, ?_, Or.inl (isUnary_depth w)⟩
-      have hd := rejected_depth (reader M T) (relation M R) (target M T)
-        (return_gap M R T) hn ((Holes.isReaderHole_iff _ _ _ _).mp hrw).1
-        ((firstRejectedPrefix_iff M T w J).mpr hJ)
+    · exact Or.inl (hn ▸ hw)
+    · refine Or.inr ⟨w, hn, hw, depth w, ?_, Or.inl (isUnary_depth w)⟩
+      have hd := rejected_depth M R T hn ((Holes.isReaderHole_iff _ _ _ _).mp hw).1 hJ
       apply hd.trans
-      simp only [card_state, holeDepthBound]
-      exact Nat.sub_le_sub_right (Nat.mul_le_mul_left _ (max_le_max_left 1 hb)) 1
+      simp only [holeDepthBound]
+      exact Nat.sub_le_sub_right (Nat.mul_le_mul_left _ (Nat.add_le_add_right hb 1)) 1
   · rintro (hh | ⟨w,_,hh,_⟩)
-    · exact ⟨[], (hole_iff M R T []).mp hh⟩
-    · exact ⟨w, (hole_iff M R T w).mp hh⟩
+    · exact ⟨[], hh⟩
+    · exact ⟨w, hh⟩
 
-/-- A total finite witness bound on the original hole language. -/
+/-- A total finite witness bound on the hole language. -/
 theorem hole_iff_bounded_length_of_inhabited [Inhabited α] :
     (∃ w, IsReaderHole M R T w) ↔
       ∃ w, IsReaderHole M R T w ∧ w.length ≤ holeLengthBound (Fintype.card Q) := by
   constructor
   · intro hh
     rcases (hole_iff_bounded_depth M R T).mp hh with hnil | hnon
-    · exact ⟨[], (hole_iff M R T []).mp hnil, Nat.zero_le _⟩
-    · obtain ⟨w,_,hw,_,hlen⟩ :=
-        (BoundedDepth.exists_reader_hole_InL_iff_bounded
-          (reader M T) (relation M R) (target M T) (holeDepthBound (Fintype.card Q)) 0).mp hnon
-      exact ⟨w, (hole_iff M R T w).mp hw, by simpa only [holeLengthBound, card_state] using hlen⟩
+    · exact ⟨[], hnil, Nat.zero_le _⟩
+    · obtain ⟨w,_,hw,_,hlen⟩ := (BoundedDepth.exists_reader_hole_InL_iff_bounded
+        M R T (holeDepthBound (Fintype.card Q)) 0).mp hnon
+      exact ⟨w, hw, hlen⟩
   · rintro ⟨w,hw,_⟩
     exact ⟨w,hw⟩
 
@@ -98,7 +88,7 @@ theorem hole_iff_search [Fintype α] :
   exact exists_congr (fun _ => and_comm)
 
 /-- Computable decision for every finite-alphabet rejected-path instance. -/
-def decideHole [Fintype α] [DecidableRel R] :
+def decideHole [Fintype α] [DecidableRel R] [DecidablePred (· ∈ T)] :
     Decidable (∃ w, IsReaderHole M R T w) :=
   decidable_of_iff _ (hole_iff_search M R T).symm
 

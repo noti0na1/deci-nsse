@@ -245,27 +245,26 @@ breaks short periods, using Fine–Wilf periodicity. Otherwise the rejected
 continuation is forced and eventually periodic; tracking state and phase
 allows it to be shortened.
 
-For the depth argument, the reader is refined to remember whether the
-predecessor prefix was accepted, with a separate start state. This gives
-`2*N + 1` states and preserves holes word by word. Equal refined states bound
-a return gap by the rejected-tail length. The canonical hierarchy repeatedly
-cuts a word at its last letter; its supports of original reader cores
-decrease. Counting support plateaus bounds the first unary level by
+For the depth argument, let `J` be the first rejected cut and let a comparison
+`s < e` join two cuts with equal reader states. Removing the factor between
+them leaves the prefix of length `|w| - (e-s)`, which reaches the same
+rejected state as `w`. It cannot precede `J`, so the return gap `e - s` is at
+most the rejected-tail length `|w| - J`; this holds for every reader. The
+canonical hierarchy repeatedly cuts a word at its last letter; its supports of
+reader cores decrease, and a constant nonempty support lasts at most `B + 1`
+levels. Counting these plateaus bounds the first unary level by
 
 ```text
-d = 2 * (2*N + 1) * max(1, B) - 1.
+d = 2 * N * (B + 1) - 1.
 ```
 
 At bounded depth, finite summaries of tuples of blocks record transitions,
 admissions and equalities. Short representatives preserve these summaries,
-giving a computable length bound
-`BoundedDepth.holeBound (2*N + 1) d 0`. This bounds the length of a chosen
-witness, not the length of every hole. The empty word and empty alphabet
-are covered by `RejectedTail.hole_iff_bounded_length`.
+giving a computable length bound `BoundedDepth.holeBound N d 0`. This bounds
+the length of a chosen witness, not the length of every hole. The empty word
+and empty alphabet are covered by `RejectedTail.hole_iff_bounded_length`.
 
-Finite enumeration up to this bound decides hole existence. The label
-monitor's state count and the refined reader's state count have different
-roles; neither alone gives an elementary bound on the full search.
+Finite enumeration up to this bound decides hole existence.
 See [RejectedTail/Decision.lean](DeciNSSE/RejectedTail/Decision.lean) and
 [Holes/BoundedDepth.lean](DeciNSSE/Holes/BoundedDepth.lean).
 
@@ -383,7 +382,7 @@ procedures also relies on the compiler.
 | [Transfer](DeciNSSE/Transfer) | Spines, symmetrisation and countermodel transfer |
 | [Monitor](DeciNSSE/Monitor) | Exact clash analysis, label readers and semantic bridge |
 | [Holes](DeciNSSE/Holes) | Desubstitution, supports and finite compression |
-| [RejectedTail](DeciNSSE/RejectedTail) | Tail bounds, predecessor refinement and finite search |
+| [RejectedTail](DeciNSSE/RejectedTail) | Tail bounds, return gaps and finite search |
 | [Instances](DeciNSSE/Instances.lean) | Product and arrow variance maps |
 | [Main](DeciNSSE/Main.lean) | The three public decision procedures |
 

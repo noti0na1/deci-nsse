@@ -83,20 +83,19 @@ section
 set_option autoImplicit false
 namespace DeciNSSE.RejectedTail
 
-open Refinement
 open LetteredHierarchy Supports HierarchyDepth Cores CoreOccurrences
 variable {α Q : Type*} [DecidableEq α] [Inhabited α] [Fintype Q] [DecidableEq Q]
-variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (hgap : ReturnGap M T)
+variable (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
 local notation "E" => ofReader M R T
-include R hgap
+include R
 
 omit [Fintype Q] in
-/-- Equal nonempty supports force a strict return inside the rejected tail. -/
+/-- Equal nonempty supports force a return no longer than the rejected tail. -/
 theorem equal_support_gap {w : List α} {J a b fa fb : ℕ}
     (hw : w ≠ []) (hr : M.eval w ∈ T) (hJ : IsFirstRejectedPrefix M T w J)
     (hab : a < b) (hs : supp E w a = supp E w b) (_hne : (supp E w a).Nonempty)
     (hfa : IsGreatest (ordinaryCores w a) fa) (hfb : IsGreatest (ordinaryCores w b) fb) :
-    b-a ≤ fa-fb ∧ fa-fb ≤ (w.length-J)-1 := by
+    b-a ≤ fa-fb ∧ fa-fb ≤ w.length-J := by
   have hd := core_distance hw hab.le hfa hfb.1
   have hmem : (M).eval (w.take fa) ∈ supp E w b := by
     rw [← hs]
@@ -105,16 +104,16 @@ theorem equal_support_gap {w : List α} {J a b fa fb : ℕ}
   have hocc := core_occurrence hw hfa (cores_anti hw (by omega : a+1 ≤ b) ht)
   obtain ⟨i,hi,hp⟩ := hfa.1
   have hlen := corePos_lt hw a i hi fa hp
-  have hg := hgap w J _ _ hr hJ hocc.1 (by omega) hocc.2 he
+  have hg := return_gap M T w J _ _ hr hJ hocc.1 (by omega) hocc.2 he
   have ht_le := hfb.2 ht
   exact ⟨by omega,by omega⟩
 
 omit [Fintype Q] in
-/-- Inclusive constant-support width, including tails zero and one. -/
+/-- Inclusive constant-support width, at most one more than the rejected tail. -/
 theorem equal_support_width {w : List α} {J a b : ℕ}
     (hw : w ≠ []) (hr : M.eval w ∈ T) (hJ : IsFirstRejectedPrefix M T w J)
     (hab : a ≤ b) (hs : supp E w a = supp E w b) (hne : (supp E w a).Nonempty) :
-    b+1-a ≤ max 1 (w.length-J) := by
+    b+1-a ≤ w.length-J+1 := by
   by_cases he : a = b
   · subst b; omega
   · obtain ⟨q,hq⟩ := hne
@@ -122,16 +121,17 @@ theorem equal_support_width {w : List α} {J a b : ℕ}
     obtain ⟨fa,hfa⟩ := cores_greatest hw a ⟨p,hp⟩
     obtain ⟨t,ht,_⟩ := (mem_support_iff _ _ _ hw b q).mp (hs ▸ hq)
     obtain ⟨fb,hfb⟩ := cores_greatest hw b ⟨t,ht⟩
-    obtain ⟨h1,h2⟩ := equal_support_gap M R T hgap hw hr hJ (by omega) hs ⟨q,hq⟩ hfa hfb
+    obtain ⟨h1,h2⟩ := equal_support_gap M R T hw hr hJ (by omega) hs ⟨q,hq⟩ hfa hfb
     omega
 
-/-- Any ordinarily rejected nonempty word satisfies the explicit depth bound. -/
+/-- A nonempty rejected word with an `r`-letter rejected tail has depth at most
+`2 * |Q| * (r+1) - 1`. -/
 theorem rejected_depth {w : List α} {J : ℕ} (hw : w ≠ []) (hr : M.eval w ∈ T)
     (hJ : IsFirstRejectedPrefix M T w J) :
-    depth w ≤ 2 * Fintype.card Q * max 1 (w.length-J) - 1 := by
+    depth w ≤ 2 * Fintype.card Q * (w.length-J+1) - 1 := by
   apply depth_le_of_support_width E hw (by omega)
   intro a b hab _ hs hn
-  exact equal_support_width M R T hgap hw hr hJ hab hs hn
+  exact equal_support_width M R T hw hr hJ hab hs hn
 
 end DeciNSSE.RejectedTail
 
