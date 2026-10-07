@@ -210,6 +210,12 @@ letter-free and applies at the terminal cut, even with an empty alphabet.
 Cross and self events concern repeated suffixes; self-admission includes
 both orientations of the sign-flipped labels.
 
+An order failure has two sides: at a prefix of some word, `x` reaches top and
+`y` does not (top-prefix side), or `y` reaches bottom and `x` does not
+(bottom-prefix side). The events are defined once, for the top-prefix side of a covariant
+query; the bottom-prefix side uses the order dual of the signed system with
+the query reversed.
+
 For a satisfiable original system, an unsafe word is exactly a word without
 events. The satisfiability hypothesis excludes inherited clashes and is
 necessary for this model-existence argument.
@@ -221,7 +227,9 @@ See [Monitor/Events.lean](DeciNSSE/Monitor/Events.lean) and
 A state contains upper and lower label sets and a Boolean latch for earlier
 readiness. Current readiness and the child condition complete the acceptance
 test. For `m` variables there are `2 * 4^m` states; the signed input thus uses
-`N = 2 * 4^(2*k)` states (`Monitor.card_state`).
+`N = 2 * 4^(2*k)` states (`Monitor.card_state`). One reader serves both sides:
+the bottom-prefix monitor is the reader of the order dual with the query
+reversed.
 
 A comparison has cuts `s < e ≤ |w|` such that `w.drop e` is a prefix of
 `w.drop s`. It is admitted when the monitor states at those cuts satisfy the

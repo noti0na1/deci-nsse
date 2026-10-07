@@ -1,7 +1,6 @@
 import DeciNSSE.RejectedTail.Basic
 import DeciNSSE.Satisfiability.Decide
 import DeciNSSE.Semantics.Selector
-import DeciNSSE.Transfer.Safety
 
 /-! # The finite label reader
 
@@ -9,6 +8,9 @@ A state records upper labels, lower labels and a latch for earlier readiness.
 Acceptance also tests current readiness and the terminal child condition.
 Cross and self admissions detect periodic comparisons. There are `2 * 4^m`
 states for `m` variables, hence `2 * 4^(2*k)` after signed translation.
+The reader of `ψ ⊨? X ≤ Y` reads the top-prefix side of the query; the
+bottom-prefix side is read by the same reader on the order dual of `ψ` with
+`X` and `Y` exchanged.
 -/
 
 set_option autoImplicit false
@@ -69,106 +71,57 @@ instance instDecidableReady (ψ : Constraint n m) (U L : Finset (V m)) :
   inferInstanceAs (Decidable ((∃ u ∈ U, u ∈ botVars ψ) ∨ (∃ v ∈ L, v ∈ topVars ψ) ∨
     (∃ u ∈ U, u ∈ L)))
 
-/-- The letter-free child condition of side `θ`: some upper (lower) label
-carries an upper (lower) constructor literal. -/
-def Child (ψ : Constraint n m) : Side → Finset (V m) → Finset (V m) → Prop
-  | .l, U, _ => ∃ p ∈ upperLits ψ, p.1 ∈ U
-  | .r, _, L => ∃ p ∈ lowerLits ψ, p.2 ∈ L
+/-- Acceptance of a label state: latch, readiness, or a child (an upper label
+carrying an upper constructor literal). -/
+def Accept (ψ : Constraint n m) (S : State m) : Prop :=
+  S.b = true ∨ Ready ψ S.U S.L ∨ ∃ p ∈ upperLits ψ, p.1 ∈ S.U
 
-instance instDecidableChild (ψ : Constraint n m) :
-    (θ : Side) → (U L : Finset (V m)) → Decidable (Child ψ θ U L)
-  | .l, U, _ => inferInstanceAs (Decidable (∃ p ∈ upperLits ψ, p.1 ∈ U))
-  | .r, _, L => inferInstanceAs (Decidable (∃ p ∈ lowerLits ψ, p.2 ∈ L))
-
-/-- Acceptance of a label state on side `θ`: latch, readiness or child. -/
-def Accept (ψ : Constraint n m) (θ : Side) (S : State m) : Prop :=
-  S.b = true ∨ Ready ψ S.U S.L ∨ Child ψ θ S.U S.L
-
-instance instDecidableAccept (ψ : Constraint n m) (θ : Side) (S : State m) :
-    Decidable (Accept ψ θ S) :=
-  inferInstanceAs (Decidable (S.b = true ∨ Ready ψ S.U S.L ∨ Child ψ θ S.U S.L))
+instance instDecidableAccept (ψ : Constraint n m) (S : State m) : Decidable (Accept ψ S) :=
+  inferInstanceAs (Decidable (S.b = true ∨ Ready ψ S.U S.L ∨ ∃ p ∈ upperLits ψ, p.1 ∈ S.U))
 
 /-- The label DFA over a given closure `pairs`. -/
-def readerOf (ψ : Constraint n m) (pairs : Finset (V m × V m)) (X Y : V m) (θ : Side) :
+def readerOf (ψ : Constraint n m) (pairs : Finset (V m × V m)) (X Y : V m) :
     DFA (Fin n) (State m) where
   step S i := ⟨upperStep ψ pairs i S.U, lowerStep ψ pairs i S.L,
     S.b || decide (Ready ψ S.U S.L)⟩
   start := ⟨Finset.univ.filter (fun v => (X, v) ∈ pairs),
     Finset.univ.filter (fun v => (v, Y) ∈ pairs), false⟩
-  accept := {S | Accept ψ θ S}
+  accept := {S | Accept ψ S}
 
-/-- The label DFA of `ψ ⊨? X ≤ Y` on side `θ` (the side only matters for
-its accepting states). -/
-def reader (ψ : Constraint n m) (X Y : V m) (θ : Side) : DFA (Fin n) (State m) :=
-  readerOf ψ (derivedPairs ψ) X Y θ
+/-- The label DFA of `ψ ⊨? X ≤ Y`. -/
+def reader (ψ : Constraint n m) (X Y : V m) : DFA (Fin n) (State m) :=
+  readerOf ψ (derivedPairs ψ) X Y
 
 /-- The target: the rejected label states. -/
-def target (ψ : Constraint n m) (θ : Side) : Set (State m) := {S | ¬ Accept ψ θ S}
+def target (ψ : Constraint n m) : Set (State m) := {S | ¬ Accept ψ S}
 
-instance instDecidableMemTarget (ψ : Constraint n m) (θ : Side) :
-    DecidablePred (· ∈ target ψ θ) :=
-  fun S => inferInstanceAs (Decidable (¬ Accept ψ θ S))
+instance instDecidableMemTarget (ψ : Constraint n m) : DecidablePred (· ∈ target ψ) :=
+  fun S => inferInstanceAs (Decidable (¬ Accept ψ S))
 
-/-- Opposite label sets intersect in the orientation selected by the side. -/
-def Cross : Side → State m → State m → Prop
-  | .l, S, S' => ∃ v ∈ S.L, v ∈ S'.U
-  | .r, S, S' => ∃ u ∈ S.U, u ∈ S'.L
+/-- The relation of the label monitor over doubled variables: cross admission
+`L_s ∩ U_e ≠ ∅` or self admission `U_s ∩ flipV U_e ≠ ∅`. -/
+def admission (S S' : State (2 * k)) : Prop :=
+  (∃ v ∈ S.L, v ∈ S'.U) ∨ ∃ z ∈ S.U, flipV z ∈ S'.U
 
-instance instDecidableCross : (θ : Side) → (S S' : State m) → Decidable (Cross θ S S')
-  | .l, S, S' => inferInstanceAs (Decidable (∃ v ∈ S.L, v ∈ S'.U))
-  | .r, S, S' => inferInstanceAs (Decidable (∃ u ∈ S.U, u ∈ S'.L))
+instance instDecidableRelAdmission : DecidableRel (admission (k := k)) :=
+  fun S S' => inferInstanceAs (Decidable ((∃ v ∈ S.L, v ∈ S'.U) ∨ ∃ z ∈ S.U, flipV z ∈ S'.U))
 
-/-- Self admission over doubled variables: left `U_s ∩ flipV U_e ≠ ∅`,
-right `L_s ∩ flipV L_e ≠ ∅`. -/
-def Self : Side → State (2 * k) → State (2 * k) → Prop
-  | .l, S, S' => ∃ z ∈ S.U, flipV z ∈ S'.U
-  | .r, S, S' => ∃ z ∈ S.L, flipV z ∈ S'.L
-
-instance instDecidableSelf :
-    (θ : Side) → (S S' : State (2 * k)) → Decidable (Self θ S S')
-  | .l, S, S' => inferInstanceAs (Decidable (∃ z ∈ S.U, flipV z ∈ S'.U))
-  | .r, S, S' => inferInstanceAs (Decidable (∃ z ∈ S.L, flipV z ∈ S'.L))
-
-/-- The relation of the label monitor: cross or self admission. -/
-def admission (θ : Side) (S S' : State (2 * k)) : Prop := Cross θ S S' ∨ Self θ S S'
-
-instance instDecidableRelAdmission (θ : Side) : DecidableRel (admission (k := k) θ) :=
-  fun S S' => inferInstanceAs (Decidable (Cross θ S S' ∨ Self θ S S'))
-
-/-- The labels of side `θ`: upper on the left, lower on the right. -/
-def sideLabels : Side → State m → Finset (V m)
-  | .l, S => S.U
-  | .r, S => S.L
-
-/-- Every admission needs a label of its side at its second cut. -/
-theorem admission_sideLabels {θ : Side} {S S' : State (2 * k)} (h : admission θ S S') :
-    ∃ v, v ∈ sideLabels θ S' := by
-  cases θ
-  · rcases h with ⟨v, -, hv⟩ | ⟨z, -, hz⟩
-    · exact ⟨v, hv⟩
-    · exact ⟨_, hz⟩
-  · rcases h with ⟨v, -, hv⟩ | ⟨z, -, hz⟩
-    · exact ⟨v, hv⟩
-    · exact ⟨_, hz⟩
-
-/-- The child condition needs a label of its side. -/
-theorem child_sideLabels {ψ : Constraint n m} {θ : Side} {S : State m}
-    (h : Child ψ θ S.U S.L) : ∃ v, v ∈ sideLabels θ S := by
-  cases θ
-  · obtain ⟨p, -, hp⟩ := h; exact ⟨_, hp⟩
-  · obtain ⟨p, -, hp⟩ := h; exact ⟨_, hp⟩
+/-- Every admission needs an upper label at its second cut. -/
+theorem admission_upper {S S' : State (2 * k)} (h : admission S S') : ∃ v, v ∈ S'.U := by
+  rcases h with ⟨v, -, hv⟩ | ⟨z, -, hz⟩
+  exacts [⟨v, hv⟩, ⟨_, hz⟩]
 
 section Semantics
 
-variable {ψ : Constraint n m} {X Y : V m} {θ : Side}
+variable {ψ : Constraint n m} {X Y : V m}
 
 @[simp] theorem reader_step (S : State m) (i : Fin n) :
-    (reader ψ X Y θ).step S i =
+    (reader ψ X Y).step S i =
       ⟨upperStep ψ (derivedPairs ψ) i S.U, lowerStep ψ (derivedPairs ψ) i S.L,
         S.b || decide (Ready ψ S.U S.L)⟩ := rfl
 
 theorem reader_start :
-    (reader ψ X Y θ).start = ⟨Finset.univ.filter (fun v => (X, v) ∈ derivedPairs ψ),
+    (reader ψ X Y).start = ⟨Finset.univ.filter (fun v => (X, v) ∈ derivedPairs ψ),
       Finset.univ.filter (fun v => (v, Y) ∈ derivedPairs ψ), false⟩ := rfl
 
 theorem mem_upperStep_iff {i : Fin n} {U : Finset (V m)} {v : V m} :
@@ -184,7 +137,7 @@ theorem mem_lowerStep_iff {i : Fin n} {L : Finset (V m)} {v : V m} :
 /-- Upper labels. After reading `w`, `U` holds exactly the upper path
 bounds of `X` along `w`. -/
 theorem mem_eval_U (w : List (Fin n)) (v : V m) :
-    v ∈ ((reader ψ X Y θ).eval w).U ↔ UpperAt ψ w X v := by
+    v ∈ ((reader ψ X Y).eval w).U ↔ UpperAt ψ w X v := by
   induction w using List.reverseRecOn generalizing v with
   | nil =>
     simp [reader_start, mem_derivedPairs]
@@ -200,7 +153,7 @@ theorem mem_eval_U (w : List (Fin n)) (v : V m) :
 /-- Lower labels. After reading `w`, `L` holds exactly the lower path
 bounds of `Y` along `w`. -/
 theorem mem_eval_L (w : List (Fin n)) (v : V m) :
-    v ∈ ((reader ψ X Y θ).eval w).L ↔ LowerAt ψ w v Y := by
+    v ∈ ((reader ψ X Y).eval w).L ↔ LowerAt ψ w v Y := by
   induction w using List.reverseRecOn generalizing v with
   | nil =>
     simp [reader_start, mem_derivedPairs]
@@ -218,31 +171,27 @@ def ReadyAt (ψ : Constraint n m) (X Y : V m) (π : List (Fin n)) : Prop :=
   (∃ u, UpperAt ψ π X u ∧ u ∈ botVars ψ) ∨ (∃ v, LowerAt ψ π v Y ∧ v ∈ topVars ψ) ∨
     (∃ u, UpperAt ψ π X u ∧ LowerAt ψ π u Y)
 
-/-- The letter-free child condition along a path. -/
-def ChildAt (ψ : Constraint n m) (X Y : V m) : Side → List (Fin n) → Prop
-  | .l, π => ∃ z b, UpperAt ψ π X z ∧ Lit.leF z b ∈ ψ
-  | .r, π => ∃ a z, LowerAt ψ π z Y ∧ Lit.fLe a z ∈ ψ
+/-- The letter-free child condition along a path: an upper bound of `X`
+carries an upper constructor literal. -/
+def ChildAt (ψ : Constraint n m) (X : V m) (π : List (Fin n)) : Prop :=
+  ∃ z b, UpperAt ψ π X z ∧ Lit.leF z b ∈ ψ
 
 /-- Acceptance along a path: readiness at a strictly earlier cut, readiness, or a child. -/
-def AcceptAt (ψ : Constraint n m) (X Y : V m) (θ : Side) (π : List (Fin n)) : Prop :=
-  (∃ j < π.length, ReadyAt ψ X Y (π.take j)) ∨ ReadyAt ψ X Y π ∨ ChildAt ψ X Y θ π
+def AcceptAt (ψ : Constraint n m) (X Y : V m) (π : List (Fin n)) : Prop :=
+  (∃ j < π.length, ReadyAt ψ X Y (π.take j)) ∨ ReadyAt ψ X Y π ∨ ChildAt ψ X π
 
 theorem ready_eval_iff (π : List (Fin n)) :
-    Ready ψ ((reader ψ X Y θ).eval π).U ((reader ψ X Y θ).eval π).L ↔ ReadyAt ψ X Y π := by
+    Ready ψ ((reader ψ X Y).eval π).U ((reader ψ X Y).eval π).L ↔ ReadyAt ψ X Y π := by
   simp only [Ready, ReadyAt, mem_eval_U, mem_eval_L]
 
 theorem child_eval_iff (π : List (Fin n)) :
-    Child ψ θ ((reader ψ X Y θ).eval π).U ((reader ψ X Y θ).eval π).L ↔
-      ChildAt ψ X Y θ π := by
-  cases θ
-  · simp only [Child, ChildAt, mem_eval_U, Prod.exists, mem_upperLits]
-    exact ⟨fun ⟨z, b, hl, hz⟩ => ⟨z, b, hz, hl⟩, fun ⟨z, b, hz, hl⟩ => ⟨z, b, hl, hz⟩⟩
-  · simp only [Child, ChildAt, mem_eval_L, Prod.exists, mem_lowerLits]
-    exact ⟨fun ⟨a, z, hl, hz⟩ => ⟨a, z, hz, hl⟩, fun ⟨a, z, hz, hl⟩ => ⟨a, z, hl, hz⟩⟩
+    (∃ p ∈ upperLits ψ, p.1 ∈ ((reader ψ X Y).eval π).U) ↔ ChildAt ψ X π := by
+  simp only [ChildAt, mem_eval_U, Prod.exists, mem_upperLits]
+  exact ⟨fun ⟨z, b, hl, hz⟩ => ⟨z, b, hz, hl⟩, fun ⟨z, b, hz, hl⟩ => ⟨z, b, hl, hz⟩⟩
 
 /-- The latch records readiness at a strictly earlier cut. -/
 theorem eval_b_iff (w : List (Fin n)) :
-    ((reader ψ X Y θ).eval w).b = true ↔ ∃ j < w.length, ReadyAt ψ X Y (w.take j) := by
+    ((reader ψ X Y).eval w).b = true ↔ ∃ j < w.length, ReadyAt ψ X Y (w.take j) := by
   induction w using List.reverseRecOn with
   | nil => simp [reader_start]
   | append_singleton w i ih =>
@@ -263,17 +212,17 @@ theorem eval_b_iff (w : List (Fin n)) :
         exact Or.inr hr
 
 theorem accept_eval_iff (w : List (Fin n)) :
-    Accept ψ θ ((reader ψ X Y θ).eval w) ↔ AcceptAt ψ X Y θ w := by
+    Accept ψ ((reader ψ X Y).eval w) ↔ AcceptAt ψ X Y w := by
   simp only [Accept, AcceptAt, eval_b_iff, ready_eval_iff, child_eval_iff]
 
 theorem mem_target_iff (w : List (Fin n)) :
-    (reader ψ X Y θ).eval w ∈ target ψ θ ↔ ¬ AcceptAt ψ X Y θ w :=
+    (reader ψ X Y).eval w ∈ target ψ ↔ ¬ AcceptAt ψ X Y w :=
   not_congr (accept_eval_iff w)
 
-/-- An upper label strictly after the cut `π` needs a left child at `π`. -/
+/-- An upper label strictly after the cut `π` needs a child at `π`. -/
 theorem childAt_of_upper {π τ : List (Fin n)} {v : V m} (hτ : τ ≠ [])
-    (h : UpperAt ψ (π ++ τ) X v) : ChildAt ψ X Y .l π := by
-  obtain ⟨a, ha, ht⟩ := UpperAt.factor h
+    (h : v ∈ ((reader ψ X Y).eval (π ++ τ)).U) : ChildAt ψ X π := by
+  obtain ⟨a, ha, ht⟩ := UpperAt.factor ((mem_eval_U _ v).mp h)
   cases τ with
   | nil => exact (hτ rfl).elim
   | cons i τ =>
@@ -281,36 +230,16 @@ theorem childAt_of_upper {π τ : List (Fin n)} {v : V m} (hτ : τ ≠ [])
     | cons hd hl _ =>
       exact ⟨_, _, by simpa using ha.comp (UpperAt.nil hd), hl⟩
 
-/-- A lower label strictly after the cut `π` needs a right child at `π`. -/
-theorem childAt_of_lower {π τ : List (Fin n)} {v : V m} (hτ : τ ≠ [])
-    (h : LowerAt ψ (π ++ τ) v Y) : ChildAt ψ X Y .r π := by
-  obtain ⟨a, ha, ht⟩ := LowerAt.factor (π := π) (π' := τ) h
-  cases τ with
-  | nil => exact (hτ rfl).elim
-  | cons i τ =>
-    cases ht with
-    | cons hl hd _ =>
-      exact ⟨_, _, by simpa using (LowerAt.nil hd).comp ha, hl⟩
-
-/-- Without a child of side `θ` at `π`, side `θ` has no label at any later cut. -/
-theorem sideLabels_dead {π τ : List (Fin n)} (hτ : τ ≠ []) (hc : ¬ ChildAt ψ X Y θ π)
-    (v : V m) : v ∉ sideLabels θ ((reader ψ X Y θ).eval (π ++ τ)) := by
-  cases θ
-  · intro h
-    exact hc (childAt_of_upper hτ ((mem_eval_U _ v).mp h))
-  · intro h
-    exact hc (childAt_of_lower hτ ((mem_eval_L _ v).mp h))
-
 /-- The latch is monotone along prefixes. -/
-theorem eval_b_append {u τ : List (Fin n)} (h : ((reader ψ X Y θ).eval u).b = true) :
-    ((reader ψ X Y θ).eval (u ++ τ)).b = true := by
+theorem eval_b_append {u τ : List (Fin n)} (h : ((reader ψ X Y).eval u).b = true) :
+    ((reader ψ X Y).eval (u ++ τ)).b = true := by
   obtain ⟨j, hj, hr⟩ := (eval_b_iff u).mp h
   refine (eval_b_iff _).mpr ⟨j, by simp only [List.length_append]; omega, ?_⟩
   rwa [List.take_append_of_le_length (show j ≤ u.length by omega)]
 
 /-- Readiness at a cut sets the latch at every strictly later cut. -/
 theorem eval_b_of_ready {u τ : List (Fin n)} (hτ : τ ≠ []) (h : ReadyAt ψ X Y u) :
-    ((reader ψ X Y θ).eval (u ++ τ)).b = true := by
+    ((reader ψ X Y).eval (u ++ τ)).b = true := by
   refine (eval_b_iff _).mpr ⟨u.length, ?_, ?_⟩
   · have := List.length_pos_iff.mpr hτ
     simp only [List.length_append]; omega
@@ -320,16 +249,15 @@ end Semantics
 
 section Interface
 
-variable {ψ : Constraint n (2 * k)} {X Y : V (2 * k)} {θ : Side}
+variable {ψ : Constraint n (2 * k)} {X Y : V (2 * k)}
 
-instance rejectedPath :
-    RejectedPath (reader ψ X Y θ) (admission θ) (target ψ θ) where
+instance rejectedPath : RejectedPath (reader ψ X Y) admission (target ψ) where
   between := by
     intro v u w hvu huw hv hw
     rw [mem_target_iff] at hv hw ⊢
     obtain ⟨τ₂, rfl⟩ := huw
     intro hacc
-    rcases (accept_eval_iff (θ := θ) u).mpr hacc with hb | hr | hch
+    rcases (accept_eval_iff u).mpr hacc with hb | hr | ⟨p, -, hp⟩
     · exact hw ((accept_eval_iff _).mp (Or.inl (eval_b_append hb)))
     · by_cases hτ : τ₂ = []
       · subst τ₂; rw [List.append_nil] at hw; exact hw hacc
@@ -338,14 +266,12 @@ instance rejectedPath :
     · obtain ⟨τ₁, rfl⟩ := hvu
       by_cases hτ : τ₁ = []
       · subst τ₁; rw [List.append_nil] at hacc; exact hv hacc
-      · have hc : ¬ ChildAt ψ X Y θ v := fun h => hv (Or.inr (Or.inr h))
-        obtain ⟨z, hz⟩ := child_sideLabels hch
-        exact sideLabels_dead hτ hc z hz
+      · exact hv (Or.inr (Or.inr (childAt_of_upper hτ hp)))
   cone := by
     intro w J _ hJ s e hse he _ hr
     by_contra hlt
     rw [not_le] at hlt
-    have hc : ¬ ChildAt ψ X Y θ (w.take J) := by
+    have hc : ¬ ChildAt ψ X (w.take J) := by
       have h := hJ.2.1
       rw [mem_target_iff] at h
       exact fun hc => h (Or.inr (Or.inr hc))
@@ -357,9 +283,9 @@ instance rejectedPath :
       · rw [List.drop_eq_nil_iff] at h; omega
     have hcut : w.take e = w.take J ++ (w.drop J).take (e - J) := by
       rw [← List.take_add]; congr 1; omega
-    obtain ⟨z, hz⟩ := admission_sideLabels hr
+    obtain ⟨z, hz⟩ := admission_upper hr
     rw [hcut] at hz
-    exact sideLabels_dead hτ hc z hz
+    exact hc (childAt_of_upper hτ hz)
 
 end Interface
 
