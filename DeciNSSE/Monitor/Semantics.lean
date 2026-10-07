@@ -1,17 +1,17 @@
 import DeciNSSE.Constraints.Dual
-import DeciNSSE.Monitor.Events
+import DeciNSSE.Monitor.Clash
 import DeciNSSE.Transfer.Safety
-import DeciNSSE.Transfer.ThreeSpine
 
 /-! # Events and unsafe words
 
 The events of a side are the events of one covariant query: the signed
 translation with the query `(x⁺, y⁺)` on the top-prefix side, and its order
-dual with the reversed query `(y⁺, x⁺)` on the bottom-prefix side. For a
-satisfiable system, the unsafe words of a side are exactly those without its
-events. Satisfiability excludes clashes inherited from the original
-constraints; without that hypothesis, the event-free criterion alone need not
-give a model.
+dual with the reversed query `(y⁺, x⁺)` on the bottom-prefix side. The unsafe
+words of a side are the sign-fixed top-prefix witnesses of its query, hence
+exactly the words whose four-spine extension has no label clash. For a
+satisfiable system these are the words without events. Satisfiability excludes
+clashes inherited from the original constraints; without that hypothesis, the
+event-free criterion alone need not give a model.
 -/
 
 namespace DeciNSSE.Events
@@ -65,28 +65,73 @@ section Bridge
 
 variable {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k}
 
+theorem sideSystem_flipClosed (θ : Side) : FlipClosed (sideSystem c ϕ θ) := by
+  cases θ
+  · exact signed_flipClosed c ϕ
+  · exact flipClosed_dual (signed_flipClosed c ϕ)
+
+theorem sideSystem_signCoherent (θ : Side) : SignCoherent c (sideSystem c ϕ θ) := by
+  cases θ
+  · exact signed_signCoherent c ϕ
+  · exact signCoherent_dual (signed_signCoherent c ϕ)
+
+/-- A satisfiable system has no label clash on either side. -/
+theorem sideSystem_not_labelClash (hs : ∃ ρ, Sat c ρ ϕ) (θ : Side) :
+    ¬ LabelClash (sideSystem c ϕ θ) := by
+  obtain ⟨ρ, hρ⟩ := hs
+  have h : Covariant.Sat (normalized c ρ) (signed c ϕ) := (sat_iff_signed c ρ ϕ).mp hρ
+  cases θ
+  · exact fun hc => hc.unsatisfiable ⟨_, h⟩
+  · exact fun hc => hc.unsatisfiable (ConstraintDual.satisfiable ⟨_, h⟩)
+
+/-- Variance solutions are the sign-fixed solutions of the signed translation. -/
+theorem exists_normalized_iff (P : (V (2 * k) → Tree n) → Prop) :
+    (∃ ρ, Sat c ρ ϕ ∧ P (normalized c ρ)) ↔
+      ∃ A, Covariant.Sat A (signed c ϕ) ∧ Signed.dual A = A ∧ P A := by
+  constructor
+  · rintro ⟨ρ, hs, hp⟩
+    exact ⟨_, (sat_iff_signed c ρ ϕ).mp hs, normalized_fixed c ρ, hp⟩
+  · rintro ⟨A, hA, hfix, hp⟩
+    obtain ⟨ρ, hρ, rfl⟩ := (fixed_solution_correspondence c ϕ A).mp ⟨hA, hfix⟩
+    exact ⟨ρ, hρ, hp⟩
+
+/-- An unsafe word of a side is a sign-fixed top-prefix witness of its covariant query. -/
+theorem sideUnsafe_iff_fixedWitness (θ : Side) (w : List (Fin n)) :
+    Unsafe c ϕ x y θ w ↔ ∃ A, Covariant.Sat A (sideSystem c ϕ θ) ∧ Signed.dual A = A ∧
+      covPrefTop w (A (sideQuery x y θ).1) ∧ ¬ covPrefTop w (A (sideQuery x y θ).2) := by
+  cases θ
+  · simp only [Unsafe, prefTop_iff_normalize, ← normalized_sv]
+    exact exists_normalized_iff (fun A => covPrefTop w (A (sv x false)) ∧
+      ¬ covPrefTop w (A (sv y false)))
+  · simp only [Unsafe, sideSystem, sideQuery, prefBot_iff_normalize, ← normalized_sv]
+    refine (exists_normalized_iff (fun A => covPrefBot w (A (sv y false)) ∧
+      ¬ covPrefBot w (A (sv x false)))).trans ⟨?_, ?_⟩
+    · rintro ⟨A, hA, hfix, hy, hx⟩
+      refine ⟨Tree.dual ∘ A, (ConstraintDual.sat A).mpr hA, ?_, by simpa using hy,
+        by simpa using hx⟩
+      change Tree.dual ∘ Signed.dual A = _
+      rw [hfix]
+    · rintro ⟨A, hA, hfix, hy, hx⟩
+      refine ⟨Tree.dual ∘ A, ConstraintDual.sat_of_dual hA, ?_, by simpa using hy,
+        by simpa using hx⟩
+      change Tree.dual ∘ Signed.dual A = _
+      rw [hfix]
+
+/-- A word is unsafe on a side exactly when the four-spine extension of its
+covariant query has no label clash. No satisfiability hypothesis is needed. -/
+theorem sideUnsafe_iff_not_labelClash (θ : Side) (w : List (Fin n)) :
+    Unsafe c ϕ x y θ w ↔ ¬ LabelClash
+      (Spine.extension c (sideSystem c ϕ θ) (sideQuery x y θ).1 (sideQuery x y θ).2 w) :=
+  (sideUnsafe_iff_fixedWitness θ w).trans
+    (fixedWitness_iff_not_labelClash (sideSystem_flipClosed θ) (sideSystem_signCoherent θ))
+
 /-- Under satisfiability, the unsafe words of a side are the words without
 its events. The right side is the left side of the order dual. -/
 theorem sideUnsafe_iff_not_events (hs : ∃ ρ, Sat c ρ ϕ) (θ : Side) (w : List (Fin n)) :
     Unsafe c ϕ x y θ w ↔ ¬ SideOccurs c ϕ x y θ w := by
-  have hs' := (sat_iff_signed_sat c ϕ).mp hs
-  cases θ
-  · have h := three_spine_iff_not_events (w := w) (X := sv x false) (Y := sv y false)
-      (signed_flipClosed c ϕ) (signed_signCoherent c ϕ) hs'
-    simp only [flipV_sv, Bool.not_false] at h
-    exact (leftUnsafe_iff_threeSpine c ϕ x y w).trans h
-  · have h := three_spine_iff_not_events (w := w) (X := sv y false) (Y := sv x false)
-      (flipClosed_dual (signed_flipClosed c ϕ)) (signCoherent_dual (signed_signCoherent c ϕ))
-      (ConstraintDual.satisfiable hs')
-    simp only [flipV_sv, Bool.not_false] at h
-    refine (rightUnsafe_iff_threeSpine c ϕ x y w).trans (Iff.trans ?_ h)
-    constructor
-    · rintro ⟨A, hA, h₁, h₂, h₃⟩
-      exact ⟨Tree.dual ∘ A, (ConstraintDual.sat A).mpr hA, (covPrefTop_dual w _).mpr h₁,
-        (covPrefBot_dual w _).mpr h₂, fun h => h₃ ((covPrefTop_dual w _).mp h)⟩
-    · rintro ⟨A, hA, h₁, h₂, h₃⟩
-      exact ⟨Tree.dual ∘ A, ConstraintDual.sat_of_dual hA, (covPrefBot_dual w _).mpr h₁,
-        (covPrefTop_dual w _).mpr h₂, fun h => h₃ ((covPrefBot_dual w _).mp h)⟩
+  rw [sideUnsafe_iff_not_labelClash, labelClash_extension_iff_occurs (sideSystem_flipClosed θ)
+    (sideSystem_signCoherent θ) (sideSystem_not_labelClash hs θ)]
+  rfl
 
 end Bridge
 

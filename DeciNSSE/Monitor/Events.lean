@@ -1,6 +1,5 @@
-import DeciNSSE.Constraints.Signs
-import DeciNSSE.Monitor.Clash
 import DeciNSSE.Satisfiability.Decide
+import DeciNSSE.Semantics.Selector
 
 /-! # Readiness and periodic admission events
 
@@ -12,9 +11,7 @@ sign coherence relates these events to the spine clash formulas.
 
 namespace DeciNSSE.Events
 
-open Spine.Closure
-
-open FiniteVariance Signs
+open FiniteVariance
 
 variable {n K k : ℕ}
 
@@ -83,89 +80,6 @@ theorem take_eq_of_prefix {s e : ℕ} (h : w.drop e <+: w.drop s) :
   exact h2
 
 end Words
-
-section Equivalence
-
-variable {c : Fin n → Bool} {ψ : Constraint n (2 * k)} {X Y : V (2 * k)} {w : List (Fin n)}
-
-/-- `L^Q_j = σ U_j` for `Q` on `σ X`. -/
-theorem lAt_flip_iff (hf : FlipClosed ψ) {j : ℕ} {u : V (2 * k)} :
-    LAt ψ w (flipV X) j u ↔ UAt ψ X w j (flipV u) := by
-  unfold LAt UAt
-  have h := lowerAt_flip_iff hf (π := w.take j) (x := u) (y := flipV X)
-  rw [flipV_flipV] at h
-  exact h.symm
-
-/-- Purity: `U_j` and `L^Q_j` are disjoint (their signs differ). -/
-theorem not_uAt_lAt_flip (hc : SignCoherent c ψ) {j : ℕ} {v : V (2 * k)}
-    (hu : UAt ψ X w j v) (hl : LAt ψ w (flipV X) j v) : False := by
-  have h₁ := upperAt_sign hc hu
-  have h₂ := lowerAt_sign hc hl
-  rw [sign_flipV, h₁] at h₂
-  revert h₂
-  cases sign X <;> cases polarity c (w.take j) <;> decide
-
-theorem eqBot_flip_mem (hf : FlipClosed ψ) {u : V (2 * k)} (h : Lit.eqTop u ∈ ψ) :
-    Lit.eqBot (flipV u) ∈ ψ := hf _ h
-
-theorem leF_flip_mem (hf : FlipClosed ψ) {a : Fin n → V (2 * k)} {u : V (2 * k)}
-    (h : Lit.fLe a u ∈ ψ) : Lit.leF (flipV u) (flipV ∘ a) ∈ ψ := hf _ h
-
-theorem events_iff (hf : FlipClosed ψ) (hc : SignCoherent c ψ) :
-    Events ψ X (flipV X) Y w ↔ Occurs ψ X Y w := by
-  constructor
-  · rintro (⟨j, hj, v, hU, hv⟩ | ⟨v, b, hU, hv⟩ | ⟨s, k', hk, u, hL, hu⟩ | ⟨a, u, hL, hu⟩ |
-      ⟨s, k', hk, a, b, d, ha, hb, hw, v, hU, hL⟩ | ⟨j, hj, a, b, d, ha, hb, hw, v, hU, hL⟩)
-    · exact Or.inl ⟨j, hj, Or.inl ⟨v, hU, hv⟩⟩
-    · exact Or.inr (Or.inl ⟨v, hU, b, hv⟩)
-    · cases s
-      · exact Or.inl ⟨k', hk, Or.inl ⟨flipV u, (lAt_flip_iff hf).mp hL, eqBot_flip_mem hf hu⟩⟩
-      · exact Or.inl ⟨k', hk, Or.inr (Or.inl ⟨u, hL, hu⟩)⟩
-    · exact Or.inr (Or.inl ⟨flipV u, (lAt_flip_iff hf).mp hL, _, leF_flip_mem hf hu⟩)
-    · have hp : w.drop a <+: w.drop b := prefix_of_take_eq ha hw
-      cases s
-      · have hba : b < a := by
-          rcases Nat.lt_or_ge b a with h | h
-          · exact h
-          · exfalso
-            obtain rfl : a = b := by omega
-            exact not_uAt_lAt_flip hc hU hL
-        refine Or.inr (Or.inr ⟨b, a, hba, by omega, hp, Or.inr ?_⟩)
-        exact self_iff.mpr ⟨flipV v, (lAt_flip_iff hf).mp hL, by rw [flipV_flipV]; exact hU⟩
-      · rcases Nat.lt_or_ge b a with h | h
-        · exact Or.inr (Or.inr ⟨b, a, h, by omega, hp, Or.inl ⟨v, hL, hU⟩⟩)
-        · obtain rfl : a = b := by omega
-          exact Or.inl ⟨a, by omega, Or.inr (Or.inr ⟨v, hU, hL⟩)⟩
-    · have hp : w.drop b <+: w.drop a := prefix_of_take_eq hb hw.symm
-      have hab : a < b := by
-        rcases Nat.lt_or_ge a b with h | h
-        · exact h
-        · exfalso
-          obtain rfl : a = b := by omega
-          exact not_uAt_lAt_flip hc hU hL
-      exact Or.inr (Or.inr ⟨a, b, hab, by omega, hp, Or.inr
-        (self_iff.mpr ⟨v, hU, (lAt_flip_iff hf).mp hL⟩)⟩)
-  · rintro (⟨j, hj, ⟨v, hU, hv⟩ | ⟨v, hL, hv⟩ | ⟨v, hU, hL⟩⟩ | ⟨v, hU, b, hv⟩ |
-      ⟨s, e, hse, he, hp, ⟨v, hL, hU⟩ | hself⟩)
-    · exact Or.inl ⟨j, hj, v, hU, hv⟩
-    · exact Or.inr (Or.inr (Or.inl ⟨true, j, hj, v, hL, hv⟩))
-    · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ⟨true, w.length, le_rfl,
-        j, j, w.length - j, by omega, by omega, rfl, v, hU, hL⟩))))
-    · exact Or.inr (Or.inl ⟨v, b, hU, hv⟩)
-    · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ⟨true, s + (w.length - e), by omega,
-        e, s, w.length - e, by omega, rfl, take_eq_of_prefix hp, v, hU, hL⟩))))
-    · obtain ⟨v, hU, hU'⟩ := self_iff.mp hself
-      refine Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨s + (w.length - e), by omega,
-        s, e, w.length - e, rfl, by omega, (take_eq_of_prefix hp).symm, v, hU, ?_⟩))))
-      exact (lAt_flip_iff hf).mpr hU'
-
-theorem three_spine_iff_not_events (hf : FlipClosed ψ) (hc : SignCoherent c ψ)
-    (hs : ∃ A, Covariant.Sat A ψ) :
-    (∃ A, Covariant.Sat A ψ ∧ covPrefTop w (A X) ∧ covPrefBot w (A (flipV X)) ∧
-      ¬ covPrefTop w (A Y)) ↔ ¬ Occurs ψ X Y w := by
-  rw [threeSpine_unsafe_iff hs, events_iff hf hc]
-
-end Equivalence
 
 section Bool
 

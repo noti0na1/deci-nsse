@@ -123,10 +123,13 @@ theorem lCountermodel_spec (c : Fin n → Bool) {ϕ : Constraint n k} {x y : V k
     Sat c (RGraph.unfold ∘ lCountermodel c ϕ x y w) ϕ ∧
       prefTop c w (lCountermodel c ϕ x y w x).unfold ∧
       ¬ prefTop c w (lCountermodel c ϕ x y w y).unfold := by
-  obtain ⟨A, hs, hx, hq, hy⟩ := (leftUnsafe_iff_threeSpine c ϕ x y w).mp h
+  obtain ⟨ρ, hρ, hx, hy⟩ := h
+  rw [prefTop_iff_normalize] at hx hy
+  have hx₁ : covPrefTop w (normalized c ρ (sv x false)) := by rwa [normalized_sv]
   obtain ⟨hτ, hx', hy', -, hq'⟩ := regular_fourSpine (x := sv x false)
-    (y := sv y false) (xm := sv x true) (ym := sv x false) hs hx hy
-    (covPrefTop_not_covPrefBot hx) hq
+    (y := sv y false) (xm := sv x true) (ym := sv x false) ((sat_iff_signed c ρ ϕ).mp hρ) hx₁
+    (by rwa [normalized_sv]) (covPrefTop_not_covPrefBot hx₁)
+    (by rwa [normalized_sv, normalize_true, covPrefBot_dual])
   exact ⟨sat_decodeGraph c hτ, (prefTop_decodeGraph c _ x w).mpr ⟨hx', hq'⟩,
     fun h => hy' ((prefTop_decodeGraph c _ y w).mp h).1⟩
 
@@ -138,10 +141,13 @@ theorem rCountermodel_spec (c : Fin n → Bool) {ϕ : Constraint n k} {x y : V k
     Sat c (RGraph.unfold ∘ rCountermodel c ϕ x y w) ϕ ∧
       prefBot c w (rCountermodel c ϕ x y w y).unfold ∧
       ¬ prefBot c w (rCountermodel c ϕ x y w x).unfold := by
-  obtain ⟨A, hs, hy, hq, hx⟩ := (rightUnsafe_iff_threeSpine c ϕ x y w).mp h
+  obtain ⟨ρ, hρ, hy, hx⟩ := h
+  rw [prefBot_iff_normalize] at hx hy
+  have hy₁ : covPrefBot w (normalized c ρ (sv y false)) := by rwa [normalized_sv]
   obtain ⟨hτ, hq', -, hx', hy'⟩ := regular_fourSpine (x := sv y true)
-    (y := sv y false) (xm := sv y false) (ym := sv x false) hs hq
-    (fun h' => covPrefTop_not_covPrefBot h' hy) hx hy
+    (y := sv y false) (xm := sv y false) (ym := sv x false) ((sat_iff_signed c ρ ϕ).mp hρ)
+    (by rwa [normalized_sv, normalize_true, covPrefTop_dual])
+    (fun h' => covPrefTop_not_covPrefBot h' hy₁) (by rwa [normalized_sv]) hy₁
   exact ⟨sat_decodeGraph c hτ, (prefBot_decodeGraph c _ y w).mpr ⟨hy', hq'⟩,
     fun h => hx' ((prefBot_decodeGraph c _ x w).mp h).1⟩
 

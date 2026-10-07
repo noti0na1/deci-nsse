@@ -1,533 +1,731 @@
+import DeciNSSE.Semantics.Selector
 import DeciNSSE.Transfer.RankedExtension
 
-/-! # The three-spine extension
+/-! # The four-spine extension
 
-One lower and two upper spines impose the prefix conditions for a left
-witness. Fresh positive spine positions and fillers are disjoint sources and
-sinks. At cut zero the spines use old variables, which may coincide; separation
-applies to fresh positions and does not assume distinct roots.
+A top-prefix witness along `w` for signed roots `X` and `Y` asks for a top of
+`X` and no top of `Y` on the prefixes of `w`. Four spines impose it together
+with its sign dual: a lower spine from `X` ending in top, a lower spine from
+`σY` ending in a lower constructor bound, and their sign duals, an upper spine
+from `σX` ending in bottom and an upper spine from `Y` ending in an upper
+constructor bound. Position `j` of a spine carries the sign of its root shifted
+by the polarity of `w[:j]`, and the bottom and top fillers come in both signs.
+The extension is therefore closed under sign duality and sign coherent
+whenever the system is. Fresh lower positions and bottom fillers are sources,
+their sign duals are sinks.
+
+Without a label clash, the least shape of the extension, followed by the
+polarity selector, is a sign-fixed solution; restricted to the old variables
+it is a witness. Conversely, a sign-fixed witness extends along the traces of
+its roots.
 -/
 
 namespace DeciNSSE.Spine.Closure
 
-open Safety
+open FiniteVariance Safety
 
-variable {n K : ℕ}
+variable {n k : ℕ}
 
-/-- Offset of an upper spine block: `Q` (`false`) after `P`, `Y` (`true`) after `Q`. -/
-def zoff (m : ℕ) : Bool → ℕ
-  | false => m
-  | true => 2 * m
+theorem take_succ_of_lt {w : List (Fin n)} {j : ℕ} (hj : j < w.length) :
+    w.take (j + 1) = w.take j ++ [w[j]] := by
+  rw [List.take_add_one, List.getElem?_eq_getElem hj]; rfl
 
-theorem zoff_le (m : ℕ) (s : Bool) : zoff m s ≤ 2 * m := by
-  cases s <;> simp [zoff]; omega
+theorem signed_ext {K : ℕ} {z z' : V (2 * K)} (hb : base z = base z') (hs : sign z = sign z') :
+    z = z' := by
+  rw [← sv_base_sign z, ← sv_base_sign z', hb, hs]
 
-theorem le_zoff (m : ℕ) (s : Bool) : m ≤ zoff m s := by
-  cases s <;> simp [zoff]; omega
-
-/-- The old root of an upper spine: `Xm` for `Q`, `Y` for `Y`. -/
-def zroot (Xm Y : V K) : Bool → V K
-  | false => Xm
-  | true => Y
-
-@[simp] theorem zroot_false (Xm Y : V K) : zroot Xm Y false = Xm := rfl
-@[simp] theorem zroot_true (Xm Y : V K) : zroot Xm Y true = Y := rfl
-
-/-- `P_j`, with `P_0 = X`. -/
-def pv (X : V K) (m j : ℕ) : V (K + (3 * m + 2)) :=
-  if h : 0 < j ∧ j ≤ m then ⟨K + j - 1, by omega⟩ else Fin.castAdd _ X
-
-/-- `Q_j` (`s = false`, `Q_0 = Xm`) and `Y_j` (`s = true`, `Y_0 = Y`). -/
-def zv (Xm Y : V K) (m : ℕ) (s : Bool) (j : ℕ) : V (K + (3 * m + 2)) :=
-  if h : 0 < j ∧ j ≤ m then ⟨K + zoff m s + j - 1, by have := zoff_le m s; omega⟩
-  else Fin.castAdd _ (zroot Xm Y s)
-
-/-- The shared bottom filler `B`. -/
-def botV (K m : ℕ) : V (K + (3 * m + 2)) := ⟨K + 3 * m, by omega⟩
-
-/-- The shared top filler `T`. -/
-def topV (K m : ℕ) : V (K + (3 * m + 2)) := ⟨K + 3 * m + 1, by omega⟩
+theorem flipV_injective {K : ℕ} : Function.Injective (flipV (k := K)) := fun a b h => by
+  simpa using congrArg flipV h
 
 section Layout
 
-variable {X Xm Y : V K} {m : ℕ}
+/-- Embed a signed variable, keeping the index of its base and its sign. -/
+def lift {M : ℕ} (z : V (2 * k)) : V (2 * (k + M)) := sv (Fin.castAdd M (base z)) (sign z)
 
-@[simp] theorem pv_zero (X : V K) (m : ℕ) : pv X m 0 = Fin.castAdd _ X := by simp [pv]
+variable {M : ℕ}
 
-@[simp] theorem zv_zero (Xm Y : V K) (m : ℕ) (s : Bool) :
-    zv Xm Y m s 0 = Fin.castAdd _ (zroot Xm Y s) := by simp [zv]
+@[simp] theorem base_lift (z : V (2 * k)) : base (lift (M := M) z) = Fin.castAdd M (base z) := by
+  simp [lift]
 
-theorem pv_val (X : V K) (m j : ℕ) :
-    (pv X m j).val = if 0 < j ∧ j ≤ m then K + j - 1 else X.val := by
-  unfold pv; split_ifs <;> rfl
+@[simp] theorem sign_lift (z : V (2 * k)) : sign (lift (M := M) z) = sign z := by simp [lift]
 
-theorem zv_val (Xm Y : V K) (m : ℕ) (s : Bool) (j : ℕ) :
-    (zv Xm Y m s j).val =
-      if 0 < j ∧ j ≤ m then K + zoff m s + j - 1 else (zroot Xm Y s).val := by
-  unfold zv; split_ifs <;> rfl
+@[simp] theorem flipV_lift (z : V (2 * k)) : flipV (lift (M := M) z) = lift (flipV z) := by
+  simp [lift, flipV]
 
-@[simp] theorem botV_val (K m : ℕ) : (botV K m).val = K + 3 * m := rfl
-@[simp] theorem topV_val (K m : ℕ) : (topV K m).val = K + 3 * m + 1 := rfl
+theorem base_lift_lt (z : V (2 * k)) : (base (lift (M := M) z)).val < k := by
+  simp
 
-theorem castAdd_val (u : V K) : (Fin.castAdd (3 * m + 2) u).val = u.val := rfl
+theorem lift_injective : Function.Injective (lift (k := k) (M := M)) := fun a b h =>
+  signed_ext (Fin.castAdd_injective k M (by simpa using congrArg base h))
+    (by simpa using congrArg sign h)
 
-theorem pv_eq_castAdd {j : ℕ} (hj : j ≤ m) {u : V K}
-    (h : pv X m j = Fin.castAdd _ u) : j = 0 ∧ u = X := by
-  have hv := congrArg Fin.val h
-  rw [pv_val, castAdd_val] at hv
-  split_ifs at hv with hc
-  · have := u.isLt; omega
-  · exact ⟨by omega, Fin.ext hv.symm⟩
+/-- Offset of the fresh bases of a spine pair: the pairs through `X` come first. -/
+def boff (m : ℕ) : Bool → ℕ
+  | false => 0
+  | true => m
 
-theorem zv_eq_castAdd {s : Bool} {j : ℕ} (hj : j ≤ m) {u : V K}
-    (h : zv Xm Y m s j = Fin.castAdd _ u) : j = 0 ∧ u = zroot Xm Y s := by
-  have hv := congrArg Fin.val h
-  rw [zv_val, castAdd_val] at hv
-  split_ifs at hv with hc
-  · have := u.isLt; have := le_zoff m s; omega
-  · exact ⟨by omega, Fin.ext hv.symm⟩
+theorem boff_le (m : ℕ) (s : Bool) : boff m s ≤ m := by cases s <;> simp [boff]
 
-theorem pv_inj {j j' : ℕ} (hj : j ≤ m) (hj' : j' ≤ m)
-    (h : pv X m j = pv X m j') : j = j' := by
-  have hv := congrArg Fin.val h
-  rw [pv_val, pv_val] at hv
-  have := X.isLt
-  split_ifs at hv <;> omega
+/-- The roots of the two lower spines: `X` (`false`) and `σY` (`true`). -/
+def lroot (X Y : V (2 * k)) : Bool → V (2 * k)
+  | false => X
+  | true => flipV Y
 
-theorem zv_eq_zv {s s' : Bool} {j j' : ℕ} (hj : j ≤ m) (hj' : j' ≤ m)
-    (h : zv Xm Y m s j = zv Xm Y m s' j') : j = j' ∧ zroot Xm Y s = zroot Xm Y s' := by
-  have hv := congrArg Fin.val h
-  rw [zv_val, zv_val] at hv
-  have h1 := (zroot Xm Y s).isLt
-  have h2 := (zroot Xm Y s').isLt
-  split_ifs at hv with ha hb hb
-  · have hs : s = s' := by
-      cases s <;> cases s' <;> simp [zoff] at hv ⊢ <;> omega
-    subst hs
-    exact ⟨by cases s <;> simp [zoff] at hv <;> omega, rfl⟩
-  · have := le_zoff m s; omega
-  · have := le_zoff m s'; omega
-  · exact ⟨by omega, Fin.ext hv⟩
+variable (c : Fin n → Bool) (X Y : V (2 * k)) (w : List (Fin n))
 
-theorem pv_eq_zv {s : Bool} {j k : ℕ} (hj : j ≤ m) (hk : k ≤ m)
-    (h : pv X m j = zv Xm Y m s k) : j = 0 ∧ k = 0 ∧ X = zroot Xm Y s := by
-  have hv := congrArg Fin.val h
-  rw [pv_val, zv_val] at hv
-  have h1 := X.isLt
-  have h2 := (zroot Xm Y s).isLt
-  have := le_zoff m s
-  split_ifs at hv <;> first | omega | exact ⟨by omega, by omega, Fin.ext hv⟩
+/-- Position `j` of the lower spine `s`, `P_j` (`s = false`) or `W_j` (`s = true`).
+Position `0` is the lifted root; position `0 < j ≤ |w|` has the fresh base
+`k + boff |w| s + j - 1` and the sign of the root shifted by the polarity of
+`w[:j]`. Its sign dual is position `j` of the paired upper spine, `Q_j` or `Y_j`. -/
+def lv (s : Bool) (j : ℕ) : V (2 * (k + (2 * w.length + 2))) :=
+  if h : 0 < j ∧ j ≤ w.length then
+    sv ⟨k + boff w.length s + j - 1, by have := boff_le w.length s; have := h.2; omega⟩
+      (Bool.xor (sign (lroot X Y s)) (polarity c (w.take j)))
+  else lift (lroot X Y s)
 
-theorem botV_ne_castAdd (u : V K) : botV K m ≠ Fin.castAdd _ u := by
-  intro h; have := congrArg Fin.val h; simp at this; have := u.isLt; omega
+/-- The bottom filler of sign `q`; its sign dual is the top filler of sign `!q`. -/
+def bfill (q : Bool) : V (2 * (k + (2 * w.length + 2))) :=
+  sv ⟨k + 2 * w.length + q.toNat, by have := Bool.toNat_le q; omega⟩ q
 
-theorem topV_ne_castAdd (u : V K) : topV K m ≠ Fin.castAdd _ u := by
-  intro h; have := congrArg Fin.val h; simp at this; have := u.isLt; omega
+/-- Children of the link at position `j` of the lower spine `s` reading `i`: the
+next position at `i`, and the bottom filler of the coherent sign elsewhere. -/
+def kids (s : Bool) (j : ℕ) (i i' : Fin n) : V (2 * (k + (2 * w.length + 2))) :=
+  if i' = i then lv c X Y w s (j + 1)
+  else bfill w (Bool.xor (sign (lv c X Y w s j)) (c i'))
 
-theorem botV_ne_pv {j : ℕ} (hj : j ≤ m) : botV K m ≠ pv X m j := by
-  intro h; have hv := congrArg Fin.val h; rw [botV_val, pv_val] at hv
-  have := X.isLt; split_ifs at hv <;> omega
+/-- Children of the terminal lower bound of `W_m`: bottom fillers of the coherent signs. -/
+def endKids (i' : Fin n) : V (2 * (k + (2 * w.length + 2))) :=
+  bfill w (Bool.xor (sign (lv c X Y w true w.length)) (c i'))
 
-theorem topV_ne_zv {s : Bool} {j : ℕ} (hj : j ≤ m) : topV K m ≠ zv Xm Y m s j := by
-  intro h; have hv := congrArg Fin.val h; rw [topV_val, zv_val] at hv
-  have := (zroot Xm Y s).isLt; have := zoff_le m s; split_ifs at hv <;> omega
+/-- The links of the lower spine `s`, one for each letter of `w`. -/
+def links (s : Bool) : Constraint n (2 * (k + (2 * w.length + 2))) :=
+  w.mapIdx fun j i => .fLe (kids c X Y w s j i) (lv c X Y w s j)
 
-theorem botV_ne_topV : botV K m ≠ topV K m := by
-  intro h; have := congrArg Fin.val h; simp at this
+/-- The lower half of the spines: the links of both lower spines, `P_m = ⊤`,
+`f(B, …, B) ≤ W_m`, and the two bottom fillers. -/
+def lowerHalf : Constraint n (2 * (k + (2 * w.length + 2))) :=
+  links c X Y w false ++ links c X Y w true ++
+    [.eqTop (lv c X Y w false w.length), .fLe (endKids c X Y w) (lv c X Y w true w.length),
+      .eqBot (bfill w false), .eqBot (bfill w true)]
 
 end Layout
 
-/-- The fresh literals of `Ψ_w`. -/
-def spineBlock (X Xm Y : V K) (w : List (Fin n)) : Constraint n (K + (3 * w.length + 2)) :=
-  lowerSteps (pv X w.length) (botV K w.length) w ++
-    (upperSteps (zv Xm Y w.length false) (topV K w.length) w ++
-    (upperSteps (zv Xm Y w.length true) (topV K w.length) w ++
-    [.eqTop (pv X w.length w.length), .eqBot (zv Xm Y w.length false w.length),
-      .leF (zv Xm Y w.length true w.length) (fun _ => topV K w.length),
-      .eqBot (botV K w.length), .eqTop (topV K w.length)]))
+/-- The four-spine extension of `ψ` along `w` for the roots `X` and `Y`: the
+lifted system, the lower half of the spines, and its sign dual. -/
+def _root_.DeciNSSE.Spine.extension (c : Fin n → Bool) (ψ : Constraint n (2 * k))
+    (X Y : V (2 * k)) (w : List (Fin n)) : Constraint n (2 * (k + (2 * w.length + 2))) :=
+  ψ.map (Lit.rename lift) ++ (lowerHalf c X Y w ++ (lowerHalf c X Y w).map dualFlip)
 
-/-- Add one lower and two upper spines enforcing the three prefix conditions. -/
-def _root_.DeciNSSE.Spine.extension (ψ : Constraint n K) (X Xm Y : V K) (w : List (Fin n)) :
-    Constraint n (K + (3 * w.length + 2)) :=
-  ψ.lift _ ++ spineBlock X Xm Y w
+section Positions
+
+variable {c : Fin n → Bool} {X Y : V (2 * k)} {w : List (Fin n)}
+
+@[simp] theorem kids_self (s : Bool) (j : ℕ) (i : Fin n) :
+    kids c X Y w s j i i = lv c X Y w s (j + 1) := by simp [kids]
+
+theorem kids_of_ne {s : Bool} {j : ℕ} {i i' : Fin n} (h : i' ≠ i) :
+    kids c X Y w s j i i' = bfill w (Bool.xor (sign (lv c X Y w s j)) (c i')) := by
+  simp [kids, h]
+
+@[simp] theorem lv_zero (s : Bool) : lv c X Y w s 0 = lift (lroot X Y s) := by simp [lv]
+
+theorem base_lv_val {s : Bool} {j : ℕ} (h : 0 < j ∧ j ≤ w.length) :
+    (base (lv c X Y w s j)).val = k + boff w.length s + j - 1 := by
+  simp [lv, h]
+
+theorem sign_lv {s : Bool} {j : ℕ} (hj : j ≤ w.length) :
+    sign (lv c X Y w s j) = Bool.xor (sign (lroot X Y s)) (polarity c (w.take j)) := by
+  by_cases h : 0 < j
+  · simp [lv, h, hj]
+  · obtain rfl : j = 0 := by omega
+    simp
+
+@[simp] theorem base_bfill_val (q : Bool) :
+    (base (bfill (k := k) w q)).val = k + 2 * w.length + q.toNat := by simp [bfill]
+
+@[simp] theorem sign_bfill (q : Bool) : sign (bfill (k := k) w q) = q := by simp [bfill]
+
+theorem base_lv_lt {s : Bool} {j : ℕ} (hj : j ≤ w.length) :
+    (base (lv c X Y w s j)).val < k + 2 * w.length := by
+  by_cases h : 0 < j
+  · rw [base_lv_val ⟨h, hj⟩]; have := boff_le w.length s; omega
+  · obtain rfl : j = 0 := by omega
+    rw [lv_zero]; have := base_lift_lt (M := 2 * w.length + 2) (lroot X Y s); omega
+
+theorem lv_base_eq {s s' : Bool} {j j' : ℕ} (h : 0 < j ∧ j ≤ w.length)
+    (h' : 0 < j' ∧ j' ≤ w.length) (he : base (lv c X Y w s j) = base (lv c X Y w s' j')) :
+    s = s' ∧ j = j' := by
+  have hv := congrArg Fin.val he
+  rw [base_lv_val h, base_lv_val h'] at hv
+  cases s <;> cases s' <;> simp only [boff] at hv <;> first | exact ⟨rfl, by omega⟩ | omega
+
+theorem lv_ne_lift {s : Bool} {j : ℕ} (h : 0 < j ∧ j ≤ w.length) (u : V (2 * k)) :
+    lv c X Y w s j ≠ lift u := by
+  intro he
+  have hv := congrArg (fun z => (base z).val) he
+  simp only [base_lv_val h] at hv
+  have := base_lift_lt (M := 2 * w.length + 2) u; omega
+
+theorem lv_eq_lift {s : Bool} {j : ℕ} (hj : j ≤ w.length) {u : V (2 * k)}
+    (h : lv c X Y w s j = lift u) : j = 0 ∧ u = lroot X Y s := by
+  by_cases h0 : 0 < j
+  · exact absurd h (lv_ne_lift ⟨h0, hj⟩ u)
+  · obtain rfl : j = 0 := by omega
+    exact ⟨rfl, (lift_injective (by simpa using h)).symm⟩
+
+theorem flipV_lv_eq_lift {s : Bool} {j : ℕ} (hj : j ≤ w.length) {u : V (2 * k)}
+    (h : flipV (lv c X Y w s j) = lift u) : j = 0 ∧ u = flipV (lroot X Y s) := by
+  have h' : lv c X Y w s j = lift (flipV u) := by rw [← flipV_lift, ← h, flipV_flipV]
+  obtain ⟨rfl, hu⟩ := lv_eq_lift hj h'
+  exact ⟨rfl, by rw [← hu, flipV_flipV]⟩
+
+theorem lv_eq_lv {s s' : Bool} {j j' : ℕ} (hj : j ≤ w.length) (hj' : j' ≤ w.length)
+    (h : lv c X Y w s j = lv c X Y w s' j') : j = j' ∧ lroot X Y s = lroot X Y s' := by
+  by_cases h0 : 0 < j <;> by_cases h0' : 0 < j'
+  · obtain ⟨rfl, rfl⟩ := lv_base_eq ⟨h0, hj⟩ ⟨h0', hj'⟩ (congrArg base h)
+    exact ⟨rfl, rfl⟩
+  · obtain rfl : j' = 0 := by omega
+    rw [lv_zero] at h; exact absurd h (lv_ne_lift ⟨h0, hj⟩ _)
+  · obtain rfl : j = 0 := by omega
+    rw [lv_zero] at h; exact absurd h.symm (lv_ne_lift ⟨h0', hj'⟩ _)
+  · obtain rfl : j = 0 := by omega
+    obtain rfl : j' = 0 := by omega
+    exact ⟨rfl, lift_injective (by simpa using h)⟩
+
+theorem lv_eq_flipV_lv {s s' : Bool} {j j' : ℕ} (hj : j ≤ w.length) (hj' : j' ≤ w.length)
+    (h : lv c X Y w s j = flipV (lv c X Y w s' j')) :
+    j = 0 ∧ j' = 0 ∧ lroot X Y s = flipV (lroot X Y s') := by
+  by_cases h0 : 0 < j <;> by_cases h0' : 0 < j'
+  · obtain ⟨rfl, rfl⟩ := lv_base_eq ⟨h0, hj⟩ ⟨h0', hj'⟩ (by rw [h, base_flipV])
+    have hs := congrArg sign h
+    rw [sign_flipV] at hs
+    cases hc : sign (lv c X Y w s j) <;> simp [hc] at hs
+  · obtain rfl : j' = 0 := by omega
+    rw [lv_zero, flipV_lift] at h; exact absurd h (lv_ne_lift ⟨h0, hj⟩ _)
+  · obtain rfl : j = 0 := by omega
+    rw [lv_zero] at h
+    exact absurd (flipV_lv_eq_lift hj' h.symm).1 (by omega)
+  · obtain rfl : j = 0 := by omega
+    obtain rfl : j' = 0 := by omega
+    exact ⟨rfl, rfl, lift_injective (by simpa using h)⟩
+
+theorem bfill_ne_lift (q : Bool) (u : V (2 * k)) : bfill w q ≠ lift u := by
+  intro he
+  have hv := congrArg (fun z => (base z).val) he
+  simp only [base_bfill_val] at hv
+  have := base_lift_lt (M := 2 * w.length + 2) u; omega
+
+theorem bfill_ne_lv (q : Bool) {s : Bool} {j : ℕ} (hj : j ≤ w.length) :
+    bfill w q ≠ lv c X Y w s j := by
+  intro he
+  have hv := congrArg (fun z => (base z).val) he
+  simp only [base_bfill_val] at hv
+  have := base_lv_lt (c := c) (X := X) (Y := Y) (s := s) hj; omega
+
+theorem bfill_ne_flipV_lv (q : Bool) {s : Bool} {j : ℕ} (hj : j ≤ w.length) :
+    bfill w q ≠ flipV (lv c X Y w s j) := by
+  intro he
+  have hv := congrArg (fun z => (base z).val) he
+  simp only [base_bfill_val, base_flipV] at hv
+  have := base_lv_lt (c := c) (X := X) (Y := Y) (s := s) hj; omega
+
+theorem bfill_ne_flipV_bfill (q q' : Bool) : bfill (k := k) w q ≠ flipV (bfill w q') := by
+  intro he
+  have hb := congrArg (fun z => (base z).val) he
+  have hs := congrArg sign he
+  simp only [base_bfill_val, base_flipV, sign_bfill, sign_flipV] at hb hs
+  cases q <;> cases q' <;> simp at hb hs
+
+end Positions
 
 section Literals
 
-variable {ψ : Constraint n K} {X Xm Y : V K} {w : List (Fin n)}
+variable {c : Fin n → Bool} {ψ : Constraint n (2 * k)} {X Y : V (2 * k)} {w : List (Fin n)}
 
-theorem mem_spineBlock {l : Lit n (K + (3 * w.length + 2))} :
-    l ∈ spineBlock X Xm Y w ↔
-      l ∈ lowerSteps (pv X w.length) (botV K w.length) w ∨
-      l ∈ upperSteps (zv Xm Y w.length false) (topV K w.length) w ∨
-      l ∈ upperSteps (zv Xm Y w.length true) (topV K w.length) w ∨
-      l = .eqTop (pv X w.length w.length) ∨ l = .eqBot (zv Xm Y w.length false w.length) ∨
-      l = .leF (zv Xm Y w.length true w.length) (fun _ => topV K w.length) ∨
-      l = .eqBot (botV K w.length) ∨ l = .eqTop (topV K w.length) := by
-  simp only [spineBlock, List.mem_append, List.mem_cons, List.not_mem_nil, or_false]
+theorem mem_links {s : Bool} {l : Lit n (2 * (k + (2 * w.length + 2)))} :
+    l ∈ links c X Y w s ↔
+      ∃ j, ∃ hj : j < w.length, l = .fLe (kids c X Y w s j w[j]) (lv c X Y w s j) := by
+  simp only [links, List.mem_mapIdx]
+  exact ⟨fun ⟨j, hj, h⟩ => ⟨j, hj, h.symm⟩, fun ⟨j, hj, h⟩ => ⟨j, hj, h.symm⟩⟩
 
-/-- Lower constructor literals: lifted from `ψ`, or a `P`-link. -/
-theorem mem_fLe {a : Fin n → V (K + (3 * w.length + 2))} {u : V (K + (3 * w.length + 2))}
-    (h : Lit.fLe a u ∈ Spine.extension ψ X Xm Y w) :
-    (∃ a' u', Lit.fLe a' u' ∈ ψ ∧ a = Fin.castAdd _ ∘ a' ∧ u = Fin.castAdd _ u') ∨
-      ∃ j, ∃ hj : j < w.length,
-        a = spineChildren w[j] (pv X w.length (j + 1)) (botV K w.length) ∧
-          u = pv X w.length j := by
-  rcases List.mem_append.mp h with h | h
-  · exact Or.inl (Spine.fLe_mem_lift h)
-  · right
-    rcases mem_spineBlock.mp h with h | h | h | h | h | h | h | h
-    · obtain ⟨j, hj, he⟩ := mem_lowerSteps_iff.mp h
-      simp only [lowerLink, Lit.fLe.injEq] at he
-      exact ⟨j, hj, he.1, he.2⟩
-    · exact absurd h (fLe_not_mem_upperSteps _ _ _ _ _)
-    · exact absurd h (fLe_not_mem_upperSteps _ _ _ _ _)
-    all_goals simp at h
+theorem mem_lowerHalf {l : Lit n (2 * (k + (2 * w.length + 2)))} :
+    l ∈ lowerHalf c X Y w ↔
+      (∃ s j, ∃ hj : j < w.length, l = .fLe (kids c X Y w s j w[j]) (lv c X Y w s j)) ∨
+        l = .eqTop (lv c X Y w false w.length) ∨
+        l = .fLe (endKids c X Y w) (lv c X Y w true w.length) ∨ ∃ q, l = .eqBot (bfill w q) := by
+  simp only [lowerHalf, List.mem_append, List.mem_cons, List.not_mem_nil, or_false, mem_links,
+    Bool.exists_bool, or_assoc]
 
-/-- Upper constructor literals: lifted from `ψ`, a `Q`- or `Y`-link, or `Y_m ≤ f(T̄)`. -/
-theorem mem_leF {v : V (K + (3 * w.length + 2))} {b : Fin n → V (K + (3 * w.length + 2))}
-    (h : Lit.leF v b ∈ Spine.extension ψ X Xm Y w) :
-    (∃ v' b', Lit.leF v' b' ∈ ψ ∧ v = Fin.castAdd _ v' ∧ b = Fin.castAdd _ ∘ b') ∨
-      (∃ s j, ∃ hj : j < w.length, v = zv Xm Y w.length s j ∧
-        b = spineChildren w[j] (zv Xm Y w.length s (j + 1)) (topV K w.length)) ∨
-      (v = zv Xm Y w.length true w.length ∧ b = fun _ => topV K w.length) := by
-  rcases List.mem_append.mp h with h | h
-  · exact Or.inl (Spine.leF_mem_lift h)
-  · right
-    rcases mem_spineBlock.mp h with h | h | h | h | h | h | h | h
-    · exact absurd h (leF_not_mem_lowerSteps _ _ _ _ _)
-    · obtain ⟨j, hj, he⟩ := mem_upperSteps_iff.mp h
-      simp only [upperLink, Lit.leF.injEq] at he
-      exact Or.inl ⟨false, j, hj, he.1, he.2⟩
-    · obtain ⟨j, hj, he⟩ := mem_upperSteps_iff.mp h
-      simp only [upperLink, Lit.leF.injEq] at he
-      exact Or.inl ⟨true, j, hj, he.1, he.2⟩
-    · simp at h
-    · simp at h
-    · simp only [Lit.leF.injEq] at h
-      exact Or.inr h
-    · simp at h
-    · simp at h
+theorem mem_extension {l : Lit n (2 * (k + (2 * w.length + 2)))} :
+    l ∈ Spine.extension c ψ X Y w ↔
+      l ∈ ψ.map (Lit.rename lift) ∨ l ∈ lowerHalf c X Y w ∨ dualFlip l ∈ lowerHalf c X Y w := by
+  simp only [Spine.extension, List.mem_append, List.mem_map]
+  refine or_congr_right (or_congr_right ⟨fun ⟨l', h, he⟩ => by rwa [← he, dualFlip_dualFlip],
+    fun h => ⟨_, h, dualFlip_dualFlip l⟩⟩)
 
-theorem mem_eqTop {u : V (K + (3 * w.length + 2))} (h : Lit.eqTop u ∈ Spine.extension ψ X Xm Y w) :
-    (∃ u', Lit.eqTop u' ∈ ψ ∧ u = Fin.castAdd _ u') ∨
-      u = pv X w.length w.length ∨ u = topV K w.length := by
-  rcases List.mem_append.mp h with h | h
-  · exact Or.inl (Spine.eqTop_mem_lift h)
-  · right
-    rcases mem_spineBlock.mp h with h | h | h | h | h | h | h | h
-    · exact absurd h (eqTop_not_mem_lowerSteps _ _ _ _)
-    · exact absurd h (eqTop_not_mem_upperSteps _ _ _ _)
-    · exact absurd h (eqTop_not_mem_upperSteps _ _ _ _)
-    · simp only [Lit.eqTop.injEq] at h; exact Or.inl h
-    · simp at h
-    · simp at h
-    · simp at h
-    · simp only [Lit.eqTop.injEq] at h; exact Or.inr h
+theorem lift_mem {l : Lit n (2 * k)} (hl : l ∈ ψ) :
+    l.rename lift ∈ Spine.extension c ψ X Y w :=
+  mem_extension.mpr (Or.inl (List.mem_map_of_mem hl))
 
-theorem mem_eqBot {v : V (K + (3 * w.length + 2))} (h : Lit.eqBot v ∈ Spine.extension ψ X Xm Y w) :
-    (∃ v', Lit.eqBot v' ∈ ψ ∧ v = Fin.castAdd _ v') ∨
-      v = zv Xm Y w.length false w.length ∨ v = botV K w.length := by
-  rcases List.mem_append.mp h with h | h
-  · exact Or.inl (Spine.eqBot_mem_lift h)
-  · right
-    rcases mem_spineBlock.mp h with h | h | h | h | h | h | h | h
-    · exact absurd h (eqBot_not_mem_lowerSteps _ _ _ _)
-    · exact absurd h (eqBot_not_mem_upperSteps _ _ _ _)
-    · exact absurd h (eqBot_not_mem_upperSteps _ _ _ _)
-    · simp at h
-    · simp only [Lit.eqBot.injEq] at h; exact Or.inl h
-    · simp at h
-    · simp only [Lit.eqBot.injEq] at h; exact Or.inr h
-    · simp at h
+theorem half_mem {l : Lit n (2 * (k + (2 * w.length + 2)))} (hl : l ∈ lowerHalf c X Y w) :
+    l ∈ Spine.extension c ψ X Y w := mem_extension.mpr (Or.inr (Or.inl hl))
 
-theorem lift_mem {l : Lit n K} (hl : l ∈ ψ) :
-    l.rename (Fin.castAdd (3 * w.length + 2)) ∈ Spine.extension ψ X Xm Y w :=
-  List.mem_append_left _ (Spine.mem_lift_of_mem hl)
+theorem flip_half_mem {l : Lit n (2 * (k + (2 * w.length + 2)))} (hl : l ∈ lowerHalf c X Y w) :
+    dualFlip l ∈ Spine.extension c ψ X Y w :=
+  mem_extension.mpr (Or.inr (Or.inr (by rwa [dualFlip_dualFlip])))
 
-theorem block_mem {l : Lit n (K + (3 * w.length + 2))} (hl : l ∈ spineBlock X Xm Y w) :
-    l ∈ Spine.extension ψ X Xm Y w :=
-  List.mem_append_right _ hl
+theorem link_mem (s : Bool) {j : ℕ} (hj : j < w.length) :
+    Lit.fLe (kids c X Y w s j w[j]) (lv c X Y w s j) ∈ Spine.extension c ψ X Y w :=
+  half_mem (mem_lowerHalf.mpr (Or.inl ⟨s, j, hj, rfl⟩))
 
-/-- The `P`-link at `P_j`. -/
-theorem pLink_mem {j : ℕ} (hj : j < w.length) :
-    Lit.fLe (spineChildren w[j] (pv X w.length (j + 1)) (botV K w.length))
-      (pv X w.length j) ∈ Spine.extension ψ X Xm Y w :=
-  block_mem (mem_spineBlock.mpr (Or.inl (mem_lowerSteps_iff.mpr ⟨j, hj, rfl⟩)))
+theorem flip_link_mem (s : Bool) {j : ℕ} (hj : j < w.length) :
+    Lit.leF (flipV (lv c X Y w s j)) (flipV ∘ kids c X Y w s j w[j]) ∈
+      Spine.extension c ψ X Y w :=
+  flip_half_mem (mem_lowerHalf.mpr (Or.inl ⟨s, j, hj, rfl⟩))
 
-/-- The `Q`-link (`s = false`) or `Y`-link (`s = true`) at `Z_j`. -/
-theorem zLink_mem (s : Bool) {j : ℕ} (hj : j < w.length) :
-    Lit.leF (zv Xm Y w.length s j)
-      (spineChildren w[j] (zv Xm Y w.length s (j + 1)) (topV K w.length)) ∈
-        Spine.extension ψ X Xm Y w := by
-  apply block_mem
-  apply mem_spineBlock.mpr
-  cases s
-  · exact Or.inr (Or.inl (mem_upperSteps_iff.mpr ⟨j, hj, rfl⟩))
-  · exact Or.inr (Or.inr (Or.inl (mem_upperSteps_iff.mpr ⟨j, hj, rfl⟩)))
+theorem top_mem : Lit.eqTop (lv c X Y w false w.length) ∈ Spine.extension c ψ X Y w :=
+  half_mem (mem_lowerHalf.mpr (Or.inr (Or.inl rfl)))
 
-theorem eqTop_pv_mem : Lit.eqTop (pv X w.length w.length) ∈ Spine.extension ψ X Xm Y w :=
-  block_mem (mem_spineBlock.mpr (by simp))
+theorem bot_mem : Lit.eqBot (flipV (lv c X Y w false w.length)) ∈ Spine.extension c ψ X Y w :=
+  flip_half_mem (l := .eqTop _) (mem_lowerHalf.mpr (Or.inr (Or.inl rfl)))
 
-theorem eqBot_qv_mem :
-    Lit.eqBot (zv Xm Y w.length false w.length) ∈ Spine.extension ψ X Xm Y w :=
-  block_mem (mem_spineBlock.mpr (by simp))
+theorem end_mem : Lit.fLe (endKids c X Y w) (lv c X Y w true w.length) ∈ Spine.extension c ψ X Y w :=
+  half_mem (mem_lowerHalf.mpr (Or.inr (Or.inr (Or.inl rfl))))
 
-theorem yTerm_mem :
-    Lit.leF (zv Xm Y w.length true w.length) (fun _ => topV K w.length) ∈
-      Spine.extension ψ X Xm Y w :=
-  block_mem (mem_spineBlock.mpr (by simp))
+theorem flip_end_mem :
+    Lit.leF (flipV (lv c X Y w true w.length)) (flipV ∘ endKids c X Y w) ∈
+      Spine.extension c ψ X Y w :=
+  flip_half_mem (l := .fLe _ _) (mem_lowerHalf.mpr (Or.inr (Or.inr (Or.inl rfl))))
 
-/-- Every upper spine variable `Z_k`, `k ≤ m`, roots an upper literal of `Ψ_w`:
-a link (`k < m`), `Y_m ≤ f(T̄)`, or `Q_m = ⊥`. -/
-theorem zv_upper_root (s : Bool) {k : ℕ} (hk : k ≤ w.length) :
-    (∃ b, Lit.leF (zv Xm Y w.length s k) b ∈ Spine.extension ψ X Xm Y w) ∨
-      (s = false ∧ k = w.length ∧
-        Lit.eqBot (zv Xm Y w.length false w.length) ∈ Spine.extension ψ X Xm Y w) := by
-  rcases Nat.lt_or_ge k w.length with hlt | hge
-  · exact Or.inl ⟨_, zLink_mem s hlt⟩
-  · have hk' : k = w.length := le_antisymm hk hge
-    subst hk'
-    cases s
-    · exact Or.inr ⟨rfl, rfl, eqBot_qv_mem⟩
-    · exact Or.inl ⟨_, yTerm_mem⟩
+theorem bfill_mem (q : Bool) : Lit.eqBot (bfill w q) ∈ Spine.extension c ψ X Y w :=
+  half_mem (mem_lowerHalf.mpr (Or.inr (Or.inr (Or.inr ⟨q, rfl⟩))))
 
-/-- Every `P_j`, `j ≤ m`, roots a lower literal: a link (`j < m`) or `P_m = ⊤`. -/
-theorem pv_lower_root {j : ℕ} (hj : j ≤ w.length) :
-    (j < w.length ∧ ∃ a, Lit.fLe a (pv X w.length j) ∈ Spine.extension ψ X Xm Y w) ∨
-      (j = w.length ∧ Lit.eqTop (pv X w.length w.length) ∈ Spine.extension ψ X Xm Y w) := by
-  rcases Nat.lt_or_ge j w.length with hlt | hge
-  · exact Or.inl ⟨hlt, _, pLink_mem hlt⟩
-  · exact Or.inr ⟨le_antisymm hj hge, eqTop_pv_mem⟩
+/-- Lower constructor literals: lifted, a link of a lower spine, or the terminal bound of `W_m`. -/
+theorem mem_fLe {a : Fin n → V (2 * (k + (2 * w.length + 2)))} {u : V (2 * (k + (2 * w.length + 2)))}
+    (h : Lit.fLe a u ∈ Spine.extension c ψ X Y w) :
+    (∃ a' u', Lit.fLe a' u' ∈ ψ ∧ a = lift ∘ a' ∧ u = lift u') ∨
+      (∃ s j, ∃ hj : j < w.length, a = kids c X Y w s j w[j] ∧ u = lv c X Y w s j) ∨
+      (a = endKids c X Y w ∧ u = lv c X Y w true w.length) := by
+  rcases mem_extension.mp h with h | h | h
+  · exact Or.inl (fLe_mem_rename h)
+  · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;>
+      simp only [Lit.fLe.injEq, reduceCtorEq] at he
+    · exact Or.inr (Or.inl ⟨s, j, hj, he⟩)
+    · exact Or.inr (Or.inr he)
+  · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;> simp [dualFlip] at he
+
+theorem eq_flipV_of_flipV_eq {K : ℕ} {z z' : V (2 * K)} (h : flipV z = z') : z = flipV z' := by
+  rw [← h, flipV_flipV]
+
+/-- Upper constructor literals: lifted, or the sign dual of a lower spine literal. -/
+theorem mem_leF {v : V (2 * (k + (2 * w.length + 2)))} {b : Fin n → V (2 * (k + (2 * w.length + 2)))}
+    (h : Lit.leF v b ∈ Spine.extension c ψ X Y w) :
+    (∃ v' b', Lit.leF v' b' ∈ ψ ∧ v = lift v' ∧ b = lift ∘ b') ∨
+      (∃ s j, ∃ hj : j < w.length,
+        b = flipV ∘ kids c X Y w s j w[j] ∧ v = flipV (lv c X Y w s j)) ∨
+      (b = flipV ∘ endKids c X Y w ∧ v = flipV (lv c X Y w true w.length)) := by
+  have hb {a : Fin n → V (2 * (k + (2 * w.length + 2)))} (h : flipV ∘ b = a) : b = flipV ∘ a := by
+    rw [← h]; funext i; simp
+  rcases mem_extension.mp h with h | h | h
+  · exact Or.inl (leF_mem_rename h)
+  · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;> simp at he
+  · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;>
+      simp only [dualFlip, Lit.fLe.injEq, reduceCtorEq] at he
+    · exact Or.inr (Or.inl ⟨s, j, hj, hb he.1, eq_flipV_of_flipV_eq he.2⟩)
+    · exact Or.inr (Or.inr ⟨hb he.1, eq_flipV_of_flipV_eq he.2⟩)
+
+theorem mem_eqTop {u : V (2 * (k + (2 * w.length + 2)))}
+    (h : Lit.eqTop u ∈ Spine.extension c ψ X Y w) :
+    (∃ u', Lit.eqTop u' ∈ ψ ∧ u = lift u') ∨ u = lv c X Y w false w.length ∨
+      ∃ q, u = flipV (bfill w q) := by
+  rcases mem_extension.mp h with h | h | h
+  · exact Or.inl (eqTop_mem_rename h)
+  · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;>
+      simp only [Lit.eqTop.injEq, reduceCtorEq] at he
+    exact Or.inr (Or.inl he)
+  · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;>
+      simp only [dualFlip, Lit.eqBot.injEq, reduceCtorEq] at he
+    exact Or.inr (Or.inr ⟨q, eq_flipV_of_flipV_eq he⟩)
+
+theorem mem_eqBot {v : V (2 * (k + (2 * w.length + 2)))}
+    (h : Lit.eqBot v ∈ Spine.extension c ψ X Y w) :
+    (∃ v', Lit.eqBot v' ∈ ψ ∧ v = lift v') ∨ v = flipV (lv c X Y w false w.length) ∨
+      ∃ q, v = bfill w q := by
+  rcases mem_extension.mp h with h | h | h
+  · exact Or.inl (eqBot_mem_rename h)
+  · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;>
+      simp only [Lit.eqBot.injEq, reduceCtorEq] at he
+    exact Or.inr (Or.inr ⟨q, he⟩)
+  · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;>
+      simp only [dualFlip, Lit.eqTop.injEq, reduceCtorEq] at he
+    exact Or.inr (Or.inl (eq_flipV_of_flipV_eq he))
 
 end Literals
 
-/-- Sources: `P_1..P_m` and `B`. -/
-def Source (K m : ℕ) (z : V (K + (3 * m + 2))) : Prop :=
-  K ≤ z.val ∧ (z.val < K + m ∨ z.val = K + 3 * m)
+section Symmetry
 
-/-- Sinks: `Q_1..Q_m`, `Y_1..Y_m` and `T`. -/
-def Sink (K m : ℕ) (z : V (K + (3 * m + 2))) : Prop :=
-  (K + m ≤ z.val ∧ z.val < K + 3 * m) ∨ z.val = K + 3 * m + 1
+variable {c : Fin n → Bool} {ψ : Constraint n (2 * k)} {X Y : V (2 * k)} {w : List (Fin n)}
 
-section Classes
+theorem dualFlip_rename_lift (l : Lit n (2 * k)) :
+    dualFlip (l.rename (lift (M := 2 * w.length + 2))) = (dualFlip l).rename lift := by
+  cases l <;> simp [dualFlip, Lit.rename, Function.comp_def]
 
-variable {X Xm Y : V K} {m : ℕ}
+/-- The extension is closed under sign duality. -/
+theorem extension_flipClosed (hψ : FlipClosed ψ) : FlipClosed (Spine.extension c ψ X Y w) := by
+  intro l hl
+  rcases mem_extension.mp hl with h | h | h
+  · obtain ⟨l', hl', rfl⟩ := List.mem_map.mp h
+    rw [dualFlip_rename_lift]; exact lift_mem (hψ l' hl')
+  · exact flip_half_mem h
+  · exact half_mem h
 
-theorem source_pv {j : ℕ} (h : 0 < j ∧ j ≤ m) : Source K m (pv X m j) := by
-  unfold Source; rw [pv_val, ite_eq_left h]; omega
+/-- Children of a lower spine literal carry the sign of the root shifted by their variance. -/
+theorem lowerHalf_coherent {a : Fin n → V (2 * (k + (2 * w.length + 2)))}
+    {u : V (2 * (k + (2 * w.length + 2)))} (h : Lit.fLe a u ∈ lowerHalf c X Y w) (i : Fin n) :
+    sign (a i) = Bool.xor (sign u) (c i) := by
+  rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩
+  · simp only [Lit.fLe.injEq] at he
+    obtain ⟨rfl, rfl⟩ := he
+    by_cases hi : i = w[j]
+    · rw [hi, kids_self, sign_lv (by omega), sign_lv hj.le, take_succ_of_lt hj,
+        polarity_append_singleton, Bool.xor_assoc]
+    · simp [kids_of_ne hi]
+  · simp at he
+  · simp only [Lit.fLe.injEq] at he
+    obtain ⟨rfl, rfl⟩ := he
+    simp [endKids]
+  · simp at he
 
-theorem source_botV : Source K m (botV K m) := by simp [Source]
+theorem xor_not_left (a b : Bool) : Bool.xor (!a) b = !(Bool.xor a b) := by
+  cases a <;> cases b <;> rfl
 
-theorem sink_zv (s : Bool) {j : ℕ} (h : 0 < j ∧ j ≤ m) : Sink K m (zv Xm Y m s j) := by
-  unfold Sink; rw [zv_val, ite_eq_left h]; have := zoff_le m s; have := le_zoff m s; omega
+/-- The extension is sign coherent. -/
+theorem extension_signCoherent (hψ : SignCoherent c ψ) :
+    SignCoherent c (Spine.extension c ψ X Y w) := by
+  constructor
+  · intro v b h i
+    rcases mem_leF h with ⟨v', b', hl, rfl, rfl⟩ | ⟨s, j, hj, rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · simpa using hψ.1 v' b' hl i
+    · simp only [Function.comp_apply, sign_flipV, xor_not_left]
+      rw [lowerHalf_coherent (mem_lowerHalf.mpr (Or.inl ⟨s, j, hj, rfl⟩))]
+    · simp only [Function.comp_apply, sign_flipV, xor_not_left]
+      rw [lowerHalf_coherent (mem_lowerHalf.mpr (Or.inr (Or.inr (Or.inl rfl))))]
+  · intro a u h i
+    rcases mem_extension.mp h with h | h | h
+    · obtain ⟨a', u', hl', rfl, rfl⟩ := fLe_mem_rename h
+      simpa using hψ.2 a' u' hl' i
+    · exact lowerHalf_coherent h i
+    · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;> simp [dualFlip] at he
 
-theorem sink_topV : Sink K m (topV K m) := by simp [Sink]
+end Symmetry
 
-theorem not_sink_pv (j : ℕ) : ¬ Sink K m (pv X m j) := by
-  unfold Sink; rw [pv_val]; have := X.isLt; split_ifs <;> omega
+section Ranked
 
-theorem not_source_zv (s : Bool) (j : ℕ) : ¬ Source K m (zv Xm Y m s j) := by
-  unfold Source; rw [zv_val]; have := (zroot Xm Y s).isLt; have := le_zoff m s
-  have := zoff_le m s; split_ifs <;> omega
+variable (c : Fin n → Bool) (X Y : V (2 * k)) (w : List (Fin n))
 
-theorem pv_lt_succ {j : ℕ} (hj : j < m) : (pv X m j).val < (pv X m (j + 1)).val := by
-  rw [pv_val, pv_val]; have := X.isLt; split_ifs <;> omega
+/-- Sources: fresh lower spine positions and bottom fillers. -/
+def Source (z : V (2 * (k + (2 * w.length + 2)))) : Prop :=
+  (∃ s j, 0 < j ∧ j ≤ w.length ∧ z = lv c X Y w s j) ∨ ∃ q, z = bfill w q
 
-theorem zv_lt_succ (s : Bool) {j : ℕ} (hj : j < m) :
-    (zv Xm Y m s j).val < (zv Xm Y m s (j + 1)).val := by
-  rw [zv_val, zv_val]; have := (zroot Xm Y s).isLt; have := le_zoff m s
-  split_ifs <;> omega
+/-- Sinks: the sign duals of sources, fresh upper spine positions and top fillers. -/
+def Sink (z : V (2 * (k + (2 * w.length + 2)))) : Prop := Source c X Y w (flipV z)
 
-theorem pv_lt_botV (j : ℕ) : (pv X m j).val < (botV K m).val := by
-  rw [pv_val, botV_val]; have := X.isLt; split_ifs <;> omega
+variable {c X Y w}
 
-theorem zv_lt_topV (s : Bool) (j : ℕ) : (zv Xm Y m s j).val < (topV K m).val := by
-  rw [zv_val, topV_val]; have := (zroot Xm Y s).isLt; have := zoff_le m s
-  split_ifs <;> omega
+theorem not_source_lift (u : V (2 * k)) : ¬ Source c X Y w (lift u) := by
+  rintro (⟨s, j, h0, hj, he⟩ | ⟨q, he⟩)
+  · exact lv_ne_lift ⟨h0, hj⟩ u he.symm
+  · exact bfill_ne_lift q u he.symm
 
-end Classes
+theorem not_source_flipV_lv {s : Bool} {j : ℕ} (hj : j ≤ w.length) :
+    ¬ Source c X Y w (flipV (lv c X Y w s j)) := by
+  rintro (⟨s', j', h0, hj', he⟩ | ⟨q, he⟩)
+  · exact absurd (lv_eq_flipV_lv hj' hj he.symm).1 (by omega)
+  · exact bfill_ne_flipV_lv q hj he.symm
 
-section Extension
+theorem not_source_flipV_bfill (q : Bool) : ¬ Source c X Y w (flipV (bfill w q)) := by
+  rintro (⟨s, j, h0, hj, he⟩ | ⟨q', he⟩)
+  · have he' := congrArg flipV he
+    rw [flipV_flipV] at he'
+    exact bfill_ne_flipV_lv q hj he'
+  · exact bfill_ne_flipV_bfill q' q he.symm
 
-variable (ψ : Constraint n K) (X Xm Y : V K) (w : List (Fin n))
+theorem source_lv {s : Bool} {j : ℕ} (h : 0 < j ∧ j ≤ w.length) : Source c X Y w (lv c X Y w s j) :=
+  Or.inl ⟨s, j, h.1, h.2, rfl⟩
 
-/-- `Ψ_w` is a ranked source/sink extension of `ψ`. -/
-theorem extension_ranked :
-    Ranked.Extension ψ (Spine.extension ψ X Xm Y w) (Source K w.length) (Sink K w.length)
-      Fin.val where
-  source_not_old := by intro z h; unfold Source at h; omega
-  sink_not_old := by intro z h; unfold Sink at h; omega
-  source_not_sink := by intro z h; unfold Source at h; unfold Sink; omega
-  variable_cases := by
-    intro z
-    by_cases h : z.val < K
-    · exact Or.inl ⟨⟨z.val, h⟩, rfl⟩
-    · right; unfold Source Sink; have := z.isLt; omega
+theorem source_bfill (q : Bool) : Source c X Y w (bfill w q) := Or.inr ⟨q, rfl⟩
+
+theorem sink_flipV_bfill (q : Bool) : Sink c X Y w (flipV (bfill w q)) := by
+  simp only [Sink, flipV_flipV]; exact source_bfill q
+
+theorem lowerHalf_fresh {a : Fin n → V (2 * (k + (2 * w.length + 2)))}
+    {u : V (2 * (k + (2 * w.length + 2)))} (h : Lit.fLe a u ∈ lowerHalf c X Y w) :
+    (∀ i, Source c X Y w (a i) ∧ (base u).val < (base (a i)).val) ∧
+      ¬ Source c X Y w (flipV u) := by
+  rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩
+  · simp only [Lit.fLe.injEq] at he
+    obtain ⟨rfl, rfl⟩ := he
+    refine ⟨fun i => ?_, not_source_flipV_lv hj.le⟩
+    by_cases hi : i = w[j]
+    · rw [hi, kids_self]
+      refine ⟨source_lv (j := j + 1) ⟨by omega, by omega⟩, ?_⟩
+      rw [base_lv_val (j := j + 1) ⟨by omega, by omega⟩]
+      by_cases h0 : 0 < j
+      · rw [base_lv_val ⟨h0, hj.le⟩]; omega
+      · obtain rfl : j = 0 := by omega
+        rw [lv_zero]; have := base_lift_lt (M := 2 * w.length + 2) (lroot X Y s); omega
+    · rw [kids_of_ne hi]
+      refine ⟨source_bfill _, ?_⟩
+      have := base_lv_lt (c := c) (X := X) (Y := Y) (s := s) hj.le
+      simp only [base_bfill_val]; omega
+  · simp at he
+  · simp only [Lit.fLe.injEq] at he
+    obtain ⟨rfl, rfl⟩ := he
+    refine ⟨fun i => ⟨source_bfill _, ?_⟩, not_source_flipV_lv le_rfl⟩
+    have := base_lv_lt (c := c) (X := X) (Y := Y) (s := true) (le_refl w.length)
+    simp only [endKids, base_bfill_val]; omega
+  · simp at he
+
+theorem variable_cases (z : V (2 * (k + (2 * w.length + 2)))) :
+    (∃ u, z = lift u) ∨ Source c X Y w z ∨ Sink c X Y w z := by
+  obtain ⟨b, p, rfl⟩ := sv_cases z
+  have hpair (z' : V (2 * (k + (2 * w.length + 2)))) (hz : Source c X Y w z')
+      (hb : base z' = b) : Source c X Y w (sv b p) ∨ Sink c X Y w (sv b p) := by
+    by_cases hp : p = sign z'
+    · left; rwa [show sv b p = z' from signed_ext (by simp [hb]) (by simp [hp])]
+    · right
+      rwa [Sink, show flipV (sv b p) = z' from
+        signed_ext (by simp [hb]) (by cases p <;> simp_all)]
+  by_cases hb : b.val < k
+  · exact Or.inl ⟨sv ⟨b.val, hb⟩ p, signed_ext (Fin.ext (by simp)) (by simp)⟩
+  right
+  by_cases hf : b.val < k + 2 * w.length
+  · by_cases hs : b.val < k + w.length
+    · exact hpair _ (source_lv (s := false) (j := b.val - k + 1) ⟨by omega, by omega⟩)
+        (Fin.ext (by rw [base_lv_val ⟨by omega, by omega⟩]; simp [boff]; omega))
+    · exact hpair _ (source_lv (s := true) (j := b.val - k - w.length + 1) ⟨by omega, by omega⟩)
+        (Fin.ext (by rw [base_lv_val ⟨by omega, by omega⟩]; simp [boff]; omega))
+  · have := b.isLt
+    by_cases hq : b.val = k + 2 * w.length
+    · exact hpair _ (source_bfill false) (Fin.ext (by simp; omega))
+    · exact hpair _ (source_bfill true) (Fin.ext (by simp; omega))
+
+variable (c X Y w) in
+/-- The extension is a ranked source and sink extension of `ψ`, ranked by base index. -/
+theorem extension_ranked (ψ : Constraint n (2 * k)) :
+    Ranked.Extension lift ψ (Spine.extension c ψ X Y w) (Source c X Y w) (Sink c X Y w)
+      (fun z => (base z).val) where
+  injective := lift_injective
+  not_source_old := not_source_lift
+  not_sink_old u := by simpa [Sink] using not_source_lift (flipV u)
+  source_not_sink := by
+    rintro z (⟨s, j, h0, hj, rfl⟩ | ⟨q, rfl⟩)
+    · exact not_source_flipV_lv hj
+    · exact not_source_flipV_bfill q
+  variable_cases := variable_cases
   old_mem := fun _ hl => lift_mem hl
   lower := by
-    intro a c h
-    rcases mem_fLe h with h | ⟨j, hj, rfl, rfl⟩
-    · exact Or.inl h
-    · refine Or.inr ⟨fun i => ?_, not_sink_pv _⟩
-      rcases spineChildren_eq_or w[j] i (pv X w.length (j + 1)) (botV K w.length) with h | h <;>
-        rw [h]
-      · exact ⟨source_pv ⟨by omega, by omega⟩, pv_lt_succ hj⟩
-      · exact ⟨source_botV, pv_lt_botV j⟩
+    intro a u h
+    rcases mem_extension.mp h with h | h | h
+    · exact Or.inl (fLe_mem_rename h)
+    · exact Or.inr (lowerHalf_fresh h)
+    · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;> simp [dualFlip] at he
   upper := by
-    intro c b h
-    rcases mem_leF h with h | ⟨s, j, hj, rfl, rfl⟩ | ⟨rfl, rfl⟩
-    · exact Or.inl h
-    · refine Or.inr ⟨fun i => ?_, not_source_zv _ _⟩
-      rcases spineChildren_eq_or w[j] i (zv Xm Y w.length s (j + 1)) (topV K w.length) with
-        h | h <;> rw [h]
-      · exact ⟨sink_zv s ⟨by omega, by omega⟩, zv_lt_succ s hj⟩
-      · exact ⟨sink_topV, zv_lt_topV s j⟩
-    · exact Or.inr ⟨fun _ => ⟨sink_topV, zv_lt_topV true _⟩, not_source_zv _ _⟩
+    intro v b h
+    rcases mem_extension.mp h with h | h | h
+    · exact Or.inl (leF_mem_rename h)
+    · rcases mem_lowerHalf.mp h with ⟨s, j, hj, he⟩ | he | he | ⟨q, he⟩ <;> simp at he
+    · obtain ⟨hk, hn⟩ := lowerHalf_fresh h
+      refine Or.inr ⟨fun i => ?_, by simpa using hn⟩
+      obtain ⟨hs, hr⟩ := hk i
+      exact ⟨by simpa [Sink] using hs, by simpa using hr⟩
 
-variable {ψ X Xm Y w}
+variable {ψ : Constraint n (2 * k)}
 
 /-- A derivation into a source is an identity. -/
-theorem derives_into_source {a b : V (K + (3 * w.length + 2))}
-    (h : Derives (Spine.extension ψ X Xm Y w) a b) (hb : Source K w.length b) : a = b :=
-  (extension_ranked ψ X Xm Y w).derives_into_source h hb
+theorem derives_into_source {a b : V (2 * (k + (2 * w.length + 2)))}
+    (h : Derives (Spine.extension c ψ X Y w) a b) (hb : Source c X Y w b) : a = b :=
+  (extension_ranked c X Y w ψ).derives_into_source h hb
 
 /-- A derivation out of a sink is an identity. -/
-theorem derives_out_of_sink {a b : V (K + (3 * w.length + 2))}
-    (h : Derives (Spine.extension ψ X Xm Y w) a b) (ha : Sink K w.length a) : b = a :=
-  (extension_ranked ψ X Xm Y w).derives_out_of_sink h ha
+theorem derives_out_of_sink {a b : V (2 * (k + (2 * w.length + 2)))}
+    (h : Derives (Spine.extension c ψ X Y w) a b) (ha : Sink c X Y w a) : b = a :=
+  (extension_ranked c X Y w ψ).derives_out_of_sink h ha
 
-/-- Between old variables the closure of `Ψ_w` is that of `ψ`. -/
-theorem derives_old_iff (u v : V K) :
-    Derives (Spine.extension ψ X Xm Y w) (Fin.castAdd _ u) (Fin.castAdd _ v) ↔ Derives ψ u v :=
-  (extension_ranked ψ X Xm Y w).derives_original u v
+theorem derives_lift {u v : V (2 * k)} (h : Derives ψ u v) :
+    Derives (Spine.extension c ψ X Y w) (lift u) (lift v) :=
+  ((extension_ranked c X Y w ψ).derives_original u v).mpr h
 
-theorem derives_lift {u v : V K} (h : Derives ψ u v) :
-    Derives (Spine.extension ψ X Xm Y w) (Fin.castAdd _ u) (Fin.castAdd _ v) :=
-  (derives_old_iff u v).mpr h
+end Ranked
 
-end Extension
+section Solutions
 
-section Semantics
+variable {c : Fin n → Bool} {ψ : Constraint n (2 * k)} {X Y : V (2 * k)} {w : List (Fin n)}
 
-variable {ψ : Constraint n K} {X Xm Y : V K} {w : List (Fin n)}
+/-- Along a lower spine, a solution stays below the trace of the spine root. -/
+theorem lv_le_trace {M : V (2 * (k + (2 * w.length + 2))) → Tree n}
+    (hM : Covariant.Sat M (Spine.extension c ψ X Y w)) (s : Bool) :
+    ∀ j ≤ w.length, M (lv c X Y w s j) ≤ trace (M (lv c X Y w s 0)) (w.take j)
+  | 0, _ => by simp
+  | j + 1, hj => by
+    have hd := descend_mono (hM _ (link_mem (ψ := ψ) s (by omega : j < w.length))) w[j]
+    simp only [descend_node, Function.comp_apply, kids_self] at hd
+    rw [take_succ_of_lt (by omega), trace_append, trace_cons, trace_nil]
+    exact le_trans hd (descend_mono (lv_le_trace hM s j (by omega)) _)
 
-/-- The canonical extension of an old assignment: spine variables follow the
-traces of their roots along `w`, `B = ⊥`, `T = ⊤`. -/
-def extend (A : V K → Tree n) (X Xm Y : V K) (w : List (Fin n))
-    (z : V (K + (3 * w.length + 2))) : Tree n :=
-  if h : z.val < K then A ⟨z.val, h⟩
-  else if z.val < K + w.length then trace (A X) (w.take (z.val - K + 1))
-  else if z.val < K + 2 * w.length then trace (A Xm) (w.take (z.val - (K + w.length) + 1))
-  else if z.val < K + 3 * w.length then
-    trace (A Y) (w.take (z.val - (K + 2 * w.length) + 1))
-  else if z.val = K + 3 * w.length then Tree.bot else Tree.top
+/-- A sign-fixed solution of the extension restricts to a sign-fixed top-prefix witness. -/
+theorem witness_of_sat {M : V (2 * (k + (2 * w.length + 2))) → Tree n}
+    (hM : Covariant.Sat M (Spine.extension c ψ X Y w)) (hfix : Signed.dual M = M) :
+    Covariant.Sat (M ∘ lift) ψ ∧ Signed.dual (M ∘ lift) = M ∘ lift ∧
+      covPrefTop w (M (lift X)) ∧ ¬ covPrefTop w (M (lift Y)) := by
+  refine ⟨(sat_rename lift M ψ).mp fun l hl => hM _ (mem_extension.mpr (Or.inl hl)), ?_, ?_, ?_⟩
+  · funext z
+    rw [signedDual_eq_flipV, Function.comp_apply, Function.comp_apply, ← flipV_lift,
+      ← signedDual_eq_flipV, hfix]
+  · have h := lv_le_trace hM false w.length le_rfl
+    rw [List.take_length, lv_zero, (hM _ top_mem : M _ = Tree.top)] at h
+    exact (trace_eq_top_iff _ _).mp ((Tree.top_le_iff _).mp h)
+  · intro hy
+    have h := lv_le_trace hM true w.length le_rfl
+    rw [List.take_length, lv_zero] at h
+    have hend : Tree.node (M ∘ endKids c X Y w) ≤ M (lv c X Y w true w.length) := hM _ end_mem
+    have hb (i : Fin n) : (M ∘ endKids c X Y w) i = Tree.bot := hM _ (bfill_mem _)
+    rw [show (M ∘ endKids c X Y w) = fun _ => Tree.bot from funext hb] at hend
+    have hne := (node_bot_le_iff _).mp (le_trans hend h)
+    simp only [lroot, ← flipV_lift, fixed_flipV hfix] at hne
+    exact hne ((trace_eq_bot_iff _ _).mpr ((covPrefBot_dual w _).mpr hy))
 
-theorem extend_old (A : V K → Tree n) (u : V K) :
-    extend A X Xm Y w (Fin.castAdd _ u) = A u := by
-  simp [extend, u.isLt]
+variable (c X Y w) in
+/-- The base values of the canonical extension of `A`: an old base reads the
+positive sign; a fresh spine base reads the trace of the lower root, oriented by
+the sign of the lower position; the filler bases read bottom and top. -/
+def extendBase (A : V (2 * k) → Tree n) (b : V (k + (2 * w.length + 2))) : Tree n :=
+  if hb : b.val < k then A (sv ⟨b.val, hb⟩ false)
+  else if b.val < k + 2 * w.length then
+    Tree.normalize (fun _ => false)
+      (sign (lv c X Y w (decide (k + w.length ≤ b.val))
+        (b.val - k - boff w.length (decide (k + w.length ≤ b.val)) + 1)))
+      (trace (A (lroot X Y (decide (k + w.length ≤ b.val))))
+        (w.take (b.val - k - boff w.length (decide (k + w.length ≤ b.val)) + 1)))
+  else if b.val = k + 2 * w.length then Tree.bot else Tree.top
 
-theorem extend_restrict (A : V K → Tree n) :
-    extend A X Xm Y w ∘ Fin.castAdd _ = A := by
-  funext u; exact extend_old A u
+variable (c X Y w) in
+/-- The canonical sign-fixed extension of `A`: spine positions follow the traces
+of their roots along `w`, bottom fillers are `⊥` and top fillers `⊤`. -/
+def extend (A : V (2 * k) → Tree n) : V (2 * (k + (2 * w.length + 2))) → Tree n :=
+  normalized (fun _ => false) (extendBase c X Y w A)
 
-theorem extend_pv (A : V K → Tree n) {j : ℕ} (hj : j ≤ w.length) :
-    extend A X Xm Y w (pv X w.length j) = trace (A X) (w.take j) := by
-  by_cases h0 : j = 0
-  · subst h0; simp [extend_old]
-  · have hp : 0 < j ∧ j ≤ w.length := ⟨by omega, hj⟩
-    have e : (pv X w.length j).val = K + j - 1 := by rw [pv_val, ite_eq_left hp]
-    unfold extend
-    rw [dite_eq_right (by omega), ite_eq_left (by omega), e]
-    congr 2; omega
+theorem extend_fixed (A : V (2 * k) → Tree n) :
+    Signed.dual (extend c X Y w A) = extend c X Y w A := normalized_fixed _ _
 
-theorem extend_zv (A : V K → Tree n) (s : Bool) {j : ℕ} (hj : j ≤ w.length) :
-    extend A X Xm Y w (zv Xm Y w.length s j) = trace (A (zroot Xm Y s)) (w.take j) := by
-  by_cases h0 : j = 0
-  · subst h0; simp [extend_old]
-  · have hp : 0 < j ∧ j ≤ w.length := ⟨by omega, hj⟩
-    have e : (zv Xm Y w.length s j).val = K + zoff w.length s + j - 1 := by
-      rw [zv_val, ite_eq_left hp]
-    unfold extend
+theorem normalize_sign_of_fixed {A : V (2 * k) → Tree n} (hfix : Signed.dual A = A)
+    (z : V (2 * k)) : Tree.normalize (fun _ => false) (sign z) (A (sv (base z) false)) = A z := by
+  conv_rhs => rw [← sv_base_sign z]
+  cases sign z
+  · simp
+  · change Tree.dual _ = _
+    rw [← fixed_flipV hfix, flipV_sv, Bool.not_false]
+
+theorem extend_lift {A : V (2 * k) → Tree n} (hfix : Signed.dual A = A) (z : V (2 * k)) :
+    extend c X Y w A (lift z) = A z := by
+  simp only [extend, normalized, extendBase, base_lift, sign_lift, Fin.val_castAdd, (base z).isLt,
+    dite_true]
+  exact normalize_sign_of_fixed hfix z
+
+theorem extend_lv {A : V (2 * k) → Tree n} (hfix : Signed.dual A = A) (s : Bool) {j : ℕ}
+    (hj : j ≤ w.length) : extend c X Y w A (lv c X Y w s j) = trace (A (lroot X Y s)) (w.take j) := by
+  by_cases h0 : 0 < j
+  · have hv := base_lv_val (c := c) (X := X) (Y := Y) (s := s) ⟨h0, hj⟩
+    have hm := boff_le w.length s
+    have hs : decide (k + w.length ≤ k + boff w.length s + j - 1) = s := by
+      cases s
+      · exact decide_eq_false (by simp only [boff]; omega)
+      · exact decide_eq_true (by simp only [boff]; omega)
+    have hj' : k + boff w.length s + j - 1 - k - boff w.length s + 1 = j := by omega
+    simp only [extend, normalized, extendBase, hv, hs, hj']
+    rw [dite_eq_right (by omega), ite_eq_left (by omega), normalize_involutive]
+  · obtain rfl : j = 0 := by omega
+    rw [lv_zero, extend_lift hfix]; rfl
+
+theorem extend_bfill (A : V (2 * k) → Tree n) (q : Bool) :
+    extend c X Y w A (bfill w q) = Tree.bot := by
+  simp only [extend, normalized, extendBase, sign_bfill, base_bfill_val]
+  rw [dite_eq_right (by omega), ite_eq_right (by omega)]
+  cases q
+  · rw [Bool.toNat_false, ite_eq_left (by omega)]; exact normalize_false_variance _
+  · rw [Bool.toNat_true, ite_eq_right (by omega), normalize_top]; rfl
+
+/-- A lower link holds when the next position follows the trace and the fillers are `⊥`. -/
+theorem node_le_of_descend {ρ : V (2 * (k + (2 * w.length + 2))) → Tree n}
+    {a : Fin n → V (2 * (k + (2 * w.length + 2)))}
+    {t : Tree n} {i : Fin n} (ht : t ≠ Tree.bot) (hi : ρ (a i) = descend t i)
+    (ho : ∀ i', i' ≠ i → ρ (a i') = Tree.bot) : Tree.node (ρ ∘ a) ≤ t := by
+  rcases t.eq_bot_or_eq_top_or_node with rfl | rfl | ⟨b, rfl⟩
+  · exact absurd rfl ht
+  · exact Tree.le_top _
+  · rw [Tree.node_le_node_iff]
+    intro i'
+    by_cases h : i' = i
+    · subst h; simp [hi]
+    · simp [ho i' h]
+
+/-- A sign-fixed witness extends to a solution of the four-spine extension. -/
+theorem extend_sat {A : V (2 * k) → Tree n} (hA : Covariant.Sat A ψ) (hfix : Signed.dual A = A)
+    (hx : covPrefTop w (A X)) (hy : ¬ covPrefTop w (A Y)) :
+    Covariant.Sat (extend c X Y w A) (Spine.extension c ψ X Y w) := by
+  have hroot (s : Bool) : trace (A (lroot X Y s)) w ≠ Tree.bot := by
     cases s
-    · simp only [zoff] at e
-      rw [dite_eq_right (by omega), ite_eq_right (by omega), ite_eq_left (by omega), e]
-      simp only [zroot]; congr 2; omega
-    · simp only [zoff] at e
-      rw [dite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_left (by omega), e]
-      simp only [zroot]; congr 2; omega
+    · rw [lroot, (trace_eq_top_iff _ _).mpr hx]; exact Tree.top_ne_bot
+    · rw [lroot, fixed_flipV hfix, Ne, trace_eq_bot_iff]
+      exact fun h => hy ((covPrefBot_dual w _).mp h)
+  have hcut (s : Bool) (j : ℕ) : trace (A (lroot X Y s)) (w.take j) ≠ Tree.bot := by
+    intro h
+    apply hroot s
+    rw [← List.take_append_drop j w, trace_append, h, trace_bot]
+  have hhalf : ∀ l ∈ lowerHalf c X Y w, Covariant.holds (extend c X Y w A) l := by
+    intro l hl
+    rcases mem_lowerHalf.mp hl with ⟨s, j, hj, rfl⟩ | rfl | rfl | ⟨q, rfl⟩
+    · change Tree.node (_ ∘ _) ≤ _
+      rw [extend_lv hfix s hj.le]
+      refine node_le_of_descend (i := w[j]) (hcut s j) ?_ fun i' hi' => ?_
+      · rw [kids_self, extend_lv hfix s (by omega), take_succ_of_lt hj, trace_append, trace_cons,
+          trace_nil]
+      · rw [kids_of_ne hi', extend_bfill]
+    · change extend c X Y w A _ = Tree.top
+      rw [extend_lv hfix false le_rfl, List.take_length]
+      exact (trace_eq_top_iff _ _).mpr hx
+    · change Tree.node (_ ∘ _) ≤ _
+      rw [extend_lv hfix true le_rfl, List.take_length]
+      have he : extend c X Y w A ∘ endKids c X Y w = fun _ => Tree.bot :=
+        funext fun _ => extend_bfill A _
+      rw [he]
+      exact (node_bot_le_iff _).mpr (hroot true)
+    · exact extend_bfill A q
+  intro l hl
+  rcases mem_extension.mp hl with h | h | h
+  · obtain ⟨l', hl', rfl⟩ := List.mem_map.mp h
+    rw [Lit.holds_rename, show extend c X Y w A ∘ lift = A from funext (extend_lift hfix)]
+    exact hA _ hl'
+  · exact hhalf l h
+  · rw [← extend_fixed A, holds_signedDual]
+    exact hhalf _ h
 
-theorem extend_botV (A : V K → Tree n) :
-    extend A X Xm Y w (botV K w.length) = Tree.bot := by
-  have e : (botV K w.length).val = K + 3 * w.length := rfl
-  unfold extend
-  rw [dite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega),
-    ite_eq_left (by omega)]
-
-theorem extend_topV (A : V K → Tree n) :
-    extend A X Xm Y w (topV K w.length) = Tree.top := by
-  have e : (topV K w.length).val = K + 3 * w.length + 1 := rfl
-  unfold extend
-  rw [dite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega),
-    ite_eq_right (by omega)]
-
-/-- The spine extension is satisfied exactly when the original and added literals hold. -/
-theorem sat_threeSpine_iff (B : V (K + (3 * w.length + 2)) → Tree n) :
-    Covariant.Sat B (Spine.extension ψ X Xm Y w) ↔ Covariant.Sat (B ∘ Fin.castAdd _) ψ ∧
-      Covariant.Sat B (lowerSteps (pv X w.length) (botV K w.length) w) ∧
-      Covariant.Sat B (upperSteps (zv Xm Y w.length false) (topV K w.length) w) ∧
-      Covariant.Sat B (upperSteps (zv Xm Y w.length true) (topV K w.length) w) ∧
-      B (pv X w.length w.length) = Tree.top ∧
-      B (zv Xm Y w.length false w.length) = Tree.bot ∧
-      B (zv Xm Y w.length true w.length) ≤ Tree.node (fun _ => B (topV K w.length)) ∧
-      B (botV K w.length) = Tree.bot ∧ B (topV K w.length) = Tree.top := by
-  simp only [Spine.extension, spineBlock, sat_append, sat_lift, sat_cons, sat_nil, and_true]
-  rfl
-
-/-- A solution `A` of `ψ` extends to a solution of `Ψ_w` iff
-(i) `A X` has a `⊤` on a prefix of `w`, (ii) `A Xm` has a `⊥` on a prefix of
-`w`, and (iii) `A Y` has no `⊤` on a prefix of `w`. -/
-theorem extension_restrict_iff (A : V K → Tree n) (hA : Covariant.Sat A ψ) :
-    (∃ B, B ∘ Fin.castAdd _ = A ∧ Covariant.Sat B (Spine.extension ψ X Xm Y w)) ↔
-      covPrefTop w (A X) ∧ covPrefBot w (A Xm) ∧ ¬ covPrefTop w (A Y) := by
-  simp only [covPrefTop, covPrefBot, ← trace_eq_top_iff, ← trace_eq_bot_iff]
+/-- A sign-fixed top-prefix witness exists exactly when the four-spine extension
+has no label clash. The least shape of the extension, made sign-fixed by the
+polarity selector, restricts to the witness. -/
+theorem fixedWitness_iff_not_labelClash (hf : FlipClosed ψ) (hc : SignCoherent c ψ) :
+    (∃ A, Covariant.Sat A ψ ∧ Signed.dual A = A ∧ covPrefTop w (A X) ∧ ¬ covPrefTop w (A Y)) ↔
+      ¬ LabelClash (Spine.extension c ψ X Y w) := by
   constructor
-  · rintro ⟨B, rfl, hB⟩
-    obtain ⟨-, hP, hQ, hY, hPm, hQm, hYm, -, hT⟩ := (sat_threeSpine_iff B).mp hB
-    have bP := Spine.lowerSteps_bound B _ _ _ hP
-    have bQ := Spine.upperSteps_bound B _ _ _ hQ
-    have bY := Spine.upperSteps_bound B _ _ _ hY
-    simp only [pv_zero, zv_zero, zroot_false, zroot_true, Function.comp_apply] at bP bQ bY ⊢
-    refine ⟨?_, ?_, ?_⟩
-    · rw [hPm] at bP; exact (Tree.top_le_iff _).mp bP
-    · rw [hQm] at bQ; exact (Tree.le_bot_iff _).mp bQ
-    · rw [hT] at hYm
-      exact (Spine.le_node_top_iff _).mp (le_trans bY hYm)
-  · rintro ⟨hx, hxm, hy⟩
-    refine ⟨extend A X Xm Y w, extend_restrict A, (sat_threeSpine_iff _).mpr ?_⟩
-    refine ⟨by rw [extend_restrict]; exact hA, ?_, ?_, ?_, ?_, ?_, ?_, extend_botV A, extend_topV A⟩
-    · exact Spine.lowerSteps_sat _ _ _ _ (A X) (fun j hj => extend_pv A hj) (extend_botV A)
-        (by rw [hx]; exact Tree.top_ne_bot)
-    · exact Spine.upperSteps_sat _ _ _ _ (A Xm) (fun j hj => extend_zv A false hj)
-        (extend_topV A) (by rw [hxm]; exact Tree.bot_ne_top)
-    · exact Spine.upperSteps_sat _ _ _ _ (A Y) (fun j hj => extend_zv A true hj)
-        (extend_topV A) hy
-    · rw [extend_pv A le_rfl, List.take_length]; exact hx
-    · rw [extend_zv A false le_rfl, List.take_length]; exact hxm
-    · rw [extend_zv A true le_rfl, List.take_length, extend_topV]
-      exact (Spine.le_node_top_iff _).mpr hy
+  · rintro ⟨A, hA, hfix, hx, hy⟩ hl
+    exact hl.unsatisfiable ⟨_, extend_sat hA hfix hx hy⟩
+  · intro hl
+    have hf' : FlipClosed (Spine.extension c ψ X Y w) := extension_flipClosed hf
+    have hB := leastShape_sat hl
+    have hM := select_sat_of_coherent (extension_signCoherent hc) hB
+      (sat_signedDual_of_flipClosed hf' hB) (leastShape_sameShape_dual hf')
+    exact ⟨_, witness_of_sat hM (select_fixed _ _ _)⟩
 
-/-- satisfiability form. -/
-theorem extension_sat_iff :
-    (∃ B, Covariant.Sat B (Spine.extension ψ X Xm Y w)) ↔
-      ∃ A, Covariant.Sat A ψ ∧ covPrefTop w (A X) ∧ covPrefBot w (A Xm) ∧ ¬ covPrefTop w (A Y) := by
-  constructor
-  · rintro ⟨B, hB⟩
-    have hA : Covariant.Sat (B ∘ Fin.castAdd _) ψ := ((sat_threeSpine_iff B).mp hB).1
-    exact ⟨_, hA, (extension_restrict_iff _ hA).mp ⟨B, rfl, hB⟩⟩
-  · rintro ⟨A, hA, h⟩
-    obtain ⟨B, -, hB⟩ := (extension_restrict_iff A hA).mpr h
-    exact ⟨B, hB⟩
-
-end Semantics
+end Solutions
 
 end DeciNSSE.Spine.Closure

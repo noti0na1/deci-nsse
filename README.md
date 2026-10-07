@@ -177,15 +177,17 @@ turning the system into a covariant constraint system on `2*k` variables.
 An assignment fixed by sign duality decodes to a variance solution.
 See [Constraints/Signed.lean](DeciNSSE/Constraints/Signed.lean).
 
-### 2. Recover variance models by median symmetrisation
+### 2. Recover variance models by the polarity selector
 
-The median of three trees is obtained from the pointwise median of their
-extended labels, pruning below bottom or top. It is monotone and preserves
-covariant solutions. Median of a signed solution, its sign dual and the full
-constructor tree is fixed by sign duality. Three suitable prefix conditions
-ensure that an unsafe word survives this operation.
-See [Semantics/Median.lean](DeciNSSE/Semantics/Median.lean) and
-[Transfer/ThreeSpine.lean](DeciNSSE/Transfer/ThreeSpine.lean).
+The least-shape solution of a system without label clash keeps a constructor
+only where both a lower and an upper constructor bound require it. For a
+system closed under sign duality, it has the same constructor positions as its
+sign dual. Selecting between the two by the sign of the variable and the
+polarity of the path gives a solution fixed by sign duality, provided the
+system is sign coherent: each child carries the sign of its parent shifted by
+its variance. A fixed solution decodes to a variance solution.
+See [Satisfiability/LeastShape.lean](DeciNSSE/Satisfiability/LeastShape.lean)
+and [Semantics/Selector.lean](DeciNSSE/Semantics/Selector.lean).
 
 ### 3. Express unsafety by a finite spine extension
 
@@ -195,20 +197,29 @@ bounds at a tree path. A label clash is exactly the obstruction to a
 covariant solution; without one, a least solution has a finite graph
 representation.
 
-Three fresh constraint spines enforce the prefix conditions for an unsafe
-word. Their source and sink variables remain separated, and ranks strictly
-increase along new nonempty paths. At cut zero the roots are old variables
-and may coincide. The closure formulas cover this case without a distinctness
-assumption. See [Monitor/Spine.lean](DeciNSSE/Monitor/Spine.lean) and
+Four fresh constraint spines enforce the prefix conditions for an unsafe
+word: a lower spine from `x⁺` ending in top, a lower spine from `y⁻` ending in
+a constructor lower bound, and their sign duals, upper spines from `x⁻` and
+`y⁺`. Spine positions carry the sign of their root shifted by the polarity of
+the prefix read so far, and the bottom and top fillers come in both signs.
+The extension is therefore closed under sign duality and sign coherent. A word
+is unsafe exactly when the extension has no label clash: the selected least
+shape of the extension restricts to a witness, and a normalised witness
+extends along the traces of its roots. Fresh lower positions are sources and
+their sign duals sinks; ranks strictly increase along new nonempty paths. At
+cut zero the roots are old variables and may coincide. The closure formulas
+cover this case without a distinctness assumption.
+See [Monitor/Spine.lean](DeciNSSE/Monitor/Spine.lean) and
 [Monitor/Closure.lean](DeciNSSE/Monitor/Closure.lean).
 
 ### 4. Classify clashes as four kinds of events
 
 Clashes of the extension are exactly inherited clashes or readiness, child,
-cross and self events. Readiness is checked at every cut. The child test is
-letter-free and applies at the terminal cut, even with an empty alphabet.
-Cross and self events concern repeated suffixes; self-admission includes
-both orientations of the sign-flipped labels.
+cross and self events. The spine from `y⁻` adds no new event: by sign duality
+its clashes are readiness or cross admissions. Readiness is checked at every
+cut. The child test is letter-free and applies at the terminal cut, even with
+an empty alphabet. Cross and self events concern repeated suffixes;
+self-admission includes both orientations of the sign-flipped labels.
 
 After variance normalisation, an order failure has two sides: at a prefix of
 some word, `x` reaches top and `y` does not (top-prefix side), or `y` reaches
@@ -219,7 +230,8 @@ the query reversed.
 For a satisfiable original system, an unsafe word is exactly a word without
 events. The satisfiability hypothesis excludes inherited clashes and is
 necessary for this model-existence argument.
-See [Monitor/Events.lean](DeciNSSE/Monitor/Events.lean) and
+See [Monitor/Clash.lean](DeciNSSE/Monitor/Clash.lean),
+[Monitor/Events.lean](DeciNSSE/Monitor/Events.lean) and
 [Monitor/Semantics.lean](DeciNSSE/Monitor/Semantics.lean).
 
 ### 5. Read the events with a finite label monitor

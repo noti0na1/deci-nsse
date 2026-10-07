@@ -1,6 +1,5 @@
 import DeciNSSE.Transfer.Cycle
 import DeciNSSE.Transfer.FiniteMedian
-import DeciNSSE.Transfer.ThreeSpine
 
 /-! # Finite countermodel transfer
 

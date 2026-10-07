@@ -24,6 +24,14 @@ def polarity (c : Fin n → Bool) : List (Fin n) → Bool
   | nil => rfl
   | cons i π ih => simp [polarity, ih]
 
+
+/-- Reading one more letter shifts the polarity by its variance. -/
+theorem polarity_append_singleton (c : Fin n → Bool) (π : List (Fin n)) (i : Fin n) :
+    polarity c (π ++ [i]) = Bool.xor (polarity c π) (c i) := by
+  induction π with
+  | nil => simp
+  | cons j π ih => simp only [List.cons_append, polarity_cons, ih, Bool.xor_assoc]
+
 end DeciNSSE
 
 namespace DeciNSSE.Sym

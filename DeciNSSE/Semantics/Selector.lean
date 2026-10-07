@@ -58,6 +58,31 @@ theorem signed_flipClosed (c : Fin n → Bool) (ϕ : Constraint n k) :
   cases m <;> simp only [signedLit, List.mem_cons, List.not_mem_nil, or_false] at hl ⊢
   all_goals rcases hl with rfl | rfl <;> simp [dualFlip, Function.comp_def]
 
+/-- A fixed signed assignment carries dual trees on the two signs of a variable. -/
+theorem fixed_flipV {A : V (2 * k) → Tree n} (h : Signed.dual A = A) (z : V (2 * k)) :
+    A (flipV z) = Tree.dual (A z) := by
+  rw [← congrFun h (flipV z), signedDual_eq_flipV, flipV_flipV]
+
+/-- Sign duality of an assignment corresponds to `σ` on literals. -/
+theorem holds_signedDual (B : V (2 * k) → Tree n) (l : Lit n (2 * k)) :
+    Covariant.holds (Signed.dual B) l ↔ Covariant.holds B (dualFlip l) := by
+  cases l with
+  | leF u a =>
+    change Tree.dual (B (flipV u)) ≤ Tree.node (fun i => Tree.dual (B (flipV (a i)))) ↔
+      Tree.node (B ∘ (flipV ∘ a)) ≤ B (flipV u)
+    rw [← dual_node, dual_le_iff]; rfl
+  | fLe a u =>
+    change Tree.node (fun i => Tree.dual (B (flipV (a i)))) ≤ Tree.dual (B (flipV u)) ↔
+      B (flipV u) ≤ Tree.node (B ∘ (flipV ∘ a))
+    rw [← dual_node, dual_le_iff]; rfl
+  | eqBot u => exact dual_eq_bot _
+  | eqTop u => exact dual_eq_top _
+
+/-- Sign duality preserves the solutions of a `σ`-closed system. -/
+theorem sat_signedDual_of_flipClosed {ψ : Constraint n (2 * k)} (hf : FlipClosed ψ)
+    {B : V (2 * k) → Tree n} (h : Covariant.Sat B ψ) : Covariant.Sat (Signed.dual B) ψ :=
+  fun l hl => (holds_signedDual B l).mpr (h _ (hf l hl))
+
 section Exchange
 
 variable {ψ : Constraint n (2 * k)}

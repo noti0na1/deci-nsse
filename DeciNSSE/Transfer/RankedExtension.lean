@@ -3,60 +3,87 @@ import DeciNSSE.Transfer.Spines
 
 /-! # Ranked source and sink extensions
 
-New lower children are sources and new upper children are sinks, with ranks
-strictly increasing along their nonempty paths. Separation prevents new
-derivations between old variables and prevents new self-cycles.
+An extension embeds the old variables and adds fresh ones. New lower children
+are sources and new upper children are sinks, with ranks strictly increasing
+along their nonempty paths. Separation prevents new derivations between old
+variables and prevents new self-cycles.
 -/
 
 namespace DeciNSSE
 
+section Rename
+
+variable {n k K : ℕ} {r : V k → V K} {ϕ : Constraint n k}
+
+theorem fLe_mem_rename {a : Fin n → V K} {c : V K} (h : Lit.fLe a c ∈ ϕ.map (Lit.rename r)) :
+    ∃ a' c', Lit.fLe a' c' ∈ ϕ ∧ a = r ∘ a' ∧ c = r c' := by
+  obtain ⟨l, hl, he⟩ := List.mem_map.mp h
+  cases l <;> simp only [Lit.rename, Lit.fLe.injEq, reduceCtorEq] at he
+  exact ⟨_, _, hl, he.1.symm, he.2.symm⟩
+
+theorem leF_mem_rename {c : V K} {b : Fin n → V K} (h : Lit.leF c b ∈ ϕ.map (Lit.rename r)) :
+    ∃ c' b', Lit.leF c' b' ∈ ϕ ∧ c = r c' ∧ b = r ∘ b' := by
+  obtain ⟨l, hl, he⟩ := List.mem_map.mp h
+  cases l <;> simp only [Lit.rename, Lit.leF.injEq, reduceCtorEq] at he
+  exact ⟨_, _, hl, he.1.symm, he.2.symm⟩
+
+theorem eqBot_mem_rename {c : V K} (h : Lit.eqBot c ∈ ϕ.map (Lit.rename r)) :
+    ∃ c', Lit.eqBot c' ∈ ϕ ∧ c = r c' := by
+  obtain ⟨l, hl, he⟩ := List.mem_map.mp h
+  cases l <;> simp only [Lit.rename, Lit.eqBot.injEq, reduceCtorEq] at he
+  exact ⟨_, hl, he.symm⟩
+
+theorem eqTop_mem_rename {c : V K} (h : Lit.eqTop c ∈ ϕ.map (Lit.rename r)) :
+    ∃ c', Lit.eqTop c' ∈ ϕ ∧ c = r c' := by
+  obtain ⟨l, hl, he⟩ := List.mem_map.mp h
+  cases l <;> simp only [Lit.rename, Lit.eqTop.injEq, reduceCtorEq] at he
+  exact ⟨_, hl, he.symm⟩
+
+end Rename
+
 namespace Ranked
 
-variable {n k m : ℕ}
+variable {n k K : ℕ}
 
-/-- Abstract fresh classes and a natural-number rank. Every fresh lower
-(upper) constructor literal has all children in the source (sink) class, a
-non-sink (non-source) root, and strictly greater child ranks. -/
-structure Extension (ϕ : Constraint n k) (ψ : Constraint n (k + m))
-    (Source Sink : V (k + m) → Prop) (rank : V (k + m) → ℕ) : Prop where
-  source_not_old : ∀ {z}, Source z → ¬ z.val < k
-  sink_not_old : ∀ {z}, Sink z → ¬ z.val < k
+/-- An injective embedding `ι` of the old variables, abstract fresh classes and
+a natural-number rank. Every fresh lower (upper) constructor literal has all
+children in the source (sink) class, a non-sink (non-source) root, and
+strictly greater child ranks. -/
+structure Extension (ι : V k → V K) (ϕ : Constraint n k) (ψ : Constraint n K)
+    (Source Sink : V K → Prop) (rank : V K → ℕ) : Prop where
+  injective : Function.Injective ι
+  not_source_old : ∀ u, ¬ Source (ι u)
+  not_sink_old : ∀ u, ¬ Sink (ι u)
   source_not_sink : ∀ {z}, Source z → ¬ Sink z
-  variable_cases : ∀ z, (∃ u : V k, z = Fin.castAdd m u) ∨ Source z ∨ Sink z
-  old_mem : ∀ l ∈ ϕ, l.rename (Fin.castAdd m) ∈ ψ
+  variable_cases : ∀ z, (∃ u, z = ι u) ∨ Source z ∨ Sink z
+  old_mem : ∀ l ∈ ϕ, l.rename ι ∈ ψ
   lower : ∀ a c, Lit.fLe a c ∈ ψ →
-    (∃ a' c', Lit.fLe a' c' ∈ ϕ ∧ a = Fin.castAdd m ∘ a' ∧ c = Fin.castAdd m c') ∨
+    (∃ a' c', Lit.fLe a' c' ∈ ϕ ∧ a = ι ∘ a' ∧ c = ι c') ∨
     ((∀ i, Source (a i) ∧ rank c < rank (a i)) ∧ ¬ Sink c)
   upper : ∀ c b, Lit.leF c b ∈ ψ →
-    (∃ c' b', Lit.leF c' b' ∈ ϕ ∧ c = Fin.castAdd m c' ∧ b = Fin.castAdd m ∘ b') ∨
+    (∃ c' b', Lit.leF c' b' ∈ ϕ ∧ c = ι c' ∧ b = ι ∘ b') ∨
     ((∀ i, Sink (b i) ∧ rank c < rank (b i)) ∧ ¬ Source c)
 
-variable {ϕ : Constraint n k} {ψ : Constraint n (k + m)}
-  {Source Sink : V (k + m) → Prop} {rank : V (k + m) → ℕ}
+variable {ι : V k → V K} {ϕ : Constraint n k} {ψ : Constraint n K}
+  {Source Sink : V K → Prop} {rank : V K → ℕ}
 
-theorem Extension.not_source_old (e : Extension ϕ ψ Source Sink rank) (u : V k) :
-    ¬ Source (Fin.castAdd m u) := fun h => e.source_not_old h u.isLt
-
-theorem Extension.not_sink_old (e : Extension ϕ ψ Source Sink rank) (u : V k) :
-    ¬ Sink (Fin.castAdd m u) := fun h => e.sink_not_old h u.isLt
-
-theorem Extension.upper_children (e : Extension ϕ ψ Source Sink rank)
-    {c : V (k + m)} {b : Fin n → V (k + m)} (h : Lit.leF c b ∈ ψ) (i : Fin n) :
+theorem Extension.upper_children (e : Extension ι ϕ ψ Source Sink rank)
+    {c : V K} {b : Fin n → V K} (h : Lit.leF c b ∈ ψ) (i : Fin n) :
     ¬ Source (b i) := by
   rcases e.upper _ _ h with ⟨c', b', _, rfl, rfl⟩ | ⟨hb, _⟩
   · exact e.not_source_old (b' i)
   · exact e.source_not_sink.mt (not_not.mpr (hb i).1)
 
-theorem Extension.lower_children (e : Extension ϕ ψ Source Sink rank)
-    {a : Fin n → V (k + m)} {c : V (k + m)} (h : Lit.fLe a c ∈ ψ) (i : Fin n) :
+theorem Extension.lower_children (e : Extension ι ϕ ψ Source Sink rank)
+    {a : Fin n → V K} {c : V K} (h : Lit.fLe a c ∈ ψ) (i : Fin n) :
     ¬ Sink (a i) := by
   rcases e.lower _ _ h with ⟨a', c', _, rfl, rfl⟩ | ⟨ha, _⟩
   · exact e.not_sink_old (a' i)
   · exact e.source_not_sink (ha i).1
 
 /-- Only reflexivity and transitivity can end in a source. -/
-theorem Extension.derives_into_source (e : Extension ϕ ψ Source Sink rank)
-    {a b : V (k + m)} (h : Derives ψ a b) (hb : Source b) : a = b := by
+theorem Extension.derives_into_source (e : Extension ι ϕ ψ Source Sink rank)
+    {a b : V K} (h : Derives ψ a b) (hb : Source b) : a = b := by
   induction h with
   | refl => rfl
   | trans _ _ ih ih' =>
@@ -65,8 +92,8 @@ theorem Extension.derives_into_source (e : Extension ϕ ψ Source Sink rank)
   | decomp i _ _ hu => exact False.elim (e.upper_children hu i hb)
 
 /-- Dually, only reflexivity and transitivity can start in a sink. -/
-theorem Extension.derives_out_of_sink (e : Extension ϕ ψ Source Sink rank)
-    {a b : V (k + m)} (h : Derives ψ a b) (ha : Sink a) : b = a := by
+theorem Extension.derives_out_of_sink (e : Extension ι ϕ ψ Source Sink rank)
+    {a b : V K} (h : Derives ψ a b) (ha : Sink a) : b = a := by
   induction h with
   | refl => rfl
   | trans _ _ ih ih' =>
@@ -75,10 +102,9 @@ theorem Extension.derives_out_of_sink (e : Extension ϕ ψ Source Sink rank)
   | decomp i hl _ _ => exact False.elim (e.lower_children hl i ha)
 
 /-- A transitivity intermediate between old endpoints must itself be old. -/
-theorem Extension.middle_original (e : Extension ϕ ψ Source Sink rank)
-    {u v : V k} {w : V (k + m)}
-    (hl : Derives ψ (Fin.castAdd m u) w)
-    (hr : Derives ψ w (Fin.castAdd m v)) : ∃ t : V k, w = Fin.castAdd m t := by
+theorem Extension.middle_original (e : Extension ι ϕ ψ Source Sink rank)
+    {u v : V k} {w : V K} (hl : Derives ψ (ι u) w) (hr : Derives ψ w (ι v)) :
+    ∃ t, w = ι t := by
   rcases e.variable_cases w with h | hs | ht
   · exact h
   · have he := e.derives_into_source hl hs
@@ -86,14 +112,14 @@ theorem Extension.middle_original (e : Extension ϕ ψ Source Sink rank)
   · have he := e.derives_out_of_sink hr ht
     exact False.elim (e.not_sink_old v (he ▸ ht))
 
-theorem Extension.derives_reflect (e : Extension ϕ ψ Source Sink rank)
-    {a b : V (k + m)} (h : Derives ψ a b) :
-    ∀ u v : V k, a = Fin.castAdd m u → b = Fin.castAdd m v → Derives ϕ u v := by
+theorem Extension.derives_reflect (e : Extension ι ϕ ψ Source Sink rank)
+    {a b : V K} (h : Derives ψ a b) :
+    ∀ u v, a = ι u → b = ι v → Derives ϕ u v := by
   induction h with
   | refl a =>
     intro u v hu hv
-    have he : u = v := Fin.castAdd_injective _ _ (hu.symm.trans hv)
-    subst v; exact .refl _
+    obtain rfl := e.injective (hu.symm.trans hv)
+    exact .refl _
   | trans hl hr ih ih' =>
     rintro u v rfl rfl
     obtain ⟨w, hw⟩ := e.middle_original hl hr
@@ -102,22 +128,21 @@ theorem Extension.derives_reflect (e : Extension ϕ ψ Source Sink rank)
     rintro u v ha hb
     rcases e.lower _ _ hl with ⟨a', z', hl', rfl, rfl⟩ | ⟨hs, _⟩
     · rcases e.upper _ _ hu with ⟨w', b', hu', rfl, rfl⟩ | ⟨ht, _⟩
-      · have h₁ : a' i = u := Fin.castAdd_injective _ _ ha
-        have h₂ : b' i = v := Fin.castAdd_injective _ _ hb
-        subst u; subst v
+      · obtain rfl := e.injective ha
+        obtain rfl := e.injective hb
         exact .decomp i hl' (ih _ _ rfl rfl) hu'
       · exact False.elim (e.not_sink_old v (hb ▸ (ht i).1))
     · exact False.elim (e.not_source_old u (ha ▸ (hs i).1))
 
 /-- The closure between old variables is unchanged by the extension. -/
-theorem Extension.derives_original (e : Extension ϕ ψ Source Sink rank) (u v : V k) :
-    Derives ψ (Fin.castAdd m u) (Fin.castAdd m v) ↔ Derives ϕ u v :=
+theorem Extension.derives_original (e : Extension ι ϕ ψ Source Sink rank) (u v : V k) :
+    Derives ψ (ι u) (ι v) ↔ Derives ϕ u v :=
   ⟨fun h => e.derives_reflect h u v rfl rfl, fun h => h.map _ e.old_mem⟩
 
 /-- A lower path ending at a source stays among sources, strictly increasing
 the rank whenever the path is nonempty. This also excludes old endpoints. -/
-theorem Extension.lowerAt_source (e : Extension ϕ ψ Source Sink rank)
-    {π : List (Fin n)} {a b : V (k + m)} (h : LowerAt ψ π a b)
+theorem Extension.lowerAt_source (e : Extension ι ϕ ψ Source Sink rank)
+    {π : List (Fin n)} {a b : V K} (h : LowerAt ψ π a b)
     (hb : Source b) : Source a ∧ rank b ≤ rank a ∧ (π ≠ [] → rank b < rank a) := by
   induction h with
   | nil hd =>
@@ -134,8 +159,8 @@ theorem Extension.lowerAt_source (e : Extension ϕ ψ Source Sink rank)
       exact ⟨ha, (lt_of_lt_of_le hlt hle).le, fun _ => lt_of_lt_of_le hlt hle⟩
 
 /-- The symmetric rank invariant for upper paths starting at a sink. -/
-theorem Extension.upperAt_sink (e : Extension ϕ ψ Source Sink rank)
-    {π : List (Fin n)} {a b : V (k + m)} (h : UpperAt ψ π a b)
+theorem Extension.upperAt_sink (e : Extension ι ϕ ψ Source Sink rank)
+    {π : List (Fin n)} {a b : V K} (h : UpperAt ψ π a b)
     (ha : Sink a) : Sink b ∧ rank a ≤ rank b ∧ (π ≠ [] → rank a < rank b) := by
   induction h with
   | nil hd =>
@@ -152,9 +177,9 @@ theorem Extension.upperAt_sink (e : Extension ϕ ψ Source Sink rank)
       exact ⟨hb, (lt_of_lt_of_le hlt hle).le, fun _ => lt_of_lt_of_le hlt hle⟩
 
 /-- Lower paths between original variables cannot use a fresh constructor edge. -/
-theorem Extension.lowerAt_reflect (e : Extension ϕ ψ Source Sink rank)
-    {π : List (Fin n)} {a b : V (k + m)} (h : LowerAt ψ π a b) :
-    ∀ u v : V k, a = Fin.castAdd m u → b = Fin.castAdd m v → LowerAt ϕ π u v := by
+theorem Extension.lowerAt_reflect (e : Extension ι ϕ ψ Source Sink rank)
+    {π : List (Fin n)} {a b : V K} (h : LowerAt ψ π a b) :
+    ∀ u v, a = ι u → b = ι v → LowerAt ϕ π u v := by
   induction h with
   | nil hd =>
     rintro u v rfl rfl
@@ -166,9 +191,9 @@ theorem Extension.lowerAt_reflect (e : Extension ϕ ψ Source Sink rank)
     · exact False.elim (e.not_source_old u (e.lowerAt_source hp (hc i).1).1)
 
 /-- Upper paths between original variables cannot use a fresh constructor edge. -/
-theorem Extension.upperAt_reflect (e : Extension ϕ ψ Source Sink rank)
-    {π : List (Fin n)} {a b : V (k + m)} (h : UpperAt ψ π a b) :
-    ∀ u v : V k, a = Fin.castAdd m u → b = Fin.castAdd m v → UpperAt ϕ π u v := by
+theorem Extension.upperAt_reflect (e : Extension ι ϕ ψ Source Sink rank)
+    {π : List (Fin n)} {a b : V K} (h : UpperAt ψ π a b) :
+    ∀ u v, a = ι u → b = ι v → UpperAt ϕ π u v := by
   induction h with
   | nil hd =>
     rintro u v rfl rfl
@@ -179,21 +204,21 @@ theorem Extension.upperAt_reflect (e : Extension ϕ ψ Source Sink rank)
     · exact UpperAt.cons ((e.derives_original _ _).mp hd) hl' (ih _ _ rfl rfl)
     · exact False.elim (e.not_sink_old v (e.upperAt_sink hp (hc i).1).1)
 
-theorem Extension.lowerAt_original (e : Extension ϕ ψ Source Sink rank)
+theorem Extension.lowerAt_original (e : Extension ι ϕ ψ Source Sink rank)
     (π : List (Fin n)) (u v : V k) :
-    LowerAt ψ π (Fin.castAdd m u) (Fin.castAdd m v) ↔ LowerAt ϕ π u v :=
+    LowerAt ψ π (ι u) (ι v) ↔ LowerAt ϕ π u v :=
   ⟨fun h => e.lowerAt_reflect h u v rfl rfl, fun h => h.map _ e.old_mem⟩
 
-theorem Extension.upperAt_original (e : Extension ϕ ψ Source Sink rank)
+theorem Extension.upperAt_original (e : Extension ι ϕ ψ Source Sink rank)
     (π : List (Fin n)) (u v : V k) :
-    UpperAt ψ π (Fin.castAdd m u) (Fin.castAdd m v) ↔ UpperAt ϕ π u v :=
+    UpperAt ψ π (ι u) (ι v) ↔ UpperAt ϕ π u v :=
   ⟨fun h => e.upperAt_reflect h u v rfl rfl, fun h => h.map _ e.old_mem⟩
 
 /-- Both witnesses of a nonempty lower/upper cycle must be original variables. -/
-theorem Extension.cycle_original (e : Extension ϕ ψ Source Sink rank)
-    {π : List (Fin n)} {a b : V (k + m)} (hn : π ≠ []) (hl : LowerAt ψ π a a)
+theorem Extension.cycle_original (e : Extension ι ϕ ψ Source Sink rank)
+    {π : List (Fin n)} {a b : V K} (hn : π ≠ []) (hl : LowerAt ψ π a a)
     (hd : Derives ψ a b) (hu : UpperAt ψ π b b) :
-    (∃ u : V k, a = Fin.castAdd m u) ∧ (∃ v : V k, b = Fin.castAdd m v) := by
+    (∃ u, a = ι u) ∧ (∃ v, b = ι v) := by
   have hsa : ¬ Source a := fun hs => (Nat.lt_irrefl _) ((e.lowerAt_source hl hs).2.2 hn)
   have htb : ¬ Sink b := fun ht => (Nat.lt_irrefl _) ((e.upperAt_sink hu ht).2.2 hn)
   constructor
@@ -209,10 +234,10 @@ theorem Extension.cycle_original (e : Extension ϕ ψ Source Sink rank)
     · exact False.elim (htb ht)
 
 /-- A nonempty lower/upper cycle of the extension is one of the original constraint. -/
-theorem Extension.cycle_reflect (e : Extension ϕ ψ Source Sink rank)
-    {π : List (Fin n)} {a b : V (k + m)} (hn : π ≠ []) (hl : LowerAt ψ π a a)
+theorem Extension.cycle_reflect (e : Extension ι ϕ ψ Source Sink rank)
+    {π : List (Fin n)} {a b : V K} (hn : π ≠ []) (hl : LowerAt ψ π a a)
     (hd : Derives ψ a b) (hu : UpperAt ψ π b b) :
-    ∃ u v : V k, LowerAt ϕ π u u ∧ Derives ϕ u v ∧ UpperAt ϕ π v v := by
+    ∃ u v, LowerAt ϕ π u u ∧ Derives ϕ u v ∧ UpperAt ϕ π v v := by
   obtain ⟨⟨u, rfl⟩, ⟨v, rfl⟩⟩ := e.cycle_original hn hl hd hu
   exact ⟨u, v, (e.lowerAt_original ..).mp hl, (e.derives_original ..).mp hd,
     (e.upperAt_original ..).mp hu⟩
@@ -233,11 +258,11 @@ def Sink (k L : ℕ) (z : V (k + (2 * L + 2))) : Prop :=
 
 variable {L : ℕ}
 
-theorem source_not_old {z : V (k + (2 * L + 2))} (h : Source k L z) : ¬ z.val < k := by
-  unfold Source at h; omega
+theorem not_source_old (u : V k) : ¬ Source k L (Fin.castAdd _ u) := by
+  unfold Source; simp only [Fin.val_castAdd]; have := u.isLt; omega
 
-theorem sink_not_old {z : V (k + (2 * L + 2))} (h : Sink k L z) : ¬ z.val < k := by
-  unfold Sink at h; omega
+theorem not_sink_old (u : V k) : ¬ Sink k L (Fin.castAdd _ u) := by
+  unfold Sink; simp only [Fin.val_castAdd]; have := u.isLt; omega
 
 theorem source_not_sink {z : V (k + (2 * L + 2))} (h : Source k L z) : ¬ Sink k L z := by
   unfold Source at h; unfold Sink; omega
@@ -383,52 +408,6 @@ theorem leF_not_mem_topChain (x : V k) (ν : List (Fin n))
   · exact leF_not_mem_lowerSteps _ _ _ _ _ h
   · simp [reduceCtorEq] at h
 
-theorem fLe_mem_lift {ϕ : Constraint n k} {a : Fin n → V (k + m)} {c : V (k + m)}
-    (h : Lit.fLe a c ∈ ϕ.lift m) :
-    ∃ a' c', Lit.fLe a' c' ∈ ϕ ∧ a = Fin.castAdd m ∘ a' ∧ c = Fin.castAdd m c' := by
-  obtain ⟨l, hl, he⟩ := List.mem_map.mp h
-  cases l with
-  | fLe a' c' =>
-    simp only [Lit.rename, Lit.fLe.injEq] at he
-    exact ⟨a', c', hl, he.1.symm, he.2.symm⟩
-  | leF _ _ => simp [Lit.rename] at he
-  | eqBot _ => simp [Lit.rename] at he
-  | eqTop _ => simp [Lit.rename] at he
-
-theorem leF_mem_lift {ϕ : Constraint n k} {c : V (k + m)} {b : Fin n → V (k + m)}
-    (h : Lit.leF c b ∈ ϕ.lift m) :
-    ∃ c' b', Lit.leF c' b' ∈ ϕ ∧ c = Fin.castAdd m c' ∧ b = Fin.castAdd m ∘ b' := by
-  obtain ⟨l, hl, he⟩ := List.mem_map.mp h
-  cases l with
-  | leF c' b' =>
-    simp only [Lit.rename, Lit.leF.injEq] at he
-    exact ⟨c', b', hl, he.1.symm, he.2.symm⟩
-  | fLe _ _ => simp [Lit.rename] at he
-  | eqBot _ => simp [Lit.rename] at he
-  | eqTop _ => simp [Lit.rename] at he
-
-theorem eqBot_mem_lift {ϕ : Constraint n k} {c : V (k + m)}
-    (h : Lit.eqBot c ∈ ϕ.lift m) : ∃ c', Lit.eqBot c' ∈ ϕ ∧ c = Fin.castAdd m c' := by
-  obtain ⟨l, hl, he⟩ := List.mem_map.mp h
-  cases l with
-  | eqBot c' =>
-    simp only [Lit.rename, Lit.eqBot.injEq] at he
-    exact ⟨c', hl, he.symm⟩
-  | fLe _ _ => simp [Lit.rename] at he
-  | leF _ _ => simp [Lit.rename] at he
-  | eqTop _ => simp [Lit.rename] at he
-
-theorem eqTop_mem_lift {ϕ : Constraint n k} {c : V (k + m)}
-    (h : Lit.eqTop c ∈ ϕ.lift m) : ∃ c', Lit.eqTop c' ∈ ϕ ∧ c = Fin.castAdd m c' := by
-  obtain ⟨l, hl, he⟩ := List.mem_map.mp h
-  cases l with
-  | eqTop c' =>
-    simp only [Lit.rename, Lit.eqTop.injEq] at he
-    exact ⟨c', hl, he.symm⟩
-  | fLe _ _ => simp [Lit.rename] at he
-  | leF _ _ => simp [Lit.rename] at he
-  | eqBot _ => simp [Lit.rename] at he
-
 theorem mem_lift_of_mem {ϕ : Constraint n k} {l : Lit n k} (hl : l ∈ ϕ) :
     l.rename (Fin.castAdd m) ∈ ϕ.lift m := List.mem_map.mpr ⟨l, hl, rfl⟩
 
@@ -439,26 +418,27 @@ theorem extension_of_append {ϕ : Constraint n k} {A : Constraint n (k + (2 * L 
       (∀ i, Source k L (a i) ∧ c.val < (a i).val) ∧ ¬ Sink k L c)
     (hup : ∀ c b, Lit.leF c b ∈ A →
       (∀ i, Sink k L (b i) ∧ c.val < (b i).val) ∧ ¬ Source k L c) :
-    Ranked.Extension ϕ (ϕ.lift _ ++ A) (Source k L) (Sink k L) Fin.val where
-  source_not_old := source_not_old
-  sink_not_old := sink_not_old
+    Ranked.Extension (Fin.castAdd _) ϕ (ϕ.lift _ ++ A) (Source k L) (Sink k L) Fin.val where
+  injective := Fin.castAdd_injective _ _
+  not_source_old := not_source_old
+  not_sink_old := not_sink_old
   source_not_sink := source_not_sink
   variable_cases := variable_cases
   old_mem := fun l hl => List.mem_append_left _ (mem_lift_of_mem hl)
   lower := by
     intro a c h
     rcases List.mem_append.mp h with h | h
-    · exact Or.inl (fLe_mem_lift h)
+    · exact Or.inl (fLe_mem_rename h)
     · exact Or.inr (hlow a c h)
   upper := by
     intro c b h
     rcases List.mem_append.mp h with h | h
-    · exact Or.inl (leF_mem_lift h)
+    · exact Or.inl (leF_mem_rename h)
     · exact Or.inr (hup c b h)
 
 /-- The right unsafety encoding satisfies the source/sink contract. -/
 theorem rUnsafe_extension (ϕ : Constraint n k) (x y : V k) (ν : List (Fin n)) :
-    Ranked.Extension ϕ (rUnsafe ϕ x y ν) (Source k ν.length) (Sink k ν.length)
+    Ranked.Extension (Fin.castAdd _) ϕ (rUnsafe ϕ x y ν) (Source k ν.length) (Sink k ν.length)
       Fin.val := by
   have he : rUnsafe ϕ x y ν = ϕ.lift _ ++ (noBotChain x ν ++ botChain y ν) :=
     List.append_assoc _ _ _
@@ -475,7 +455,7 @@ theorem rUnsafe_extension (ϕ : Constraint n k) (x y : V k) (ν : List (Fin n)) 
 
 /-- The left unsafety encoding satisfies the source/sink contract. -/
 theorem lUnsafe_extension (ϕ : Constraint n k) (x y : V k) (ν : List (Fin n)) :
-    Ranked.Extension ϕ (lUnsafe ϕ x y ν) (Source k ν.length) (Sink k ν.length)
+    Ranked.Extension (Fin.castAdd _) ϕ (lUnsafe ϕ x y ν) (Source k ν.length) (Sink k ν.length)
       Fin.val := by
   have he : lUnsafe ϕ x y ν = ϕ.lift _ ++ (topChain x ν ++ noTopChain y ν) :=
     List.append_assoc _ _ _

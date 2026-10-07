@@ -54,14 +54,15 @@ namespace DeciNSSE.FiniteTransfer
 
 open Spine
 
-variable {n k m : ℕ}
+variable {n k : ℕ}
 
 section Extension
 
-variable {ϕ : Constraint n k} {ψ : Constraint n (k + m)}
-  {Source Sink : V (k + m) → Prop} {rank : V (k + m) → ℕ}
+variable {K : ℕ} {ι : V k → V K} {ϕ : Constraint n k} {ψ : Constraint n K}
+  {Source Sink : V K → Prop} {rank : V K → ℕ}
 
-theorem extension_cycleClash_iff (e : Ranked.Extension ϕ ψ Source Sink rank) :
+/-- A ranked extension has exactly the cycle clashes of the original system. -/
+theorem extension_cycleClash_iff (e : Ranked.Extension ι ϕ ψ Source Sink rank) :
     CycleClash ψ ↔ CycleClash ϕ := by
   constructor
   · rintro ⟨π, a, b, hn, hl, hd, hu⟩

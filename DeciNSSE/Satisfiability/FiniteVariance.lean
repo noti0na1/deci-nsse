@@ -69,6 +69,14 @@ open FiniteVariance
 
 variable {n k : ℕ}
 
+/-- Satisfiability is preserved and reflected by the signed translation: a
+signed solution has no label clash, so the selected least shape decodes to a
+variance solution. -/
+theorem sat_iff_signed_sat (c : Fin n → Bool) (ϕ : Constraint n k) :
+    (∃ ρ, Sat c ρ ϕ) ↔ ∃ A, Covariant.Sat A (signed c ϕ) :=
+  ⟨sat_implies_signed_sat c ϕ,
+    fun h => ⟨_, decoded_selectedShape_sat (fun hc => hc.unsatisfiable h)⟩⟩
+
 /-- Signed translation preserves and reflects finite satisfiability. -/
 theorem satFin_iff_signed (c : Fin n → Bool) (ϕ : Constraint n k) :
     (∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ) ↔

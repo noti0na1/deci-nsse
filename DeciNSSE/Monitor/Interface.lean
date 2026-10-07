@@ -1,7 +1,6 @@
 import DeciNSSE.RejectedTail.Decision
-import DeciNSSE.Satisfiability.Decide
+import DeciNSSE.Satisfiability.FiniteVariance
 import DeciNSSE.Transfer.Safety
-import DeciNSSE.Transfer.ThreeSpine
 
 /-! # The semantic monitor interface
 

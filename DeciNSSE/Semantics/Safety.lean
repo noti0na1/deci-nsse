@@ -155,6 +155,21 @@ abbrev covPrefTop (w : List (Fin n)) (t : Tree n) := Safety.HasLabel t w Sym.top
 /-- A prefix of the word reaches bottom in the covariant tree. -/
 abbrev covPrefBot (w : List (Fin n)) (t : Tree n) := Safety.HasLabel t w Sym.bot
 
+theorem hasLabel_dual (t : Tree n) (w : List (Fin n)) (s : Sym) :
+    Safety.HasLabel (Tree.dual t) w s ↔ Safety.HasLabel t w (Sym.flip true s) := by
+  simp only [Safety.HasLabel, dual_fn]
+  refine exists_congr fun τ => and_congr_right fun _ => ?_
+  cases t.fn τ with
+  | none => simp
+  | some a => cases a <;> cases s <;> simp [Sym.flip]
+
+/-- Leaf duality exchanges top and bottom prefixes. -/
+@[simp] theorem covPrefTop_dual (w : List (Fin n)) (t : Tree n) :
+    covPrefTop w (Tree.dual t) ↔ covPrefBot w t := hasLabel_dual t w Sym.top
+
+@[simp] theorem covPrefBot_dual (w : List (Fin n)) (t : Tree n) :
+    covPrefBot w (Tree.dual t) ↔ covPrefTop w t := hasLabel_dual t w Sym.bot
+
 /-- The covariant safety equivalence is the negation of the existing unsafety theorem. -/
 theorem cov_le_iff_safe (t u : Tree n) :
     t ≤ u ↔ ∀ π, (covPrefTop π t → covPrefTop π u) ∧
