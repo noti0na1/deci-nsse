@@ -13,8 +13,11 @@ covariant and `true` means contravariant. Binary covariant products and arrows
 are named special cases in [Instances.lean](DeciNSSE/Instances.lean).
 
 Entailment asks whether the query holds in every solution. It arises when
-simplifying inferred types; the binary problem appears as
-[Problem 16 of the TLCA open problem list](https://tlca.di.unito.it/opltlca/opltlcasu23.html).
+simplifying inferred types.
+[Problem 16 of the TLCA open problem list](https://tlca.di.unito.it/opltlca/opltlcasu23.html)
+asks whether it is decidable for bottom, top and one binary constructor, without
+fixing the constructor's variance. The theorem covers every variance and all
+three tree domains, so it answers that question under each reading.
 The proof works directly over paths in `Fin n`. Its finite search bounds are
 non-elementary, so it establishes decidability in principle rather than a
 practical type inference algorithm.
@@ -69,6 +72,9 @@ x = ⊥     x = ⊤     x ≤ f(a)     f(a) ≤ x
 Here `a : Fin n → V k` selects the child variables from the `k` variables.
 A solution `ρ : V k → Tree n` satisfies every literal using `Tree.Le c`.
 The queried inequality `x ≤ y` is not an additional primitive literal.
+Nested type expressions reduce to this flat form by naming each compound
+subterm with a fresh variable; this standard preprocessing is not part of the
+formal development.
 
 The judgment `ϕ ⊨ x ≤ y` means that every solution `ρ` has
 `Tree.Le c (ρ x) (ρ y)`. The input is finite even when its solutions contain
@@ -252,6 +258,9 @@ The label reader satisfies `RejectedTail.RejectedPath`: rejection holds
 between rejected prefixes, and every admitted comparison ends at or before
 the first rejected cut `J`. Thus admitted endpoints lie in the cone
 `s < e ≤ J`. This is not closure of rejection under arbitrary extensions.
+The cone has a simple cause: at a rejected cut no upper bound has a
+constructor child, so the upper set is empty one letter later and stays empty,
+while both admission relations need a nonempty upper set at their second cut.
 See [Monitor/Reader.lean](DeciNSSE/Monitor/Reader.lean) and
 [Monitor/Bridge.lean](DeciNSSE/Monitor/Bridge.lean).
 
@@ -279,8 +288,11 @@ d = 2 * N * (B + 1) - 1.
 
 At the first unary level the canonical word is a power `x^m`, and a hole of
 this form can be chosen with `m` at most the number of cores of that level.
-Below it, finite summaries of tuples of blocks record transitions,
-admissions and equalities. Short representatives preserve these summaries,
+Ordinary loop deletion does not suffice here: removing the factor between two
+equal states keeps the final state but can create a new admitted comparison.
+Below the unary level, finite summaries of tuples of blocks therefore record
+transitions, admissions and equalities, and all blocks of a level are
+shortened simultaneously. Short representatives preserve these summaries,
 so the letter `x` can be replaced by one of bounded expanded length. This
 gives a computable length bound `BoundedDepth.holeBound N d`. This bounds
 the length of a chosen witness, not the length of every hole. The empty word
@@ -322,8 +334,10 @@ implement finite searches justified by explicit bounds; a classical choice of
 a `Decidable` instance alone would not supply an executable algorithm.
 Classical reasoning is used in the proofs of the bounds and correctness.
 
-The bounds are non-elementary: compression is iterated through a hierarchy
-whose depth grows with the input. This proves termination in principle and
+The label reader has `N = 2 * 4^(2*k)` states, and the tail and depth bounds
+are polynomial in `N`. The bounds are nevertheless non-elementary: compression
+is iterated once per level of a hierarchy whose depth grows with the input.
+This proves termination in principle and
 does not establish PSPACE membership or an optimal complexity bound. The
 search is unsuitable for practical type inference.
 
@@ -361,10 +375,48 @@ all finite readers with arbitrary admission relations.
 
 The present proof is self-contained in Lean and Mathlib. It establishes the
 semantic bridge directly through signed constraints, spine clashes and the
-label reader, then proves the combinatorial hole bounds. It does not rely on
-the published automata characterisation's back-translation, a binary encoding
-of paths, or the withdrawn argument. The backend bounds are proved theorems,
+label reader, then proves the combinatorial hole bounds. It uses neither
+direction of the published automata characterisation, a binary encoding of
+paths, or the withdrawn argument. The backend bounds are proved theorems,
 not external axioms.
+
+## An earlier proof for the binary covariant case
+
+The first version of this repository (up to commit `79950d0`) decided
+entailment only for one binary covariant constructor. Its semantic reduction
+mechanized the forward cap-automaton characterisation of Niehren and
+Priesnitz: for a satisfiable system, two cap automata accept exactly the safe
+paths, once states made ready by the bottom, top or reflexivity rules count as
+final. Holes were read from the transition monoids of these automata, and the
+tail, depth and compression bounds were proved for the resulting readers over
+the binary alphabet.
+
+The current development replaces that reduction. The cap-automaton route is
+tied to its signature: other arities would need alphabet reductions between
+cap automata, and contravariance would need new automata with a new
+completeness proof. The direct route is also better in its own right:
+
+- **One construction replaces several.** The chains of fresh variables that
+  the earlier proof used in its completeness argument and its transfers
+  became the four-spine extension. Its clash analysis defines the reader, and
+  its selected least shape gives the countermodels in all three domains. Cap
+  automata, the finality convention and cap elimination are no longer needed.
+- **Admissions have a semantic reading.** They are cross and self events of
+  the constraints, rather than closed P-edges in a transition monoid.
+- **Readers are smaller, and their bounds are generic.** The label reader has
+  `2 * 4^(2*k)` states, and one reader serves both sides. A cap automaton has
+  up to `(k+1)^2 + 1` states, and its transition monoid can have `2^(n^2)`
+  elements for `n` states, so the rejected-tail bound drops from `2^O(k^4)` to
+  `2^O(k)`. The return-gap bound now holds for every reader, and compression
+  is needed only at a unary level.
+- **Generality did not increase the size.** The development has 57 modules and
+  about 11,800 lines of Lean, against 58 modules and about 12,200 lines for the
+  binary one.
+
+The cost is a longer semantic reduction, with four signed spines and their
+bookkeeping. The combinatorial core (rejected tail, depth and compression)
+carried over from the binary alphabet to arbitrary finite alphabets without a
+change of method.
 
 ## Building and checking
 
