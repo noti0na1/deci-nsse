@@ -405,8 +405,8 @@ completeness proof. The direct route is also better in its own right:
   the constraints, rather than closed P-edges in a transition monoid.
 - **Readers are smaller, and their bounds are generic.** The label reader has
   `2 * 4^(2*k)` states, and one reader serves both sides. A cap automaton has
-  up to `(k+1)^2 + 1` states, and its transition monoid can have `2^(n^2)`
-  elements for `n` states, so the rejected-tail bound drops from `2^O(k^4)` to
+  up to `(k+1)^2 + 1` states, and its transition monoid can have `2^(s^2)`
+  elements for `s` states, so the rejected-tail bound drops from `2^O(k^4)` to
   `2^O(k)`. The return-gap bound now holds for every reader, and compression
   is needed only at a unary level.
 - **Generality did not increase the size.** The development has 57 modules and
