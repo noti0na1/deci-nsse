@@ -103,7 +103,7 @@ The decision interface accepts the queried inequality directly at every arity.
 | Finite trees | Trees with finitely many nodes | Images of `FTree n` |
 
 The representation claims are proved by `Characterisation.unfold_range_iff`
-and `Characterisation.toTree_range_iff`. The order characterisation is
+and `Characterisation.toTree_range_iff`. The order characterization is
 `Characterisation.treeLe_eq_gfp`; `Characterisation.lfp_ne_treeLe` shows that
 the least fixed point differs whenever there is at least one child position.
 
@@ -175,9 +175,9 @@ The proof reduces a countermodel to a finite word called a *hole* in one of
 two finite monitors, then bounds the length of a hole witness. All reductions,
 bounds and transfer arguments are proved in Lean.
 
-### 1. Normalise variance and translate to signed variables
+### 1. Normalize variance and translate to signed variables
 
-Normalisation exchanges bottom and top according to path polarity and leaves
+Normalization exchanges bottom and top according to path polarity and leaves
 tree domains unchanged. Each variable receives positive and negative copies,
 turning the system into a covariant constraint system on `2*k` variables.
 An assignment fixed by sign duality decodes to a variance solution.
@@ -198,7 +198,7 @@ and [Semantics/Selector.lean](DeciNSSE/Semantics/Selector.lean).
 ### 3. Express unsafety by a finite spine extension
 
 Closure derives variable inequalities by reflexivity, transitivity and
-constructor decomposition. Upper and lower path judgements describe the
+constructor decomposition. Upper and lower path judgments describe the
 bounds at a tree path. A label clash is exactly the obstruction to a
 covariant solution; without one, the least shape is a solution.
 
@@ -209,7 +209,7 @@ a constructor lower bound, and their sign duals, upper spines from `x⁻` and
 the prefix read so far, and the bottom and top fillers come in both signs.
 The extension is therefore closed under sign duality and sign coherent. A word
 is unsafe exactly when the extension has no label clash: the selected least
-shape of the extension restricts to a witness, and a normalised witness
+shape of the extension restricts to a witness, and a normalized witness
 extends along the traces of its roots. Fresh lower positions are sources and
 their sign duals sinks; ranks strictly increase along new nonempty paths. At
 cut zero the roots are old variables and may coincide. The closure formulas
@@ -226,7 +226,7 @@ cut. The child test is letter-free and applies at the terminal cut, even with
 an empty alphabet. Cross and self events concern repeated suffixes;
 self-admission includes both orientations of the sign-flipped labels.
 
-After variance normalisation, an order failure has two sides: at a prefix of
+After variance normalization, an order failure has two sides: at a prefix of
 some word, `x` reaches top and `y` does not (top-prefix side), or `y` reaches
 bottom and `x` does not (bottom-prefix side). The events are defined once, for the top-prefix side of a covariant
 query; the bottom-prefix side uses the order dual of the signed system with
@@ -307,7 +307,7 @@ See [RejectedTail/Decision.lean](DeciNSSE/RejectedTail/Decision.lean) and
 The least-shape label at a path depends only on the sets of lower and upper
 bounds at that path, and both sets are updated letter by letter. Pairs of such
 sets are the states of a finite graph whose unfolding is the least shape; a
-polarity bit realises the selector and decoding on graphs. For an unsafe word,
+polarity bit realizes the selector and decoding on graphs. For an unsafe word,
 the selected least shape of the four-spine extension is therefore regular, and
 decoding its restriction gives a regular countermodel at the same word. Hence
 regular entailment coincides with unrestricted entailment.
@@ -361,7 +361,7 @@ all finite readers with arbitrary admission relations.
 - [Niehren and Priesnitz (1999)](https://www.ps.uni-saarland.de/Publications/documents/SubTypeEntailment_99.pdf)
   proved PSPACE-completeness for the fragment without explicit top and bottom
   in constraints.
-- Niehren and Priesnitz characterised non-structural entailment using cap
+- Niehren and Priesnitz characterized non-structural entailment using cap
   expressions, regular languages and word equations, with a TACS 2001 version
   and a full account in *Information and Computation* (2003). See the
   [published article](https://doi.org/10.1016/S0890-5401(03)00140-8) and
@@ -376,7 +376,7 @@ all finite readers with arbitrary admission relations.
 The present proof is self-contained in Lean and Mathlib. It establishes the
 semantic bridge directly through signed constraints, spine clashes and the
 label reader, then proves the combinatorial hole bounds. It uses neither
-direction of the published automata characterisation, a binary encoding of
+direction of the published automata characterization, a binary encoding of
 paths, or the withdrawn argument. The backend bounds are proved theorems,
 not external axioms.
 
@@ -384,7 +384,7 @@ not external axioms.
 
 The first version of this repository (up to commit `79950d0`) decided
 entailment only for one binary covariant constructor. Its semantic reduction
-mechanized the forward cap-automaton characterisation of Niehren and
+mechanized the forward cap-automaton characterization of Niehren and
 Priesnitz: for a satisfiable system, two cap automata accept exactly the safe
 paths, once states made ready by the bottom, top or reflexivity rules count as
 final. Holes were read from the transition monoids of these automata, and the
@@ -453,7 +453,7 @@ procedures also relies on the compiler.
 | Module | Purpose |
 | --- | --- |
 | [Words](DeciNSSE/Words.lean) | Finite-alphabet paths, powers and periods |
-| [Semantics](DeciNSSE/Semantics) | Trees, variance order, normalisation and polarity selection |
+| [Semantics](DeciNSSE/Semantics) | Trees, variance order, normalization and polarity selection |
 | [Characterisation](DeciNSSE/Semantics/Characterisation.lean) | Fixed points, representation domains and flat expressiveness |
 | [Constraints](DeciNSSE/Constraints) | Flat syntax, satisfaction, entailment and signed closure |
 | [Satisfiability](DeciNSSE/Satisfiability) | Least shapes, their finite graphs, label clashes and cycle clashes |
