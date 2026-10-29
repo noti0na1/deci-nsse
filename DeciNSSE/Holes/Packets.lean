@@ -1,3 +1,5 @@
+import Mathlib.Data.List.ReduceOption
+import Mathlib.Data.List.GetD
 import DeciNSSE.Holes.Desubstitution
 
 /-! # Finite tuples of word blocks

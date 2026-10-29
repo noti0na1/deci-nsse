@@ -1,4 +1,24 @@
-import Mathlib
+import Mathlib.Data.Fintype.Pigeonhole
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Algebra.Group.Action.Defs
+import Mathlib.Logic.Equiv.Finset
+import Mathlib.Data.Fin.VecNotation
+import Mathlib.Data.Fintype.Prod
+import Mathlib.Data.Fintype.Pi
+import Mathlib.Data.Fintype.EquivFin
+import Mathlib.Data.Set.Finite.Lattice
+import Mathlib.Data.Set.Finite.Range
+import Mathlib.Order.FixedPoints
+import Mathlib.Data.Fintype.Powerset
+import Mathlib.Order.Hom.Basic
+import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.GCongr
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Push
+import Mathlib.Tactic.Convert
+import Mathlib.Tactic.ByContra
 
 /-! # Ordered tree labels
 

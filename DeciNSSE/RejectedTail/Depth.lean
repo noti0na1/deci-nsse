@@ -1,3 +1,5 @@
+import Mathlib.Data.Set.Finite.Lemmas
+import Mathlib.Order.Interval.Finset.Nat
 import DeciNSSE.Holes.CoreOccurrences
 import DeciNSSE.RejectedTail.DepthCount
 import DeciNSSE.RejectedTail.ReturnGap

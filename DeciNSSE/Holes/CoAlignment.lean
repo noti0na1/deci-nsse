@@ -132,3 +132,131 @@ variable [DecidableEq Γ]
 end Lettered
 
 end DeciNSSE.CoAlignment
+
+namespace DeciNSSE.CoAlignment
+open DeciNSSE.Holes
+open scoped List
+section
+variable {α β : Type*}
+/-- A comparison whose unequal predecessor letters prevent extending it to the left. -/
+def IsLeftMax (u : List α) (s e : ℕ) : Prop :=
+  IsComp u s e ∧ 1 ≤ s ∧ u[s - 1]? ≠ u[e - 1]?
+
+/-- Distinct letters bounding a left-maximal comparison, including terminal comparisons. -/
+def CoAligned (u : List α) (x y : α) : Prop :=
+  x ≠ y ∧ ∃ s e, IsLeftMax u s e ∧
+    ((u[s - 1]? = some x ∧ u[e - 1]? = some y) ∨ (u[s - 1]? = some y ∧ u[e - 1]? = some x))
+
+/-- Distinct letters bounding a nonterminal left-maximal comparison. -/
+def CoAlignedNT (u : List α) (x y : α) : Prop :=
+  x ≠ y ∧ ∃ s e, IsLeftMax u s e ∧ e < u.length ∧
+    ((u[s - 1]? = some x ∧ u[e - 1]? = some y) ∨ (u[s - 1]? = some y ∧ u[e - 1]? = some x))
+
+theorem CoAligned.symm {u : List α} {x y : α} (h : CoAligned u x y) : CoAligned u y x := by
+  obtain ⟨hxy, s, e, hl, h⟩ := h
+  exact ⟨fun h' => hxy h'.symm, s, e, hl, h.symm⟩
+
+theorem coAligned_comm {u : List α} {x y : α} : CoAligned u x y ↔ CoAligned u y x :=
+  ⟨CoAligned.symm, CoAligned.symm⟩
+
+/-- A co-alignment avoiding the final letter must be nonterminal. -/
+theorem coAlignedNT_of_coAligned {u : List α} {x y : α} (h : CoAligned u x y)
+    (hx : u.getLast? ≠ some x) (hy : u.getLast? ≠ some y) : CoAlignedNT u x y := by
+  obtain ⟨hxy, s, e, ⟨⟨hse, he, hc⟩, hs1, hne⟩, hb⟩ := h
+  refine ⟨hxy, s, e, ⟨⟨hse, he, hc⟩, hs1, hne⟩, ?_, hb⟩
+  rcases Nat.lt_or_ge e u.length with h' | h'
+  · exact h'
+  · have hn : e = u.length := le_antisymm he h'
+    subst hn
+    rw [List.getLast?_eq_getElem?] at hx hy
+    rcases hb with ⟨-, hb⟩ | ⟨-, hb⟩
+    · exact absurd hb hy
+    · exact absurd hb hx
+
+/-- Protecting the final letter excludes terminal co-alignments between unprotected letters. -/
+theorem not_coAligned_of_not_NT {u : List α} {Z : Set α}
+    (hlast : ∀ c, u.getLast? = some c → c ∈ Z) {a b : α} (ha : a ∉ Z) (hb : b ∉ Z)
+    (h : ¬ CoAlignedNT u a b) : ¬ CoAligned u a b := fun hco =>
+  h (coAlignedNT_of_coAligned hco (fun h' => ha (hlast a h')) (fun h' => hb (hlast b h')))
+
+theorem isComp_end (u : List α) {s : ℕ} (hs : s < u.length) : IsComp u s u.length :=
+  ⟨hs, le_rfl, by simp⟩
+
+/-- Unequal predecessor letters of a comparison are co-aligned. -/
+theorem coAligned_of_comp {u : List α} {s e : ℕ} (hs : s < u.length) (he : e < u.length)
+    (hc : IsComp u (s + 1) (e + 1)) (hne : u[s] ≠ u[e]) : CoAligned u u[s] u[e] := by
+  refine ⟨hne, s + 1, e + 1, ⟨hc, by omega, ?_⟩, Or.inl ⟨?_, ?_⟩⟩
+  · simp only [Nat.add_sub_cancel, List.getElem?_eq_getElem hs, List.getElem?_eq_getElem he,
+      ne_eq, Option.some.injEq]
+    exact hne
+  · simp [List.getElem?_eq_getElem hs]
+  · simp [List.getElem?_eq_getElem he]
+
+variable [DecidableEq α]
+
+/-- Replace every occurrence of the first letter by the second. -/
+def identify (a b : α) (z : α) : α := if z = a then b else z
+
+@[simp] theorem identify_self_left (a b : α) : identify a b a = b := by simp [identify]
+
+theorem identify_of_ne {a b z : α} (h : z ≠ a) : identify a b z = z := by
+  simp [identify, h]
+
+/-- Distinct letters identified by this map must be its source and target. -/
+theorem identify_collapse {a b p q : α} (hpq : p ≠ q) (h : identify a b p = identify a b q) :
+    (p = a ∧ q = b) ∨ (p = b ∧ q = a) := by
+  unfold identify at h
+  by_cases hp : p = a <;> by_cases hq : q = a <;> simp only [hp, hq, ite_true, ite_false] at h
+  · exact absurd (hp.trans hq.symm) hpq
+  · exact Or.inl ⟨hp, h.symm⟩
+  · exact Or.inr ⟨h, hq⟩
+  · exact absurd h hpq
+
+/-- Identifying non-co-aligned letters preserves exactly the comparisons. -/
+theorem isComp_identify_iff {u : List α} {x y : α} (h : ¬ CoAligned u x y) (s e : ℕ) :
+    IsComp (u.map (identify y x)) s e ↔ IsComp u s e := by
+  refine isComp_map_iff _ u (fun s e hs he _ hc hfe => ?_) s e
+  by_contra hne
+  rcases identify_collapse hne hfe with ⟨h1, h2⟩ | ⟨h1, h2⟩
+  · exact h (h1 ▸ h2 ▸ (coAligned_of_comp hs he hc hne).symm)
+  · exact h (h1 ▸ h2 ▸ coAligned_of_comp hs he hc hne)
+
+theorem isComp_identify_of_isComp {u : List α} {x y : α} {s e : ℕ} (h : IsComp u s e) :
+    IsComp (u.map (identify y x)) s e :=
+  h.map _
+
+end
+section
+variable {α Q : Type*} [DecidableEq α]
+/-- Equal transitions at the changed occurrences preserve every prefix state. -/
+theorem runPrefix_identify (M : DFA α Q) (u : List α) (a b : α)
+    (h : ∀ i (hi : i < u.length), u[i] = a → M.step (runPrefix M u i) a = M.step (runPrefix M u i) b) :
+    ∀ i, runPrefix M (u.map (identify a b)) i = runPrefix M u i := by
+  intro i
+  induction i with
+  | zero => rfl
+  | succ i ih =>
+    simp only [runPrefix] at ih ⊢
+    rw [List.take_add_one, List.take_add_one, List.getElem?_map]
+    rcases hi : u[i]? with _ | c
+    · simpa using ih
+    · obtain ⟨hlt, hci⟩ := List.getElem?_eq_some_iff.mp hi
+      simp only [Option.map_some, Option.toList_some, DFA.eval_append_singleton, ih]
+      by_cases hca : c = a
+      · subst hca
+        rw [identify_self_left]
+        exact (h i hlt hci).symm
+      · rw [identify_of_ne hca]
+
+end
+end DeciNSSE.CoAlignment
+
+namespace DeciNSSE.CoAlignment
+/-- Both endpoints of a nonterminal co-alignment occur in the word. -/
+theorem coAlignedNT_mem {β : Type*} {u : List β} {a b : β} (h : CoAlignedNT u a b) :
+    a ∈ u ∧ b ∈ u := by
+  obtain ⟨-, s, e, -, -, hb⟩ := h
+  rcases hb with ⟨h1, h2⟩ | ⟨h1, h2⟩
+  · exact ⟨List.mem_of_getElem? h1, List.mem_of_getElem? h2⟩
+  · exact ⟨List.mem_of_getElem? h2, List.mem_of_getElem? h1⟩
+end DeciNSSE.CoAlignment

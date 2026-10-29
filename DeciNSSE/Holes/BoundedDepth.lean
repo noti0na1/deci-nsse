@@ -1,3 +1,6 @@
+import Mathlib.Data.Fintype.BigOperators
+import Mathlib.Data.Fintype.Option
+import Mathlib.Data.Fintype.Pi
 import DeciNSSE.Holes.Hierarchy
 import DeciNSSE.Holes.Packets
 
@@ -633,63 +636,74 @@ theorem length_expandTo_le (ℓ : (i : ℕ) → Alph α i) (j : ℕ) {B : ℕ} :
       have h2 := h z List.mem_cons_self
       omega
 
-theorem length_flatten_le {β : Type*} {B : ℕ} :
-    ∀ L : List (List β), (∀ l ∈ L, l.length ≤ B) → L.flatten.length ≤ L.length * B
-  | [], _ => by simp
-  | l :: L, h => by
-      rw [List.flatten_cons, List.length_append, List.length_cons, Nat.add_mul, one_mul]
-      have h1 := length_flatten_le L (fun l' hl' => h l' (List.mem_cons_of_mem _ hl'))
-      have h2 := h l List.mem_cons_self
-      omega
+/-- Only positive hierarchy levels need a dictionary bound. -/
+def PositiveDictionaryBound [DecidableEq α] [Inhabited α]
+    (w : List α) (d g : ℕ) : Prop :=
+  ∀ i, 1 ≤ i → i ≤ d → (hierOf w i).toFinset.card ≤ g
 
-/-- The size bound: `sizeB N 0 k = 1`; a level-`(j+1)` letter of a `k`-tuple is shortened to at
-most `colBound (N + j) k` level-`j` letters (its body and the marker), each of size at most
-`sizeB N j (1 + k · colBound (N + j) k)`. -/
-def sizeB (N : ℕ) : ℕ → ℕ → ℕ
-  | 0, _ => 1
-  | j + 1, k => colBound (N + j) k * sizeB N j (1 + k * colBound (N + j) k)
+/-- A common upper bound for one column-compression step. -/
+def descentFactor (N d g : ℕ) : ℕ := colBound (N + d + 1) g
 
-theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
-    ∀ (j k : ℕ) (ℓ : (i : ℕ) → Alph α i) (E : List (Alph α j)), E.length ≤ k →
-      Admissible ℓ j E →
-      ∃ (ℓ' : (i : ℕ) → Alph α i) (φ : Alph α j → Alph α j),
-        Agree (tower D0 ℓ j) (tower D0 ℓ' j) φ E ∧ Admissible ℓ' j (E.map φ) ∧
-        ∀ x ∈ E, (expandTo ℓ' j [φ x]).length ≤ sizeB (Fintype.card Q) j k
-  | 0, k, ℓ, E, _, _ => ⟨ℓ, id, Agree.refl _ _, trivial, fun x _ => by simp [expandTo, sizeB]⟩
-  | j + 1, k, ℓ, E, hk, hadm => by
-      classical
-      by_cases hE : E = []
-      · subst hE
-        exact ⟨ℓ, id, Agree.refl _ _, hadm, by simp⟩
+/-- Increasing the core allowance increases the column bound. -/
+theorem colBound_mono_core {N M k : ℕ} (hNM : N ≤ M) (hM : 1 ≤ M) :
+    colBound N k ≤ colBound M k := by
+  unfold colBound
+  gcongr <;> exact Nat.one_le_pow _ _ (by decide)
+
+/-- A letter in an upper block belongs to the original lower dictionary. -/
+theorem mem_lower_dictionary [DecidableEq α] [Inhabited α] {w : List α}
+    (hw : w ≠ []) {j : ℕ} {X : Alph α (j + 1)}
+    (hX : X ∈ hierOf w (j + 1)) {a : Alph α j} (ha : a ∈ X) :
+    a ∈ hierOf w j := by
+  rw [← expand_hierOf hw j]
+  exact mem_expand.mpr ⟨X, hX, List.mem_append_left _ ha⟩
+
+/-- Compress a support inside a fixed original hierarchy. Recursive supports are
+ deduplicated; the identity base case needs no bound on the level-zero alphabet. -/
+theorem shorten_level_supported (D0 : Lettered α Q) [Fintype Q]
+    [DecidableEq α] [Inhabited α] {w : List α} (hw : w ≠ [])
+    {d g j : ℕ} (hj : j ≤ d) (hg : PositiveDictionaryBound w j g)
+    (E : List (Alph α j)) (hE : E.Nodup)
+    (hsub : ∀ x ∈ E, x ∈ hierOf w j) :
+    ∃ (ℓ' : (i : ℕ) → Alph α i) (φ : Alph α j → Alph α j),
+      Agree (tower D0 (markOf w) j) (tower D0 ℓ' j) φ E ∧
+      Admissible ℓ' j (E.map φ) ∧
+      ∀ x ∈ E, (expandTo ℓ' j [φ x]).length ≤
+        descentFactor (Fintype.card Q) d g ^ j := by
+  classical
+  induction j with
+  | zero =>
+      exact ⟨markOf w, id, Agree.refl _ _, trivial, fun x _ => by simp [expandTo]⟩
+  | succ j ih =>
+      let ℓ := markOf w
+      have hadm : Admissible ℓ (j + 1) E :=
+        admissible_of_subset ℓ (j + 1) E _ (admissible_hierOf hw _)
+          (hierOf_ne_nil hw _) hsub
+      have hk : E.length ≤ g := by
+        rw [← List.toFinset_card_of_nodup hE]
+        have hfin : E.toFinset ⊆ (hierOf w (j + 1)).toFinset := by
+          intro x hx
+          exact List.mem_toFinset.mpr (hsub x (List.mem_toFinset.mp hx))
+        exact (Finset.card_le_card hfin).trans (hg _ (by omega) le_rfl)
       set N := Fintype.card Q with hN
       set D := tower D0 ℓ j with hD
-      obtain ⟨ψ, hψA, hψ⟩ := exists_short_letters D (ℓ j) k E hk
+      obtain ⟨ψ, hψA, hψ⟩ := exists_short_letters D (ℓ j) g E hk
       rw [card_cores j] at hψ
-      set Ebig : List (Alph α j) := ℓ j :: (E.map ψ).flatten with hEbig
+      set Ebig : List (Alph α j) := (ℓ j :: (E.map ψ).flatten).dedup with hEbig
       have hmemBig : ∀ X ∈ E, ∀ a ∈ ψ X, a ∈ Ebig := fun X hX a ha =>
-        List.mem_cons_of_mem _ (List.mem_flatten.mpr ⟨ψ X, List.mem_map_of_mem hX, ha⟩)
-      have hℓBig : ℓ j ∈ Ebig := List.mem_cons_self
-      have hlenBig : Ebig.length ≤ 1 + k * colBound (N + j) k := by
-        have h1 := length_flatten_le (B := colBound (N + j) k) (E.map ψ) (by
-          intro l hl
-          obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hl
-          exact (hψ X hX).2.le)
-        rw [List.length_map] at h1
-        have h2 := Nat.mul_le_mul_right (colBound (N + j) k) hk
-        simp only [hEbig, List.length_cons]
-        omega
-      have hadmBig : Admissible ℓ j Ebig := by
-        refine admissible_of_subset ℓ j Ebig (expand (ℓ j) E) hadm.2
-          (by simpa [expand_eq_nil] using hE) ?_
+        List.mem_dedup.mpr (List.mem_cons_of_mem _
+          (List.mem_flatten.mpr ⟨ψ X, List.mem_map_of_mem hX, ha⟩))
+      have hℓBig : ℓ j ∈ Ebig := List.mem_dedup.mpr List.mem_cons_self
+      have hsubBig : ∀ a ∈ Ebig, a ∈ hierOf w j := by
         intro a ha
-        rcases List.mem_cons.mp ha with rfl | ha
-        · obtain ⟨X, hX⟩ := List.exists_mem_of_ne_nil E hE
-          exact mem_expand.mpr ⟨X, hX, by simp⟩
-        · obtain ⟨l, hl, hal⟩ := List.mem_flatten.mp ha
-          obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hl
-          exact mem_expand.mpr ⟨X, hX, List.mem_append_left _ ((hψ X hX).1.subset hal)⟩
+        rcases List.mem_cons.mp (List.mem_dedup.mp ha) with rfl | ha
+        · exact markOf_mem hw j
+        · obtain ⟨Y, hY, haY⟩ := List.mem_flatten.mp ha
+          obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hY
+          exact mem_lower_dictionary hw (hsub X hX) ((hψ X hX).1.subset haY)
       obtain ⟨ℓ'', φ₀, hA, hadm'', hsize⟩ :=
-        shorten_level D0 j (1 + k * colBound (N + j) k) ℓ Ebig hlenBig hadmBig
+        ih (by omega) (fun t ht htd => hg t ht (by omega)) Ebig
+          (List.nodup_dedup _) hsubBig
       set ℓ' : (i : ℕ) → Alph α i := Function.update ℓ'' j (φ₀ (ℓ j)) with hℓ'
       have hℓ'j : ℓ' j = φ₀ (ℓ j) := Function.update_self _ _ _
       have hℓ'lt : ∀ t < j, ℓ' t = ℓ'' t := fun t ht =>
@@ -713,7 +727,11 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           rw [hzℓ] at hz
           exact hadm.1 X hX ((hψ X hX).1.subset hz)
         · rw [hℓ'j, admissible_congr j hℓ'lt]
-          refine admissible_of_subset ℓ'' j _ (Ebig.map φ₀) hadm'' (by simp) ?_
+          refine admissible_of_subset ℓ'' j _ (Ebig.map φ₀) hadm'' (by
+            intro he
+            have := List.mem_map_of_mem (f := φ₀) hℓBig
+            rw [he] at this
+            simp at this) ?_
           intro a ha
           obtain ⟨Y, hY, haY⟩ := mem_expand.mp ha
           obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hY
@@ -730,7 +748,7 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           rw [expandTo_congr j hℓ'lt, hℓ'j]
           simp [expand]
         rw [e1]
-        refine (length_expandTo_le ℓ'' j _ (B := sizeB N j (1 + k * colBound (N + j) k))
+        refine (length_expandTo_le ℓ'' j _ (B := descentFactor N d g ^ j)
           ?_).trans ?_
         · intro z hz
           obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hz
@@ -740,9 +758,9 @@ theorem shorten_level (D0 : Lettered α Q) [Fintype Q] :
           · rw [List.mem_singleton] at h1
             rw [h1]
             exact hℓBig
-        · show _ ≤ colBound (N + j) k * sizeB N j (1 + k * colBound (N + j) k)
-          rw [List.length_map, List.length_append, List.length_singleton]
-          exact Nat.mul_le_mul_right _ (hψ X hX).2
+        · rw [List.length_map, List.length_append, List.length_singleton, pow_succ']
+          apply Nat.mul_le_mul_right
+          exact (hψ X hX).2.trans_le (colBound_mono_core (by omega) (by omega))
 
 end Levels
 
@@ -750,23 +768,16 @@ section Final
 universe u v
 variable {α : Type u} {Q : Type v}
 
-/-- The computable length bound for a chosen hole in `𝓛(d)` of an instance with `N`
-cores: at a unary level `i` a unary hole `x^m` can be chosen with `m ≤ N + i`, and after
-compression its letter `x` expands to at most `sizeB N i 1` letters. -/
-def holeBound (N d : ℕ) : ℕ :=
-  ∑ i ∈ Finset.range (d + 1), (N + i) * sizeB N i 1
-
 variable [DecidableEq α] [Inhabited α]
 
-/-- If a lettered instance with `N` cores (over any alphabet) has a hole in `𝓛(d)`, it has
-one of length `≤ holeBound N d`. At the unary level `i` a short power `x^m` is a hole of the
-derived instance; shortening the single letter `x` and expanding gives the witness. Nothing is
-assumed about the variety, degeneracy or run lengths of the levels below the top. -/
-theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d : ℕ) {w : List α}
-    (hw : D0.IsHole w) (hL : InL d w) :
-    ∃ w', D0.IsHole w' ∧ InL d w' ∧ w'.length ≤ holeBound (Fintype.card Q) d := by
+/-- A hole with a bounded dictionary through a unary level has a short witness.
+The unary level is explicit so this theorem does not depend on canonical depth. -/
+theorem exists_short_hole_of_dictionary (D0 : Lettered α Q) [Fintype Q]
+    {w : List α} {i d g : ℕ} (hw : D0.IsHole w) (hi : i ≤ d)
+    (hu : IsUnary (hierOf w i)) (hg : PositiveDictionaryBound w i g) :
+    ∃ v, D0.IsHole v ∧ InL d v ∧
+      v.length ≤ (Fintype.card Q + d + 1) * descentFactor (Fintype.card Q) d g ^ d := by
   classical
-  obtain ⟨i, hi, hu⟩ := hL
   have hw0 : w ≠ [] := hw.ne_nil
   set N := Fintype.card Q with hN
   obtain ⟨x, hx⟩ := List.exists_mem_of_ne_nil _ (hierOf_ne_nil hw0 i)
@@ -776,10 +787,9 @@ theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d : ℕ) {w : Li
   obtain ⟨m, -, hmN, hm⟩ := (exists_unary_hole_iff (tower D0 (markOf w) i) x).mp
     ⟨(hierOf w i).length, by rw [← hrep]; exact hv⟩
   rw [card_cores i] at hmN
-  have hadm : Admissible (markOf w) i [x] :=
-    admissible_of_subset _ i [x] _ (admissible_hierOf hw0 i) (hierOf_ne_nil hw0 i)
-      fun a ha => by rw [List.mem_singleton.mp ha]; exact hx
-  obtain ⟨ℓ', φ, hA, hadm', hsize⟩ := shorten_level D0 i 1 (markOf w) [x] le_rfl hadm
+  obtain ⟨ℓ', φ, hA, hadm', hsize⟩ :=
+    shorten_level_supported D0 hw0 hi hg [x] (by simp)
+      (fun a ha => by rw [List.mem_singleton.mp ha]; exact hx)
   have hv' : (tower D0 ℓ' i).IsHole (List.replicate m (φ x)) := by
     rw [← List.map_replicate]
     exact (hA.isHole_iff fun a ha => List.mem_singleton.mpr (List.eq_of_mem_replicate ha)).mpr hm
@@ -792,19 +802,17 @@ theorem exists_short_hole_InL (D0 : Lettered α Q) [Fintype Q] (d : ℕ) {w : Li
     intro a ha b hb
     rw [List.eq_of_mem_replicate ha, List.eq_of_mem_replicate hb]
   · calc (expandTo ℓ' i (List.replicate m (φ x))).length
-          ≤ (List.replicate m (φ x)).length * sizeB N i 1 :=
+          ≤ (List.replicate m (φ x)).length * descentFactor N d g ^ i :=
           length_expandTo_le ℓ' i _ fun z hz => by
             rw [List.eq_of_mem_replicate hz]; exact hsize x (List.mem_singleton_self x)
-      _ ≤ (N + i) * sizeB N i 1 := by
+      _ ≤ (N + i) * descentFactor N d g ^ i := by
           rw [List.length_replicate]; exact Nat.mul_le_mul_right _ hmN
-      _ ≤ holeBound N d :=
-          Finset.single_le_sum (f := fun i => (N + i) * sizeB N i 1)
-            (fun _ _ => Nat.zero_le _) (Finset.mem_range.mpr (by omega))
-
-theorem exists_hole_InL_iff_bounded (D0 : Lettered α Q) [Fintype Q] (d : ℕ) :
-    (∃ w, D0.IsHole w ∧ InL d w) ↔
-      ∃ w, D0.IsHole w ∧ InL d w ∧ w.length ≤ holeBound (Fintype.card Q) d :=
-  ⟨fun ⟨_, hw, hL⟩ => exists_short_hole_InL D0 d hw hL, fun ⟨w, hw, hL, _⟩ => ⟨w, hw, hL⟩⟩
+      _ ≤ (N + d + 1) * descentFactor N d g ^ d := by
+          apply Nat.mul_le_mul (by omega)
+          apply Nat.pow_le_pow_right
+          · unfold descentFactor colBound
+            positivity
+          · exact hi
 
 end Final
 
@@ -814,25 +822,6 @@ open DeciNSSE.Holes
 
 instance decIsUnary {β : Type*} [DecidableEq β] (u : List β) : Decidable (IsUnary u) :=
   inferInstanceAs (Decidable (∀ a ∈ u, ∀ b ∈ u, a = b))
-
-variable {α : Type u} {Q : Type v} [DecidableEq α] [Inhabited α]
-
-omit [DecidableEq α] [Inhabited α] in
-theorem isHole_ofReader_iff' (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (w : List α) :
-    (ofReader M R T).IsHole w ↔ w ≠ [] ∧ IsReaderHole M R T w :=
-  ⟨fun h => ⟨h.ne_nil, (isHole_ofReader_iff M R T h.ne_nil).mp h⟩,
-    fun ⟨h0, h⟩ => (isHole_ofReader_iff M R T h0).mpr h⟩
-
-/-- A reader `(M, R, T)` with `N` states having a
-hole in `𝓛(d)` has one of length `≤ holeBound N d`. -/
-theorem exists_reader_hole_InL_iff_bounded (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
-    [Fintype Q] (d : ℕ) :
-    (∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d w) ↔
-      ∃ w, w ≠ [] ∧ IsReaderHole M R T w ∧ InL d w ∧
-        w.length ≤ holeBound (Fintype.card Q) d := by
-  have := exists_hole_InL_iff_bounded (ofReader M R T) d
-  simp only [isHole_ofReader_iff', and_assoc] at this
-  exact this
 
 end Monitor
 

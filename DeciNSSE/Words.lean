@@ -1,4 +1,12 @@
-import Mathlib
+import Mathlib.Data.List.PeriodicityLemma
+import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.GCongr
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Push
+import Mathlib.Tactic.Convert
+import Mathlib.Tactic.ByContra
 
 /-! # Finite words and periods
 

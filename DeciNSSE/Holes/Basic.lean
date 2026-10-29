@@ -1,4 +1,13 @@
-import Mathlib
+import Mathlib.Computability.DFA
+import Mathlib.Data.Fintype.Card
+import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.GCongr
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Push
+import Mathlib.Tactic.Convert
+import Mathlib.Tactic.ByContra
 
 /-! # Holes of finite readers
 

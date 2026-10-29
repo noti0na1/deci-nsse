@@ -18,9 +18,9 @@ simplifying inferred types.
 asks whether it is decidable for bottom, top and one binary constructor, without
 fixing the constructor's variance. The theorem covers every variance and all
 three tree domains, so it answers that question under each reading.
-The proof works directly over paths in `Fin n`. Its finite search bounds are
-non-elementary, so it establishes decidability in principle rather than a
-practical type inference algorithm.
+The proof works directly over paths in `Fin n` and proves an elementary
+hole-length bound. The resulting exhaustive searches establish decidability
+in principle; their universal bounds are too large for practical type inference.
 
 ## The problem
 
@@ -286,20 +286,50 @@ levels. Counting these plateaus bounds the first unary level by
 d = 2 * N * (B + 1) - 1.
 ```
 
-At the first unary level the canonical word is a power `x^m`, and a hole of
-this form can be chosen with `m` at most the number of cores of that level.
-Ordinary loop deletion does not suffice here: removing the factor between two
-equal states keeps the final state but can create a new admitted comparison.
-Below the unary level, finite summaries of tuples of blocks therefore record
-transitions, admissions and equalities, and all blocks of a level are
-shortened simultaneously. Short representatives preserve these summaries,
-so the letter `x` can be replaced by one of bounded expanded length. This
-gives a computable length bound `BoundedDepth.holeBound N d`. This bounds
-the length of a chosen witness, not the length of every hole. The empty word
-and empty alphabet are covered by `RejectedTail.hole_iff_bounded_length`.
+Before shortening blocks, merge isolated letters with the same finite exchange
+type. This preserves holehood and canonical depth, and does not increase length
+or any dictionary. In the resulting normal form, boundary pairs propagate
+linearly between levels. If `D` is the first unary level, then for
+`1 ≤ i < D ≤ d` the checked bounds are
 
-Finite enumeration up to this bound decides hole existence.
-See [RejectedTail/Decision.lean](DeciNSSE/RejectedTail/Decision.lean) and
+```text
+2 * b_i ≤ (A - 1) * (3^(D - 1 - i) - 1),
+g_i ≤ 1 + (A - 1) * 3^(D - 1 - i),
+```
+
+where `b_i` counts ordered nonterminal boundary pairs and `g_i` counts distinct
+level letters. The unary top has at most one letter and no boundary pairs;
+the level immediately below it also has no boundary pairs. Set
+
+```text
+C(N,d) = N^N * 2^(2*N^2 + 4*N*(N+d)*(d+1) + 3*N),
+A(N,d) = d + 1 + C(N,d),
+G(N,d) = 2 + A(N,d) * 3^d,
+K(M,g) = M^((M+1)*g) * 2^(M*(M+1)*g + (1+(M+1)^2)*g^2),
+L(N,d) = (N+d+1) * K(N+d+1,G(N,d))^d.
+```
+
+Every positive-level dictionary through the unary top can be bounded by `G`.
+There is no bound required on the level-zero alphabet. At the unary level,
+a hole `x^m` can be chosen with `m` at most the number of cores of that level.
+Below it, simultaneous column compression preserves transitions, admissions,
+and block equalities. Deduplicating the supports keeps every column call
+within the original bounded dictionaries.
+
+`ElementaryBound.exists_short_hole` proves the length bound `L(N,d)` for any
+finite-core lettered monitor with a hole of depth at most `d`. It needs no
+rejected-path hypothesis. The backend uses
+`RejectedTail.holeLengthBound N = L(N,holeDepthBound N)` and proves
+
+```text
+holeLengthBound N ≤ 2^(2^(4096 * (N+1)^7)).
+```
+
+This bounds the length of a chosen witness. The empty word and empty alphabet
+are covered by `RejectedTail.hole_iff_bounded_length`; `hole_iff_search` reduces
+hole existence to enumeration up to this bound.
+See [RejectedTail/Decision.lean](DeciNSSE/RejectedTail/Decision.lean),
+[Holes/ElementaryBound.lean](DeciNSSE/Holes/ElementaryBound.lean), and
 [Holes/BoundedDepth.lean](DeciNSSE/Holes/BoundedDepth.lean).
 
 ### 7. Transfer to regular and finite trees
@@ -334,12 +364,17 @@ implement finite searches justified by explicit bounds; a classical choice of
 a `Decidable` instance alone would not supply an executable algorithm.
 Classical reasoning is used in the proofs of the bounds and correctness.
 
-The label reader has `N = 2 * 4^(2*k)` states, and the tail and depth bounds
-are polynomial in `N`. The bounds are nevertheless non-elementary: compression
-is iterated once per level of a hierarchy whose depth grows with the input.
-This proves termination in principle and
-does not establish PSPACE membership or an optimal complexity bound. The
-search is unsuitable for practical type inference.
+The label reader has `N = 2 * 4^(2*k)` states. The checked hole-length bound is
+`2^(2^(4096 * (N+1)^7))`, doubly exponential in a polynomial in the state
+count. Substituting the reader size gives the explicit path-length
+allowance `2^(2^(4096 * (2 * 4^(2*k) + 1)^7))`. This bounds the unsafe path
+used to construct a countermodel, not the number of nodes in an expanded tree.
+
+The exhaustive hole searches enumerate words up to `holeLengthBound N`.
+The formalization proves the elementary witness bound, the finite-search
+reduction, and correctness of the executable deciders; it does not prove a
+machine-time complexity theorem, PSPACE membership, or optimality. These
+universal searches remain unsuitable for practical type inference.
 
 The theorem covers one constructor with any finite arity and any variance
 map. It does not cover arbitrary signatures with multiple constructors. The
