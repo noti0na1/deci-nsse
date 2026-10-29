@@ -1,3 +1,5 @@
+import Mathlib.Algebra.BigOperators.Fin
+import Mathlib.Logic.Equiv.Fin.Basic
 import DeciNSSE.Constraints.Dual
 import DeciNSSE.Semantics.Selector
 
@@ -18,39 +20,39 @@ variable {n k : ℕ}
 
 namespace RGraph
 
-/-- The graph of a transition system on an encodable finite type of states. -/
-def ofStates {S : Type} [Fintype S] [Encodable S] (root : S) (label : S → Sym)
+/-- Present a transition system using an explicit numbering of its states. -/
+def ofEquiv {S : Type} {m : ℕ} (e : S ≃ Fin m) (root : S) (label : S → Sym)
     (child : S → Fin n → S) : RGraph n where
-  size := Fintype.card S
-  root := Encodable.fintypeEquivFin root
-  label p := label (Encodable.fintypeEquivFin.symm p)
-  child p i := Encodable.fintypeEquivFin (child (Encodable.fintypeEquivFin.symm p) i)
+  size := m
+  root := e root
+  label p := label (e.symm p)
+  child p i := e (child (e.symm p) i)
 
 /-- A run that starts at the root and leaves exactly the constructor states gives the
 labels of the unfolding. -/
-theorem unfold_ofStates_fn {S : Type} [Fintype S] [Encodable S] {root : S}
+theorem unfold_ofEquiv_fn {S : Type} {m : ℕ} (e : S ≃ Fin m) {root : S}
     {label : S → Sym} {child : S → Fin n → S} (run : List (Fin n) → Option S)
     (hnil : run [] = some root)
     (hsnoc : ∀ π i, run (π ++ [i]) =
       (run π).bind fun s => if label s = .f then some (child s i) else none)
-    (π : List (Fin n)) : (ofStates root label child).unfold.fn π = (run π).map label := by
-  have hwalk : ∀ π, (ofStates root label child).walk π =
-      (run π).map Encodable.fintypeEquivFin := by
+    (π : List (Fin n)) : (ofEquiv e root label child).unfold.fn π = (run π).map label := by
+  have hwalk : ∀ π, (ofEquiv e root label child).walk π = (run π).map e := by
     intro π
     induction π using List.reverseRecOn with
-    | nil => simp [hnil, walk, walkFrom, ofStates]
+    | nil => simp [hnil, walk, walkFrom, ofEquiv]
     | append_singleton π i ih =>
       rw [walk_append_singleton, ih, hsnoc]
       cases run π with
       | none => rfl
-      | some s => by_cases hs : label s = .f <;> simp [hs, ofStates]
+      | some s => by_cases hs : label s = .f <;> simp [hs, ofEquiv]
   rw [unfold_fn, hwalk]
-  cases run π <;> simp [ofStates]
+  cases run π <;> simp [ofEquiv]
 
 /-- The polarity product of two graphs: a state pairs a state of each graph with the
 polarity bit, and the second graph is read, with leaves exchanged, where the bit is set. -/
 def mix (c : Fin n → Bool) (p : Bool) (g₁ g₂ : RGraph n) : RGraph n :=
-  ofStates (g₁.root, g₂.root, p)
+  ofEquiv ((Equiv.prodCongr (Equiv.refl _) ((Equiv.prodCongr (Equiv.refl _)
+    finTwoEquiv.symm).trans finProdFinEquiv)).trans finProdFinEquiv) (g₁.root, g₂.root, p)
     (fun s => if s.2.2 then Sym.flip true (g₂.label s.2.1) else g₁.label s.1)
     (fun s i => (g₁.child s.1 i, g₂.child s.2.1 i, Bool.xor s.2.2 (c i)))
 
@@ -62,7 +64,7 @@ theorem mix_unfold_fn (c : Fin n → Bool) (p : Bool) {g₁ g₂ : RGraph n}
   have hd (π) : (g₁.walk π).isSome = (g₂.walk π).isSome := by simpa using h.domain π
   have hf (π) {q₁ q₂} (h₁ : g₁.walk π = some q₁) (h₂ : g₂.walk π = some q₂) :
       g₁.label q₁ = .f ↔ g₂.label q₂ = .f := by simpa [h₁, h₂] using h π
-  rw [mix, unfold_ofStates_fn (fun π => (g₁.walk π).bind fun q₁ =>
+  rw [mix, unfold_ofEquiv_fn _ (fun π => (g₁.walk π).bind fun q₁ =>
       (g₂.walk π).map fun q₂ => (q₁, q₂, Bool.xor p (polarity c π)))
     (by simp [walk, walkFrom]) ?_ π]
   · rw [unfold_fn, unfold_fn]
@@ -253,9 +255,19 @@ theorem shapeLabelOf_boundSets (ϕ : Constraint n k) (z : V k) (π : List (Fin n
   simp only [supportsF_lowerSet, supportsTop_lowerSet, upperLabel_f_iff_dual,
     upperLabel_bot_iff_dual]
 
-/-- States are pairs of bound sets; each letter updates both sets. -/
+/-- Number a bound set by its binary membership vector. -/
+private def boundSetEquiv (k : ℕ) : Finset (V k) ≃ Fin (2 ^ k) :=
+  let e : Finset (V k) ≃ (Fin k → Fin 2) :=
+    { toFun := fun s i => finTwoEquiv.symm (decide (i ∈ s))
+      invFun := fun f => Finset.univ.filter fun i => finTwoEquiv (f i) = true
+      left_inv := by intro s; ext i; simp
+      right_inv := by intro f; funext i; simp }
+  e.trans finFunctionFinEquiv
+
+/-- States are pairs of bound sets, numbered by their binary membership vectors. -/
 def shapeGraph (ϕ : Constraint n k) (z : V k) : RGraph n :=
-  RGraph.ofStates (boundSets ϕ z []) (shapeLabelOf ϕ)
+  RGraph.ofEquiv ((Equiv.prodCongr (boundSetEquiv k) (boundSetEquiv k)).trans
+    finProdFinEquiv) (boundSets ϕ z []) (shapeLabelOf ϕ)
     (fun s i => (step ϕ s.1 i, step (Constraint.dual ϕ) s.2 i))
 
 /-- The least shape of every system is regular: the shape graph unfolds to it. -/
@@ -264,7 +276,7 @@ theorem unfold_shapeGraph (ϕ : Constraint n k) (z : V k) :
   classical
   apply Tree.ext
   funext π
-  rw [shapeGraph, RGraph.unfold_ofStates_fn
+  rw [shapeGraph, RGraph.unfold_ofEquiv_fn _
     (fun π => if Active (shapeLabel ϕ z) π then some (boundSets ϕ z π) else none)
     (by simp) ?_ π, leastShape_fn]
   · split_ifs <;> simp [shapeLabelOf_boundSets]

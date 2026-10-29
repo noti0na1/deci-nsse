@@ -150,6 +150,19 @@ SatisfiableFin c ϕ        -- ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ 
 Entails c ϕ x y           -- ∀ ρ, Sat c ρ ϕ → Tree.Le c (ρ x) (ρ y)
 ```
 
+Countermodels can be computed from a supplied side `θ : Side` and word
+`w : List (Fin n)`. The assignment `extractRegular c ϕ x y θ w : V k → RGraph n`
+satisfies `ϕ` and refutes `x ≤ y` when `Monitor.satB c ϕ = true` and `w` is a
+hole of `Monitor.sideMonitor c ϕ x y θ`, by `extractRegular_spec`.
+The Boolean check `refutesB c ϕ x y θ w` combines these two conditions;
+`refutesB_correct` proves non-entailment, and `not_entails_iff_refutesB` states
+that every non-entailment has such a certificate. Under `SatisfiableFin c ϕ`,
+`extractFinite c ϕ x y θ w : V k → FTree n` gives the corresponding finite
+countermodel, by `extractFinite_spec` for a hole or `extractFinite_of_unsafe`
+for an unsafe word. Both extractors are computable; the finite extractor
+truncates the regular unfolding at the proved depth bound. See
+[Countermodels.lean](DeciNSSE/Countermodels.lean).
+
 The exact transfer theorems are
 
 ```lean
