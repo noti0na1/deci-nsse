@@ -1,0 +1,17 @@
+{
+ "comment": "arity zero: x <= f() and f() <= y entail x <= y",
+ "k": 2,
+ "arity": 0,
+ "lits": [
+  [
+   "le",
+   0
+  ],
+  [
+   "ge",
+   1
+  ]
+ ],
+ "x": 0,
+ "y": 1
+}

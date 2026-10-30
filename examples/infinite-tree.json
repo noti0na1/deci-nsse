@@ -1,0 +1,28 @@
+{
+ "comment": "x = f(x, x) and y = bottom: x <= y fails (x is the infinite constructor tree)",
+ "k": 2,
+ "variance": [
+  0,
+  0
+ ],
+ "lits": [
+  [
+   "le",
+   0,
+   0,
+   0
+  ],
+  [
+   "ge",
+   0,
+   0,
+   0
+  ],
+  [
+   "bot",
+   1
+  ]
+ ],
+ "x": 0,
+ "y": 1
+}

@@ -1,0 +1,24 @@
+{
+ "comment": "the same constraints do not entail y <= x",
+ "k": 4,
+ "variance": [
+  0,
+  0
+ ],
+ "lits": [
+  [
+   "le",
+   0,
+   2,
+   3
+  ],
+  [
+   "ge",
+   1,
+   2,
+   3
+  ]
+ ],
+ "x": 1,
+ "y": 0
+}

@@ -21,6 +21,8 @@ three tree domains, so it answers that question under each reading.
 The proof works directly over paths in `Fin n` and proves an elementary
 hole-length bound. The resulting exhaustive searches establish decidability
 in principle; their universal bounds are too large for practical type inference.
+The [Lean solver](#lean-solver) `nsse` searches for certificates instead and
+checks them with proved checkers, so every answer it prints is correct.
 
 ## The problem
 
@@ -387,13 +389,163 @@ The exhaustive hole searches enumerate words up to `holeLengthBound N`.
 The formalization proves the elementary witness bound, the finite-search
 reduction, and correctness of the executable deciders; it does not prove a
 machine-time complexity theorem, PSPACE membership, or optimality. These
-universal searches remain unsuitable for practical type inference.
+universal searches remain unsuitable for practical type inference; the
+[Lean solver](#lean-solver) uses them only as a fallback.
 
 The theorem covers one constructor with any finite arity and any variance
 map. It does not cover arbitrary signatures with multiple constructors. The
 hole procedure requires the rejected-path invariant, proved here for the
 constructed label readers; it is not an unrestricted decision procedure for
 all finite readers with arbitrary admission relations.
+
+## Lean solver
+
+The `nsse` executable answers entailment queries in practice. It searches for
+a certificate, checks it with proved checkers, and builds a countermodel for a
+negative answer. [Solver.lean](DeciNSSE/Solver.lean) exports
+
+```lean
+def solve (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) : Result c ϕ x y
+
+theorem solve_correct :
+  (solve c ϕ x y).answer = true ↔ Entails c ϕ x y
+```
+
+and `solveWithFuel_correct`, the same statement for every search budget,
+terminal window and countermodel setting.
+
+```sh
+lake build nsse nsse-check
+.lake/build/bin/nsse examples/periodic.json
+.lake/build/bin/nsse examples/modular.json --no-countermodel
+sh examples/check.sh
+```
+
+### Input
+
+A problem is a JSON object:
+
+```json
+{"k": 4, "variance": [0, 0], "lits": [["le", 0, 2, 3], ["ge", 1, 2, 3]], "x": 0, "y": 1}
+```
+
+* `k`: the number of variables, numbered from 0.
+* `variance`: one entry per argument, `0` covariant and `1` contravariant. For
+  a covariant constructor, `"arity": n` may be given instead; `"arity": 0`
+  selects the nullary constructor. Without either, the constructor is binary
+  and covariant.
+* `lits`: the flat literals. `["bot", u]` is `u = ⊥`, `["top", u]` is `u = ⊤`,
+  `["le", u, a0, …]` is `u ≤ f(a0, …)` and `["ge", u, a0, …]` is
+  `f(a0, …) ≤ u`, with one child variable per argument.
+* `x`, `y`: the query `x ≤ y` (defaults 0 and 1).
+
+These are the literal forms of `DeciNSSE.Constraint`; the arrow `a → b` is
+`f(a, b)` with variance `[1, 0]`. Other keys are ignored.
+
+### Output and options
+
+Standard output is one JSON object with `answer` (`true` when the constraints
+entail the query), `used_fallback`, and a `certificate`:
+
+| `certificate.kind` | Answer | Content |
+| --- | --- | --- |
+| `unsat` | true | The constraints have no solution. |
+| `entailment` | true | A closed cover of each query side, `left` and `right`. |
+| `refutation` | false | A side, `"l"` or `"r"`, and a word that is a hole of that side's reader. |
+| `complete` | true | No certificate: the complete decider answered. |
+
+A negative answer also has a `countermodel`: an array indexed by variables,
+each entry a graph with a `root` and `nodes`. Nodes are `["B"]`, `["T"]` or
+`["F", child0, …]`, with indices local to the graph. Its unfolding satisfies
+every constraint and violates the query. The elapsed time is written to
+standard error; malformed input exits with status 2.
+
+| Option | Meaning |
+| --- | --- |
+| `--fuel N` | Search budget in turns (default 100000). |
+| `--window N` | Window of terminal comparisons in entailment covers (default 0). |
+| `--no-countermodel` | Do not build the countermodel of a negative answer. |
+
+### Examples
+
+| File | Answer | What it shows |
+| --- | --- | --- |
+| `transitivity.json` | entailed | `x ≤ f(a, b)` and `f(a, b) ≤ y` give `x ≤ y` |
+| `reverse.json` | not entailed | the same constraints do not give `y ≤ x` |
+| `arrow.json` | entailed | transitivity for the arrow, variance `[1, 0]` |
+| `mixed-ternary.json` | entailed | transitivity for a ternary constructor, variance `[1, 0, 1]` |
+| `infinite-tree.json` | not entailed | `x = f(x, x)` forces the infinite constructor tree |
+| `nullary.json` | entailed | arity zero |
+| `periodic.json` | entailed | rays alone cannot prove it; terminal comparisons do |
+| `modular.json` | not entailed | 20 variables; the shortest hole is `0^209 1` |
+| `deep-context.json` | entailed | 66 variables; a cover of rays alone would need 2^32 rays |
+
+`sh examples/check.sh` solves all nine, compares the answers, and rechecks
+each certificate with `nsse-check`. Each example takes well under a second,
+except that building the 4,045-node countermodel of `modular.json` takes
+about 75 seconds (about one second with `--no-countermodel`).
+
+### How it works
+
+A scout, an iterative-deepening refuter, and a breadth-first prover take turns
+on both query sides. The prover explores the product of the reader with ray
+and terminal-comparison automata and adds all admitted comparisons of its
+shortest uncovered word as rays. Active-period masks track suffix
+comparisons. The search uses arrays, bit masks and hash sets and needs no
+correctness proof: only a certificate accepted by the checkers yields an
+answer. If the search exhausts its fuel or a candidate is rejected,
+`decideEntails` supplies the answer and `used_fallback` is `true`; this
+fallback uses the proved length bound and can be impractically slow. Fuel
+bounds the search, not the total running time.
+
+The checkers use packed closure rows, shared reader transition tables and
+cached prefix states. Refinement lemmas connect them to the finite-set closure
+and reader of the proof; neither checking nor countermodel validation
+enumerates the reader's state space. The countermodel is the reachable part
+of `extractRegular` from [Countermodels.lean](DeciNSSE/Countermodels.lean)
+with the same unfolding (`extractReachable_unfold`), so it is part of the
+verified result.
+
+### Checking certificates
+
+`nsse-check problem.json certificate.json` checks a certificate produced by
+`nsse` or by another tool. The second file is either a complete `nsse` result
+or a bare certificate:
+
+```json
+{"kind":"unsat"}
+{"kind":"refutation","side":"l","word":[]}
+{"kind":"entailment",
+ "left":{"window":0,"rays":[],"access":[[],[0],[1]]},
+ "right":{"window":0,"rays":[],"access":[[],[0],[1]]}}
+```
+
+The last object illustrates the schema; a real cover lists the access words
+of a closed product for the particular problem. Success prints `VERIFIED` and
+exits with status 0; rejection prints a reason and exits with status 1; file
+or usage errors exit with status 2.
+
+Words are arrays of letters smaller than the arity. A cover has a
+natural-number `window`, a list `rays` of pairs `[u, v]` of words with nonempty
+`v`, and a list `access` of words. Lean computes every product state from its
+access word. It checks that each ray is admitted from the reader state after
+`u` to the state after `u ++ v`, that the initial product state is listed,
+that every listed state is covered, and that all its letter successors are
+listed. A covered state accepts, holds a terminal residual, or has a mature
+ray position, and each of these excludes a hole, so finite closure covers all
+words. A refutation also checks that the system is satisfiable, and an
+`unsat` certificate that it is not. `checkEntailment_sound` and
+`checkRefutation_sound` in [Certificates.lean](DeciNSSE/Certificates.lean)
+prove `Entails` or its negation; the regular-tree statements follow from
+`entailsReg_iff_entails`.
+
+### What is trusted
+
+The Lean kernel checks the proofs. Running the executables also trusts the
+compiled code, including the compiler, the runtime, and JSON parsing and
+serialization. `solve_correct`, `solveWithFuel_correct` and
+`extractReachable_unfold` use only `propext`, `Classical.choice` and
+`Quot.sound` (see [Building and checking](#building-and-checking)).
 
 ## Relation to previous work
 
@@ -472,11 +624,12 @@ Install [elan](https://github.com/leanprover/elan), then run:
 
 ```sh
 lake exe cache get
-lake build DeciNSSE
+lake build
 ```
 
 The package pins Lean and Mathlib to **v4.34.1**. The first command downloads
-compiled Mathlib dependencies; the second checks the whole development.
+compiled Mathlib dependencies; the second checks the whole development and
+builds the executables `nsse` and `nsse-check`.
 
 To inspect the logical dependencies, save the following as `Check.lean` and
 run `lake env lean Check.lean`:
@@ -490,6 +643,8 @@ import DeciNSSE
 #print axioms DeciNSSE.decideEntails_correct
 #print axioms DeciNSSE.decideEntailsReg_correct
 #print axioms DeciNSSE.decideEntailsFin_correct
+#print axioms DeciNSSE.solve_correct
+#print axioms DeciNSSE.RejectedTail.holeLengthBound_le
 ```
 
 These declarations use only the usual `propext`, `Classical.choice` and
@@ -507,12 +662,16 @@ procedures also relies on the compiler.
 | [Satisfiability](DeciNSSE/Satisfiability) | Least shapes, their finite graphs, label clashes and cycle clashes |
 | [Transfer](DeciNSSE/Transfer) | Ranked extensions, cycle preservation and countermodel transfer |
 | [Monitor](DeciNSSE/Monitor) | Exact clash analysis, label readers and semantic bridge |
-| [Holes](DeciNSSE/Holes) | Desubstitution, supports and finite compression |
+| [Holes](DeciNSSE/Holes) | Desubstitution, supports, isolated-letter normal form and finite compression |
 | [RejectedTail](DeciNSSE/RejectedTail) | Tail bounds, return gaps and finite search |
 | [Instances](DeciNSSE/Instances.lean) | Product and arrow variance maps |
 | [Main](DeciNSSE/Main.lean) | The three public decision procedures |
+| [Countermodels](DeciNSSE/Countermodels.lean) | Computable regular and finite countermodels |
+| [Certificates](DeciNSSE/Certificates.lean) | Certificate checkers, their soundness, and `nsse-check` |
+| [Solver](DeciNSSE/Solver.lean) | The verified solver `nsse`, packed checks and reachable countermodels |
 
-Every module is reachable from `import DeciNSSE`.
+Every module is reachable from `import DeciNSSE`. The folder
+[examples](examples) holds the solver examples and `check.sh`.
 
 ## License
 

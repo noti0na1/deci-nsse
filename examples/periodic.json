@@ -1,0 +1,40 @@
+{
+ "comment": "x <= f(p, h), p <= f(p, h), h <= f(b, b), b = bottom, f(y, x) <= y entail x <= y; the proof needs a terminal-comparison certificate",
+ "k": 5,
+ "variance": [
+  0,
+  0
+ ],
+ "lits": [
+  [
+   "le",
+   0,
+   2,
+   3
+  ],
+  [
+   "le",
+   2,
+   2,
+   3
+  ],
+  [
+   "le",
+   3,
+   4,
+   4
+  ],
+  [
+   "bot",
+   4
+  ],
+  [
+   "ge",
+   1,
+   1,
+   0
+  ]
+ ],
+ "x": 0,
+ "y": 1
+}

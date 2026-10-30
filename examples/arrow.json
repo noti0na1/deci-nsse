@@ -1,0 +1,24 @@
+{
+ "comment": "transitivity for the arrow a -> b, written f(a, b) with a contravariant domain",
+ "k": 4,
+ "variance": [
+  1,
+  0
+ ],
+ "lits": [
+  [
+   "le",
+   0,
+   2,
+   3
+  ],
+  [
+   "ge",
+   1,
+   2,
+   3
+  ]
+ ],
+ "x": 0,
+ "y": 1
+}

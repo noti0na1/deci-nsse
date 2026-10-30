@@ -1,0 +1,27 @@
+{
+ "comment": "transitivity for a ternary constructor with variance (contra, co, contra)",
+ "k": 5,
+ "variance": [
+  1,
+  0,
+  1
+ ],
+ "lits": [
+  [
+   "le",
+   0,
+   2,
+   3,
+   4
+  ],
+  [
+   "ge",
+   1,
+   2,
+   3,
+   4
+  ]
+ ],
+ "x": 0,
+ "y": 1
+}

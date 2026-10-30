@@ -4,6 +4,8 @@ import DeciNSSE.Holes.BoundaryPairs
 import DeciNSSE.Holes.NormalForm
 import DeciNSSE.Holes.ElementaryBound
 import DeciNSSE.Main
+import DeciNSSE.Certificates
+import DeciNSSE.Solver
 import DeciNSSE.Countermodels
 import DeciNSSE.Instances
 import DeciNSSE.Semantics.Characterisation
