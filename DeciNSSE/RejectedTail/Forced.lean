@@ -5,7 +5,7 @@ import DeciNSSE.RejectedTail.Periodic
 
 If every rejected state on a cycle has at most one rejected outgoing letter,
 a long rejected path has a forced periodic continuation. Shortening its
-transient part while tracking phase preserves the absence of admissions.
+transient part preserves the absence of admissions.
 -/
 
 set_option autoImplicit false
@@ -252,81 +252,23 @@ theorem compress_periodic_prefix [Fintype Q] (M : DFA α Q) (R : Q → Q → Pro
     exact ⟨u, by simp [u]; omega, he, spliceStream_periodic hp,
       spliceStream_noInfiniteAdmission M R hp hc he hmm⟩
 
-/-- A deterministic finite trajectory has a short first visit. -/
-theorem trajectory_short_visit {S : Type*} [Fintype S] (f : S → S)
-    (q : ℕ → S) (hq : ∀ i, q (i+1) = f (q i)) (t : ℕ) :
-    ∃ i, i < Fintype.card S ∧ q i = q t := by
-  let D : DFA Unit S := ⟨fun s _ => f s, q 0, ∅⟩
-  have he (w : List Unit) : D.eval w = q w.length := by
-    induction w using List.reverseRecOn with
-    | nil => rfl
-    | append_singleton w a ih =>
-      rw [DFA.eval_append_singleton, List.length_append, List.length_singleton, hq]
-      exact congrArg f ih
-  obtain ⟨u,_,hu,heq⟩ := Packets.exists_short_evalFrom D D.start
-    (List.replicate t ())
-  change D.eval u = D.eval (List.replicate t ()) at heq
-  rw [he, he, List.length_replicate] at heq
-  exact ⟨u.length,hu,heq⟩
-
-theorem periodicFrom_mod {W : ℕ → α} {A d : ℕ} (hp : PeriodicFrom W A d)
-    (k : ℕ) : W (A+k) = W (A+k%d) := by
-  have hh := periodicFrom_mul hp (k := A+k%d) (by omega) (k/d)
-  rw [Nat.add_assoc, Nat.mul_comm (k/d) d, Nat.mod_add_div] at hh
-  exact hh
-
-/-- State and spelling phase form a finite deterministic trajectory.
-A state at a prescribed phase is reached in fewer than |Q|*d letters. -/
-theorem periodic_short_visit [Fintype Q] (M : DFA α Q) {W : ℕ → α} {A d : ℕ}
-    (hd : 0 < d) (hp : PeriodicFrom W A d) (t : ℕ) :
-    ∃ i, i < Fintype.card Q*d ∧
-      M.eval (streamPrefix W (A+i)) = M.eval (streamPrefix W (A+t)) ∧ i%d = t%d := by
-  let q : ℕ → Q × Fin d := fun i =>
-    (M.eval (streamPrefix W (A+i)), ⟨i%d, Nat.mod_lt _ hd⟩)
-  let f : Q × Fin d → Q × Fin d := fun s =>
-    (M.step s.1 (W (A+s.2)), ⟨(s.2.val+1)%d, Nat.mod_lt _ hd⟩)
-  have hq : ∀ i, q (i+1) = f (q i) := by
-    intro i
-    apply Prod.ext
-    · change M.eval (streamPrefix W (A+(i+1))) =
-        M.step (M.eval (streamPrefix W (A+i))) (W (A+i%d))
-      rw [show A+(i+1) = A+i+1 by omega, streamPrefix_succ, DFA.eval_append_singleton,
-        periodicFrom_mod hp i]
-    · apply Fin.ext
-      change (i+1)%d = (i%d+1)%d
-      simp [Nat.add_mod]
-  obtain ⟨i,hi,he⟩ := trajectory_short_visit f q hq t
-  refine ⟨i, by simpa using hi, congrArg Prod.fst he, ?_⟩
-  exact congrArg (fun s : Q × Fin d => s.2.val) he
-
-/-- Equal state and phase give identical future state trajectories. -/
-theorem periodic_visit_future (M : DFA α Q) {W : ℕ → α} {A d i t : ℕ}
-    (hp : PeriodicFrom W A d)
-    (he : M.eval (streamPrefix W (A+i)) = M.eval (streamPrefix W (A+t)))
-    (hm : i%d = t%d) (k : ℕ) :
-    M.eval (streamPrefix W (A+i+k)) = M.eval (streamPrefix W (A+t+k)) := by
-  induction k with
-  | zero => simpa using he
-  | succ k ih =>
-    rw [show A+i+(k+1) = (A+i+k)+1 by omega,
-      show A+t+(k+1) = (A+t+k)+1 by omega,
-      streamPrefix_succ, streamPrefix_succ, DFA.eval_append_singleton,
-      DFA.eval_append_singleton, ih]
-    congr 1
-    simp only [Nat.add_assoc]
-    rw [periodicFrom_mod hp (i+k), periodicFrom_mod hp (t+k)]
-    have hm' : (i+k)%d = (t+k)%d := by rw [Nat.add_mod i k d, Nat.add_mod t k d, hm]
-    rw [hm']
+/-- Stream prefixes are ordered by length. -/
+theorem streamPrefix_prefix (W : ℕ → α) {k n : ℕ} (hk : k ≤ n) :
+    streamPrefix W k <+: streamPrefix W n := by
+  rw [← streamPrefix_take W hk]
+  exact List.take_prefix _ _
 
 /-- Any eventually periodic rejected extension without infinite
-admissions can be compressed to a quadratic rejected-tail bound. -/
+admissions can be truncated to a linear rejected-tail bound. Rejection
+between rejected prefixes makes every cut after the first rejection rejected,
+so the truncation needs no wait for the original phase. -/
 theorem periodic_witness_brt [Fintype Q] (M : DFA α Q)
     (R : Q → Q → Prop) (T : Set Q) [h : RejectedPath M R T]
     {W : ℕ → α} {n d : ℕ} (hd : 0 < d) (hdN : d ≤ Fintype.card Q)
     (hp : PeriodicFrom W n d) (hc : NoInfiniteAdmission M R W)
     (ht : ∀ k, n ≤ k → M.eval (streamPrefix W k) ∈ T) :
     ∃ w J, IsReaderHole M R T w ∧ IsFirstRejectedPrefix M T w J ∧
-      w.length-J ≤ (Fintype.card Q)^2 + 2*Fintype.card Q := by
+      w.length-J ≤ 2*Fintype.card Q := by
   obtain ⟨A,hAn,hper,_,hmis⟩ := exists_periodicOnset hp
   obtain ⟨u,hu,hue,hup,huc⟩ := compress_periodic_prefix M R hd hper hc hmis
   let U := spliceStream u W A
@@ -334,28 +276,22 @@ theorem periodic_witness_brt [Fintype Q] (M : DFA α Q)
     rw [Nat.add_assoc, spliceStream_eval M hue]
     apply ht
     omega
-  obtain ⟨i,hi,hie,him⟩ := periodic_short_visit M hd hup (n-A)
-  have hafter (k : ℕ) : M.eval (streamPrefix U (u.length+i+k)) ∈ T := by
-    rw [periodic_visit_future M hup hie him k]
-    exact htar k
-  obtain ⟨J,hJ⟩ := exists_firstRejectedPrefix M T (by simpa using hafter 0)
-  let L := u.length+i+J+d
-  have hL : M.eval (streamPrefix U L) ∈ T := by
-    simpa [L, Nat.add_assoc] using hafter (J+d)
+  obtain ⟨J,hJ⟩ := exists_firstRejectedPrefix M T (by simpa using htar 0)
+  have hj : J ≤ u.length+(n-A) := by simpa using hJ.1
+  let L := u.length+J+d
+  have hJT : M.eval (streamPrefix U J) ∈ T := by
+    simpa only [streamPrefix_take U hj] using hJ.2.1
+  have hL : M.eval (streamPrefix U L) ∈ T :=
+    h.between _ _ _ (streamPrefix_prefix U (by dsimp [L]; omega))
+      (streamPrefix_prefix U (show L ≤ u.length+(n-A)+L by omega)) hJT (htar L)
   have hJL : IsFirstRejectedPrefix M T (streamPrefix U L) J := by
-    have hj : J ≤ u.length+i := by simpa using hJ.1
     refine ⟨by simp [L]; omega, ?_, ?_⟩
-    · rw [streamPrefix_take U (by dsimp [L]; omega)]
-      simpa only [streamPrefix_take U hj] using hJ.2.1
+    · rwa [streamPrefix_take U (by dsimp [L]; omega)]
     · intro j hjJ
       rw [streamPrefix_take U (by dsimp [L]; omega)]
-      simpa only [streamPrefix_take U (show j ≤ u.length+i by omega)] using hJ.2.2 j hjJ
-  obtain ⟨hh,hlen⟩ := periodic_truncation M R T h.cone U hd
-    (fun k hk => hup k (by omega)) huc hL hJL
-  refine ⟨_,J,hh,hJL, ?_⟩
-  rw [hlen]
-  have hm := Nat.mul_le_mul_left (Fintype.card Q) hdN
-  nlinarith
+      simpa only [streamPrefix_take U (show j ≤ u.length+(n-A) by omega)] using hJ.2.2 j hjJ
+  obtain ⟨hh,hlen⟩ := periodic_truncation M R T h.cone U hd hup huc hL hJL
+  exact ⟨_,J,hh,hJL,by omega⟩
 
 /-- Reachable rejected states with a nonempty return. -/
 def RejectedCycle (M : DFA α Q) (T : Set Q) (q : Q) : Prop :=

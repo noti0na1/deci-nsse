@@ -283,10 +283,12 @@ See [Monitor/Reader.lean](DeciNSSE/Monitor/Reader.lean) and
 
 The hole argument applies to any finite alphabet and reader satisfying the
 rejected-path invariant. A hole can be chosen with rejected-tail length at
-most `B = N^2 + 4*N`. A branching rejected cycle allows a final letter that
+most `B = 4*N - 2`. A branching rejected cycle allows a final letter that
 breaks short periods, using Fine–Wilf periodicity. Otherwise the rejected
-continuation is forced and eventually periodic; tracking state and phase
-allows it to be shortened.
+continuation is forced and eventually periodic with some period `p ≤ N`. Its
+transient part can be replaced by a path of at most `N` letters. Rejection
+holds between rejected prefixes, so every cut after the first rejection is
+rejected, and the word can be cut at most `N + p ≤ 2*N` letters after it.
 
 For the depth argument, let `J` be the first rejected cut and let a comparison
 `s < e` join two cuts with equal reader states. Removing the factor between
@@ -337,7 +339,7 @@ rejected-path hypothesis. The backend uses
 `RejectedTail.holeLengthBound N = L(N,holeDepthBound N)` and proves
 
 ```text
-holeLengthBound N ≤ 2^(2^(4096 * (N+1)^7)).
+holeLengthBound N ≤ 2^(2^(1280 * (N+1)^5)).
 ```
 
 This bounds the length of a chosen witness. The empty word and empty alphabet
@@ -380,9 +382,9 @@ a `Decidable` instance alone would not supply an executable algorithm.
 Classical reasoning is used in the proofs of the bounds and correctness.
 
 The label reader has `N = 2 * 4^(2*k)` states. The checked hole-length bound is
-`2^(2^(4096 * (N+1)^7))`, doubly exponential in a polynomial in the state
+`2^(2^(1280 * (N+1)^5))`, doubly exponential in a polynomial in the state
 count. Substituting the reader size gives the explicit path-length
-allowance `2^(2^(4096 * (2 * 4^(2*k) + 1)^7))`. This bounds the unsafe path
+allowance `2^(2^(1280 * (2 * 4^(2*k) + 1)^5))`. This bounds the unsafe path
 used to construct a countermodel, not the number of nodes in an expanded tree.
 
 The exhaustive hole searches enumerate words up to `holeLengthBound N`.

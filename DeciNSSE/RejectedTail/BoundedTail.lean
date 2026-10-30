@@ -1,10 +1,10 @@
 import DeciNSSE.RejectedTail.Forced
 import DeciNSSE.Words
 
-/-! # A quadratic bound on rejected tails
+/-! # A linear bound on rejected tails
 
 For a finite-alphabet reader satisfying the rejected-path invariant, a hole
-can be chosen with rejected tail at most `N^2 + 4*N`. A branching rejected
+can be chosen with rejected tail at most `4*N - 2`. A branching rejected
 cycle breaks periods; otherwise a forced periodic continuation gives the bound.
 -/
 
@@ -18,7 +18,7 @@ theorem branching_boundedRejectedTail [Fintype Q] (M : DFA α Q)
     (R : Q → Q → Prop) (T : Set Q) [h : RejectedPath M R T]
     {q : Q} (hq : RejectedCycle M T q) (hn : ∃ a b, a ≠ b ∧ M.step q a ∈ T ∧ M.step q b ∈ T) :
     ∃ w J, IsReaderHole M R T w ∧ IsFirstRejectedPrefix M T w J ∧
-      w.length-J ≤ 4*Fintype.card Q := by
+      w.length-J ≤ 4*Fintype.card Q - 2 := by
   obtain ⟨⟨v,hv⟩,hqt,⟨c,hc,hret⟩⟩ := hq
   obtain ⟨u,_,hu,hue⟩ := Packets.exists_short_evalFrom M M.start v
   have huq : M.eval u = q := hue.trans hv
@@ -125,12 +125,12 @@ theorem forced_infinite_extension [Fintype Q] (M : DFA α Q)
 theorem forced_boundedRejectedTail [Fintype Q] (M : DFA α Q)
     (R : Q → Q → Prop) (T : Set Q) [h : RejectedPath M R T]
     (hf : ForcedCycles M T) :
-    BoundedRejectedTail M R T ((Fintype.card Q)^2 + 2*Fintype.card Q) := by
+    BoundedRejectedTail M R T (2*Fintype.card Q) := by
   rintro ⟨w,hw⟩
   have hwt := ((Holes.isReaderHole_iff M R T w).mp hw).1
   obtain ⟨J,hJ⟩ := exists_firstRejectedPrefix M T hwt
   by_cases hshort : w.length-J < Fintype.card Q
-  · exact ⟨w,J,hw,hJ,by nlinarith⟩
+  · exact ⟨w,J,hw,hJ,by omega⟩
   · obtain ⟨q,a,b,z,hsplit,_,hb,hqa,hloop,_⟩ := M.evalFrom_split
       (s := M.eval (w.take J)) (x := w.drop J) (by simp; omega) rfl
     let v := w.take J ++ a
@@ -154,20 +154,20 @@ theorem forced_boundedRejectedTail [Fintype Q] (M : DFA α Q)
 /-- The same state-only bound works over every alphabet, including the empty one. -/
 theorem boundedRejectedTail_of_rejectedPath [Fintype Q] (M : DFA α Q)
     (R : Q → Q → Prop) (T : Set Q) [RejectedPath M R T] :
-    BoundedRejectedTail M R T ((Fintype.card Q)^2 + 4*Fintype.card Q) := by
+    BoundedRejectedTail M R T (4*Fintype.card Q - 2) := by
   classical
+  have hQ : 0 < Fintype.card Q := Fintype.card_pos_iff.mpr ⟨M.start⟩
   by_cases hb : ∃ q, RejectedCycle M T q ∧
       ∃ a b, a ≠ b ∧ M.step q a ∈ T ∧ M.step q b ∈ T
   · obtain ⟨q,hq,hn⟩ := hb
     intro _
-    obtain ⟨w,J,hw,hJ,hl⟩ := branching_boundedRejectedTail M R T hq hn
-    exact ⟨w,J,hw,hJ,by nlinarith⟩
+    exact branching_boundedRejectedTail M R T hq hn
   · have hf : ForcedCycles M T := by
       intro q hq a b ha hb'
       by_contra hab
       exact hb ⟨q,hq,a,b,hab,ha,hb'⟩
     intro hh
     obtain ⟨w,J,hw,hJ,hl⟩ := forced_boundedRejectedTail M R T hf hh
-    exact ⟨w,J,hw,hJ,by nlinarith⟩
+    exact ⟨w,J,hw,hJ,by omega⟩
 
 end DeciNSSE.RejectedTail
