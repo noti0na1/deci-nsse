@@ -572,13 +572,30 @@ serialization. `solve_correct`, `solveWithFuel_correct` and
 - Jiang, Cui and Oliveira discuss the open entailment problem in the context
   of type inference in
   [Bidirectional Higher-Rank Polymorphism with Intersection and Union Types, §3.1](https://cuichen.cc/assets/popl25/popl25-extended.pdf).
+- R. Sato's Lean 4 formalization
+  [nsse-lean](https://github.com/ryosu-sato/nsse-lean) (October 2026)
+  independently decides entailment for bottom, top and one constructor of
+  arity `d > 0`, covariant or with arbitrary variance, over arbitrary, regular
+  and finite trees, with nested term premises and queries and computable
+  countermodels. It re-proves the forward Niehren–Priesnitz cap-automaton
+  characterization and decides universality of the resulting restricted cap
+  set expressions; for the covariant case it also proves a counted elementary
+  bound of seven nested exponentials.
+- The [subtype-entailment](https://github.com/mhenglein/subtype-entailment)
+  project of F. Henglein, J. Rehof and M. Henglein (2026) independently
+  decides entailment for bottom and binary product without top, with a
+  Lean-checked decision theorem over arbitrary and finite trees. Its paper,
+  *Subtype entailment for bottom and binary product, with an explicit-top
+  extension*, extends the arbitrary-tree result to an explicit top for the
+  same product; contravariant arguments, and hence arrows, are not covered.
 
 The present proof is self-contained in Lean and Mathlib. It establishes the
 semantic bridge directly through signed constraints, spine clashes and the
 label reader, then proves the combinatorial hole bounds. It uses neither
 direction of the published automata characterization, a binary encoding of
 paths, or the withdrawn argument. The backend bounds are proved theorems,
-not external axioms.
+not external axioms; the hole-length bound is elementary for every variance
+and also covers arity zero.
 
 ## An earlier proof for the binary covariant case
 
