@@ -145,7 +145,9 @@ theorem dictionaryBound_le (N d : ℕ) : dictionaryBound N d ≤ 2 ^ dictionaryE
       dsimp [dictionaryExponent, E]
       omega
 
-private theorem colBound_le_pow (M g : ℕ) :
+/-- The column automaton with `M` cores and `g` tracks has at most two to a polynomial
+number of states. -/
+theorem colBound_le_pow (M g : ℕ) :
     colBound M g ≤ 2 ^ (2 * M * (M + 1) * g + g ^ 2 + (M + 1) ^ 2 * g ^ 2) := by
   unfold colBound
   calc

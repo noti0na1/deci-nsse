@@ -20,7 +20,7 @@ open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy
 open scoped List
 
 section Agree
-variable {Γ C : Type*}
+variable {Γ Γ' Γ'' C : Type*}
 
 /-- Labels whose letter lies in `E` (and the start label `S`). -/
 def LabIn (E : List Γ) : Lab Γ C → Prop
@@ -28,10 +28,10 @@ def LabIn (E : List Γ) : Lab Γ C → Prop
   | some (_, a) => a ∈ E
 
 /-- Agreement on a support. `φ` carries the atomic type of the letters of `E` in `D` to
-that of their images in `D'`: the start core is the same, `φ` is injective on
-`E`, and `κ`, `Tf`, `Λ`, `Λ^f` (the `S`-rows included) are preserved on all labels whose
-letters lie in `E`, for all cores. -/
-structure Agree (D D' : Lettered Γ C) (φ : Γ → Γ) (E : List Γ) : Prop where
+that of their images in `D'`, possibly over another alphabet: the start core is the same,
+`φ` is injective on `E`, and `κ`, `Tf`, `Λ`, `Λ^f` (the `S`-rows included) are preserved on
+all labels whose letters lie in `E`, for all cores. -/
+structure Agree (D : Lettered Γ C) (D' : Lettered Γ' C) (φ : Γ → Γ') (E : List Γ) : Prop where
   start : D'.start = D.start
   inj : ∀ a ∈ E, ∀ b ∈ E, φ a = φ b → a = b
   κ : ∀ a ∈ E, ∀ c, D'.κ (φ a) c = D.κ a c
@@ -39,15 +39,15 @@ structure Agree (D D' : Lettered Γ C) (φ : Γ → Γ) (E : List Γ) : Prop whe
   Λ : ∀ L L', LabIn E L → LabIn E L' → (D'.Λ (mapLab φ id L) (mapLab φ id L') ↔ D.Λ L L')
   Λf : ∀ L L', LabIn E L → LabIn E L' → (D'.Λf (mapLab φ id L) (mapLab φ id L') ↔ D.Λf L L')
 
-@[simp] theorem mapLab_none (φ : Γ → Γ) : mapLab φ (id : C → C) none = none := rfl
+@[simp] theorem mapLab_none (φ : Γ → Γ') : mapLab φ (id : C → C) none = none := rfl
 
-@[simp] theorem mapLab_some (φ : Γ → Γ) (c : C) (a : Γ) :
+@[simp] theorem mapLab_some (φ : Γ → Γ') (c : C) (a : Γ) :
     mapLab φ id (some (c, a)) = some (c, φ a) := rfl
 
 theorem mapLab_id (L : Lab Γ C) : mapLab (id : Γ → Γ) (id : C → C) L = L := by
   rcases L with _ | ⟨c, a⟩ <;> rfl
 
-theorem mapLab_comp (φ ψ : Γ → Γ) (L : Lab Γ C) :
+theorem mapLab_comp (φ : Γ' → Γ'') (ψ : Γ → Γ') (L : Lab Γ C) :
     mapLab (φ ∘ ψ) (id : C → C) L = mapLab φ id (mapLab ψ id L) := by
   rcases L with _ | ⟨c, a⟩ <;> rfl
 
@@ -59,14 +59,15 @@ theorem Agree.refl (D : Lettered Γ C) (E : List Γ) : Agree D D id E where
   Λ L L' _ _ := by rw [mapLab_id, mapLab_id]
   Λf L L' _ _ := by rw [mapLab_id, mapLab_id]
 
-theorem LabIn.map {E : List Γ} (φ : Γ → Γ) {L : Lab Γ C} (h : LabIn E L) :
+theorem LabIn.map {E : List Γ} (φ : Γ → Γ') {L : Lab Γ C} (h : LabIn E L) :
     LabIn (E.map φ) (mapLab φ id L) := by
   rcases L with _ | ⟨c, a⟩
   · trivial
   · exact List.mem_map_of_mem h
 
 /-- Composition of agreements. -/
-theorem Agree.comp {D D' D'' : Lettered Γ C} {ψ φ : Γ → Γ} {E : List Γ}
+theorem Agree.comp {D : Lettered Γ C} {D' : Lettered Γ' C} {D'' : Lettered Γ'' C}
+    {ψ : Γ → Γ'} {φ : Γ' → Γ''} {E : List Γ}
     (h₁ : Agree D D' ψ E) (h₂ : Agree D' D'' φ (E.map ψ)) : Agree D D'' (φ ∘ ψ) E where
   start := h₂.start.trans h₁.start
   inj a ha b hb h := h₁.inj a ha b hb
@@ -80,7 +81,7 @@ theorem Agree.comp {D D' D'' : Lettered Γ C} {ψ φ : Γ → Γ} {E : List Γ}
     rw [mapLab_comp, mapLab_comp]
     exact (h₂.Λf _ _ (hL.map ψ) (hL'.map ψ)).trans (h₁.Λf L L' hL hL')
 
-variable {D D' : Lettered Γ C} {φ : Γ → Γ} {E : List Γ}
+variable {D : Lettered Γ C} {D' : Lettered Γ' C} {φ : Γ → Γ'} {E : List Γ}
 
 theorem Agree.kst_map (h : Agree D D' φ E) :
     ∀ (w : List Γ), (∀ a ∈ w, a ∈ E) → ∀ c, kst D' c (w.map φ) = kst D c w
@@ -205,7 +206,7 @@ theorem Agree.blockΛf_map {X : List Γ} (hX : ∀ a ∈ X, a ∈ E) (c : Option
       ∃ p ≤ X.length, D.Λf (zlab D ℓ c X p) (some (d, ℓ)) := by
   rw [List.length_map]
   refine exists_congr fun p => and_congr_right fun _ => ?_
-  rw [h.zlab_map hℓ hX, show (some (d, φ ℓ) : Lab Γ C) = mapLab φ id (some (d, ℓ)) from rfl]
+  rw [h.zlab_map hℓ hX, show (some (d, φ ℓ) : Lab Γ' C) = mapLab φ id (some (d, ℓ)) from rfl]
   exact h.Λf _ _ (labIn_zlab hℓ D hX c p) hℓ
 
 /-- Agreement passes through `Der(·, ℓ)`. If `φ` agrees on a support `E ∋ ℓ`, then the

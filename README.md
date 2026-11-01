@@ -388,11 +388,35 @@ allowance `2^(2^(1280 * (2 * 4^(2*k) + 1)^5))`. This bounds the unsafe path
 used to construct a countermodel, not the number of nodes in an expanded tree.
 
 The exhaustive hole searches enumerate words up to `holeLengthBound N`.
-The formalization proves the elementary witness bound, the finite-search
-reduction, and correctness of the executable deciders; it does not prove a
-machine-time complexity theorem, PSPACE membership, or optimality. These
-universal searches remain unsuitable for practical type inference; the
+These universal searches remain unsuitable for practical type inference; the
 [Lean solver](#lean-solver) uses them only as a fallback.
+
+[Complexity](DeciNSSE/Complexity.lean) formalizes the combinatorial content of
+the complexity bounds. The complexity classes themselves, space-bounded
+machines and Savitch's theorem, are not formalized.
+
+* **Summary search.** A search over level summaries of the block hierarchy
+  decides holes of bounded depth without storing the word. It is sound and
+  complete (`summarySearch_sound`, `summarySearch_complete`), and for the label
+  readers its configurations number at most
+  `2^((n+1)^2 * 2^(2^(20*k+20)))` (`card_config_label_le`). Since one
+  configuration fits in doubly exponential space, this is the content of the
+  2-EXPSPACE bound. `decideEntailsSummary`, `decideEntailsRegSummary` and
+  `decideEntailsFinSummary` decide entailment through this search.
+* **Arity one.** A reader over a one-letter alphabet with a hole has one of
+  length at most `N - 1` (`Unary.exists_hole_length_le`), and
+  `decideEntailsUnary` and its regular and finite versions search only that far.
+* **Hardness.** For every arity `n ≥ 2` and the covariant constructor,
+  `hardnessSystem n M` has linearly many literals and entails `x ≤ r` exactly
+  when the binary automaton `M` accepts every word, over arbitrary, regular and
+  finite trees (`entails_hardnessSystem_iff` and its two variants). Universality
+  of nondeterministic automata is PSPACE-hard, so entailment is PSPACE-hard for
+  every fixed arity at least two.
+* **Long witnesses.** For every `n ≥ 2` and `k`, the system `expSystem n k` has
+  `9k + 31` variables, a finite solution and no entailment in any domain, and
+  its shortest counterexample word has length exactly `2(k+1)2^k`
+  (`expSystem_shortest`). Every answer of the Lean solver on it is a refutation
+  at least that long (`expSystem_result`).
 
 The theorem covers one constructor with any finite arity and any variance
 map. It does not cover arbitrary signatures with multiple constructors. The
@@ -664,6 +688,11 @@ import DeciNSSE
 #print axioms DeciNSSE.decideEntailsFin_correct
 #print axioms DeciNSSE.solve_correct
 #print axioms DeciNSSE.RejectedTail.holeLengthBound_le
+#print axioms DeciNSSE.decideEntailsSummary_correct
+#print axioms DeciNSSE.Complexity.Summary.card_config_label_le
+#print axioms DeciNSSE.Unary.exists_hole_length_le
+#print axioms DeciNSSE.Complexity.entailsFin_hardnessSystem_iff
+#print axioms DeciNSSE.Complexity.expSystem_shortest
 ```
 
 These declarations use only the usual `propext`, `Classical.choice` and
@@ -688,6 +717,7 @@ procedures also relies on the compiler.
 | [Countermodels](DeciNSSE/Countermodels.lean) | Computable regular and finite countermodels |
 | [Certificates](DeciNSSE/Certificates.lean) | Certificate checkers, their soundness, and `nsse-check` |
 | [Solver](DeciNSSE/Solver.lean) | The verified solver `nsse`, packed checks and reachable countermodels |
+| [Complexity](DeciNSSE/Complexity.lean) | Summary search, arity one, PSPACE-hardness and exponential witnesses |
 
 Every module is reachable from `import DeciNSSE`. The folder
 [examples](examples) holds the solver examples and `check.sh`.
