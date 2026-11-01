@@ -6,14 +6,22 @@ Rejection persists between two rejected prefixes, rather than under arbitrary
 extensions. If the first rejected cut is `J`, every witnessed admitted
 comparison has `s < e ≤ J`, including comparisons ending at `J`. This admission
 cone confines all possible admitted endpoints to the initial segment.
+
+## Main declarations
+
+- `IsFirstRejectedPrefix`: the first rejected cut.
+- `AdmissionCone`, `RejectedPath`: the invariant of the readers that arise
+  from entailment.
+- `BoundedRejectedTail`: some hole has a rejected tail of bounded length.
+
+All modules of `RejectedTail/` use the namespace `DeciNSSE.RejectedTail`.
 -/
 
-set_option autoImplicit false
 namespace DeciNSSE.RejectedTail
 open Holes
 variable {α Q : Type*}
 
-/-- The first target cut, including cut zero. -/
+/-- The first rejected cut (a cut whose state is in the target), including cut zero. -/
 def IsFirstRejectedPrefix (M : DFA α Q) (T : Set Q) (w : List α) (J : ℕ) : Prop :=
   J ≤ w.length ∧ M.eval (w.take J) ∈ T ∧ ∀ i < J, M.eval (w.take i) ∉ T
 
@@ -23,9 +31,12 @@ def AdmissionCone (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) : Prop :=
     ∀ s e, s < e → e ≤ w.length → w.drop e <+: w.drop s →
       R (M.eval (w.take s)) (M.eval (w.take e)) → e ≤ J
 
-/-- Rejection holds between rejected prefixes, and admitted comparisons end at or before the first rejection. -/
+/-- Rejection holds between rejected prefixes, and admitted comparisons end at or before the
+first rejection. -/
 class RejectedPath (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) : Prop where
+  /-- A prefix between two rejected prefixes is rejected. -/
   between : ∀ v u w, v <+: u → u <+: w → M.eval v ∈ T → M.eval w ∈ T → M.eval u ∈ T
+  /-- Admitted comparisons end at or before the first rejected cut. -/
   cone : AdmissionCone M R T
 
 /-- Existential over holes, not a bound for each fixed rejected prefix. -/
@@ -33,6 +44,7 @@ def BoundedRejectedTail (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) (B : �
   (∃ w, IsReaderHole M R T w) →
     ∃ w J, IsReaderHole M R T w ∧ IsFirstRejectedPrefix M T w J ∧ w.length - J ≤ B
 
+/-- A word reaching the target has a first rejected cut. -/
 theorem exists_firstRejectedPrefix (M : DFA α Q) (T : Set Q) {w : List α}
     (hw : M.eval w ∈ T) : ∃ J, IsFirstRejectedPrefix M T w J := by
   classical
@@ -42,7 +54,7 @@ theorem exists_firstRejectedPrefix (M : DFA α Q) (T : Set Q) {w : List α}
   intro i hi ht
   exact Nat.find_min hex hi ⟨by have := (Nat.find_spec hex).1; omega, ht⟩
 
-/-- A comparison identifies letters at distance `e-s`. -/
+/-- A comparison identifies letters at distance `e - s`. -/
 theorem comparison_letters {w : List α} {s e k : ℕ}
     (hse : s < e) (he : e ≤ k) (hk : k < w.length)
     (hp : w.drop e <+: w.drop s) : w[k - (e - s)]? = w[k]? := by

@@ -8,7 +8,7 @@ graph contains cycles. Edges leaving bottom or top labels are ignored.
 
 namespace DeciNSSE
 
-/-- A finite rooted labelled graph presenting a regular tree by unfolding. -/
+/-- A finite rooted labeled graph presenting a regular tree by unfolding. -/
 structure RGraph (n : ℕ) where
   /-- The number of graph states. -/
   size : ℕ

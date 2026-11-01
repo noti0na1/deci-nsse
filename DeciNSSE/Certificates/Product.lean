@@ -8,7 +8,6 @@ conditions for a word not to be a reader hole. Access words describe a finite
 closed set of product states.
 -/
 
-set_option autoImplicit false
 namespace DeciNSSE.Certificates
 open Holes Words
 open scoped List
@@ -193,7 +192,8 @@ theorem tracks_not_hole (T : Set Q) {w : List α} {p : Position α}
   obtain ⟨⟨hv, hr⟩, u, z, j, rfl, hq, hz, hlen⟩ := h
   have hp : z <+: pow p.ray.period (j + 1) := ⟨p.rest, hz⟩
   have hvz : p.ray.period <+: z :=
-    List.prefix_of_prefix_length_le (by simp only [Words.pow_succ]; exact List.prefix_append _ _) hp (hlen hm)
+    List.prefix_of_prefix_length_le (by simp only [Words.pow_succ]; exact List.prefix_append _ _)
+      hp (hlen hm)
   obtain ⟨t, rfl⟩ := hvz
   have ht : t <+: pow p.ray.period j := by
     simpa only [Words.pow_succ, List.prefix_append_right_inj] using hp

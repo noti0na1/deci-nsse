@@ -4,9 +4,18 @@ import DeciNSSE.Holes.Basic
 
 Lettered monitors distinguish current cores and letters. A letter map that
 introduces no new boundary comparison preserves the hole condition.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `IsComp`, `isComp_map_iff`: comparisons, and letter maps that preserve them.
+- `Lab`, `Lettered`, `Lettered.IsHole`: labels, lettered monitors and their
+  holes.
+- `IsLeftMax`, `CoAligned`, `CoAlignedNT`: left-maximal comparisons and
+  co-aligned letters.
+- `identify`, `isComp_identify_iff`: identifying one letter with another.
+
+The declarations are in the namespace `DeciNSSE.CoAlignment`.
+-/
 
 namespace DeciNSSE.CoAlignment
 open DeciNSSE.Holes
@@ -74,8 +83,6 @@ theorem isComp_map_iff (f : α → β) (u : List α)
     exists_collapse f u _ s e rfl hse he' hc hn
   exact hne (hf s' e' hs' he'' hlt hcomp hfe)
 
-variable [DecidableEq α]
-
 end Comparisons
 
 /-- Labels: `none` is the label `S` of cut 0; `some (c, a)` is the letter `a` read from
@@ -112,6 +119,7 @@ def label (v : List Γ) : ℕ → Lab Γ C
   | 0 => none
   | x + 1 => (v[x]?).map fun a => (D.core v x, a)
 
+/-- The label of cut `x + 1` is the letter `v_x` read from the core `c_x`. -/
 theorem label_succ (v : List Γ) {x : ℕ} (hx : x < v.length) :
     D.label v (x + 1) = some (D.core v x, v[x]) := by
   simp [label, List.getElem?_eq_getElem hx]
@@ -122,12 +130,11 @@ def IsHole (v : List Γ) : Prop :=
     (∀ s, s < v.length → ¬ D.Λf (D.label v s) (D.label v v.length)) ∧
     (∀ s e, IsComp v s e → e < v.length → ¬ D.Λ (D.label v s) (D.label v e))
 
+/-- Holes are nonempty. -/
 theorem IsHole.ne_nil {D : Lettered Γ C} {v : List Γ} (h : D.IsHole v) : v ≠ [] := by
   rintro rfl
   obtain ⟨⟨c, a, hl, -⟩, -⟩ := h
   simp [label] at hl
-
-variable [DecidableEq Γ]
 
 end Lettered
 
@@ -152,12 +159,10 @@ def CoAlignedNT (u : List α) (x y : α) : Prop :=
   x ≠ y ∧ ∃ s e, IsLeftMax u s e ∧ e < u.length ∧
     ((u[s - 1]? = some x ∧ u[e - 1]? = some y) ∨ (u[s - 1]? = some y ∧ u[e - 1]? = some x))
 
+/-- Co-alignment is symmetric. -/
 theorem CoAligned.symm {u : List α} {x y : α} (h : CoAligned u x y) : CoAligned u y x := by
   obtain ⟨hxy, s, e, hl, h⟩ := h
   exact ⟨fun h' => hxy h'.symm, s, e, hl, h.symm⟩
-
-theorem coAligned_comm {u : List α} {x y : α} : CoAligned u x y ↔ CoAligned u y x :=
-  ⟨CoAligned.symm, CoAligned.symm⟩
 
 /-- A co-alignment avoiding the final letter must be nonterminal. -/
 theorem coAlignedNT_of_coAligned {u : List α} {x y : α} (h : CoAligned u x y)
@@ -173,12 +178,7 @@ theorem coAlignedNT_of_coAligned {u : List α} {x y : α} (h : CoAligned u x y)
     · exact absurd hb hy
     · exact absurd hb hx
 
-/-- Protecting the final letter excludes terminal co-alignments between unprotected letters. -/
-theorem not_coAligned_of_not_NT {u : List α} {Z : Set α}
-    (hlast : ∀ c, u.getLast? = some c → c ∈ Z) {a b : α} (ha : a ∉ Z) (hb : b ∉ Z)
-    (h : ¬ CoAlignedNT u a b) : ¬ CoAligned u a b := fun hco =>
-  h (coAlignedNT_of_coAligned hco (fun h' => ha (hlast a h')) (fun h' => hb (hlast b h')))
-
+/-- Every cut `s < |u|` forms a terminal comparison with the final cut. -/
 theorem isComp_end (u : List α) {s : ℕ} (hs : s < u.length) : IsComp u s u.length :=
   ⟨hs, le_rfl, by simp⟩
 
@@ -197,8 +197,10 @@ variable [DecidableEq α]
 /-- Replace every occurrence of the first letter by the second. -/
 def identify (a b : α) (z : α) : α := if z = a then b else z
 
+/-- `identify a b` sends `a` to `b`. -/
 @[simp] theorem identify_self_left (a b : α) : identify a b a = b := by simp [identify]
 
+/-- `identify a b` fixes every letter other than `a`. -/
 theorem identify_of_ne {a b z : α} (h : z ≠ a) : identify a b z = z := by
   simp [identify, h]
 
@@ -221,16 +223,13 @@ theorem isComp_identify_iff {u : List α} {x y : α} (h : ¬ CoAligned u x y) (s
   · exact h (h1 ▸ h2 ▸ (coAligned_of_comp hs he hc hne).symm)
   · exact h (h1 ▸ h2 ▸ coAligned_of_comp hs he hc hne)
 
-theorem isComp_identify_of_isComp {u : List α} {x y : α} {s e : ℕ} (h : IsComp u s e) :
-    IsComp (u.map (identify y x)) s e :=
-  h.map _
-
 end
 section
 variable {α Q : Type*} [DecidableEq α]
 /-- Equal transitions at the changed occurrences preserve every prefix state. -/
 theorem runPrefix_identify (M : DFA α Q) (u : List α) (a b : α)
-    (h : ∀ i (hi : i < u.length), u[i] = a → M.step (runPrefix M u i) a = M.step (runPrefix M u i) b) :
+    (h : ∀ i (hi : i < u.length), u[i] = a →
+      M.step (runPrefix M u i) a = M.step (runPrefix M u i) b) :
     ∀ i, runPrefix M (u.map (identify a b)) i = runPrefix M u i := by
   intro i
   induction i with

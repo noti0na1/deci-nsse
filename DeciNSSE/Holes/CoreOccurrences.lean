@@ -4,11 +4,19 @@ import DeciNSSE.Holes.Cores
 
 Replacing or splicing at persistent cores preserves the relevant suffixes
 and identifies equal reader states across a support plateau.
+
+## Main declarations
+
+- `bridge`: the common word between a live core and the start of its
+  expansion.
+- `corePos_iff_bridge`, `rho_eq_bridge`: live cores through bridges.
+- `ordinaryCores`, `rho_at_greatest`: the ordinary core positions of a level,
+  and the chain word at the greatest one.
+
+The declarations are in the namespace `DeciNSSE.CoreOccurrences`.
 -/
 
 section
-
-set_option autoImplicit false
 
 namespace DeciNSSE.CoreOccurrences
 open DeciNSSE.LetteredHierarchy DeciNSSE.Cores
@@ -17,22 +25,7 @@ open scoped List
 universe u v
 
 section Expansion
-variable {α : Type u}
-
-/-- Iterated expansion is a word morphism. -/
-theorem expandTo_append (ℓ : (i : ℕ) → Alph α i) :
-    ∀ h (a b : List (Alph α h)),
-      expandTo ℓ h (a ++ b) = expandTo ℓ h a ++ expandTo ℓ h b
-  | 0, _, _ => rfl
-  | h + 1, a, b => by
-      simp only [expandTo, expand_append, expandTo_append ℓ h]
-
-@[simp] theorem expandTo_nil (ℓ : (i : ℕ) → Alph α i) :
-    ∀ h, expandTo ℓ h [] = []
-  | 0 => rfl
-  | h + 1 => by simpa [expandTo] using expandTo_nil ℓ h
-
-variable [DecidableEq α] [Inhabited α]
+variable {α : Type u} [DecidableEq α] [Inhabited α]
 
 /-- The common word between a live level-`h` core and its expansion start.
 This is a word, not a hypothesis predicate. Above the live hierarchy it can be
@@ -161,7 +154,8 @@ theorem corePos_iff_bridge {w : List α} (hw : w ≠ []) :
           (expandTo_prefix_iff (markOf w) h _ _
             (admissible_of_subset _ _ _ _ (by simpa using markOf_mem hw h)
               (admissible_hierOf hw h))
-            (admissible_of_subset _ _ _ _ (List.drop_subset _ _) (admissible_hierOf hw h))).mp hpref'
+            (admissible_of_subset _ _ _ _ (List.drop_subset _ _)
+              (admissible_hierOf hw h))).mp hpref'
         have hm : (hierOf w h)[x]? = some (markOf w h) := by
           simpa only [List.singleton_prefix_iff_head?_eq_some, List.head?_drop] using hdecode
         have hxn : x + 1 < (hierOf w h).length := by
@@ -228,8 +222,6 @@ end
 
 section
 
-set_option autoImplicit false
-
 namespace DeciNSSE.CoreOccurrences
 open DeciNSSE.Cores DeciNSSE.LetteredHierarchy
 open scoped List
@@ -246,8 +238,6 @@ end DeciNSSE.CoreOccurrences
 end
 
 section
-
-set_option autoImplicit false
 
 namespace DeciNSSE.CoreOccurrences
 open DeciNSSE.Cores DeciNSSE.LetteredHierarchy

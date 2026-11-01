@@ -5,9 +5,17 @@ import DeciNSSE.Holes.BoundaryPairs
 
 Merging equal-type isolated letters decreases the sum of dictionary sizes.
 Choosing the shorter expansion as representative also preserves the length bound.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `alphCard`, `NormalAt`, `Normal`: dictionary sizes and normal forms.
+- `exists_normal_form`: every hole has a normal form of the same depth and no
+  greater length.
+- `normalTypeBound`, `normalAllowance`, `normalAt_alphCard_le`: the dictionary
+  bound at a normal level.
+
+The declarations are in the namespace `DeciNSSE.NormalForm`.
+-/
 
 namespace DeciNSSE.NormalForm
 open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy DeciNSSE.BoundedDepth
@@ -147,7 +155,6 @@ theorem exists_normal_form {D0 : Lettered α Q} {w : List α} (hw : D0.IsHole w)
       rcases le_total (letterWeight v i y) (letterWeight v i x) with hlen | hlen
       · exact step x y hx hy hxy ht hlen
       · exact step y x hy hx hxy.symm ht.symm hlen
-
 
 /-- The closed exchange-type allowance at depth at most `d`. -/
 def normalTypeBound (N d : ℕ) : ℕ := typeBound N (N + d) (d + 1)

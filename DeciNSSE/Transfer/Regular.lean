@@ -18,7 +18,7 @@ variable {n k : ℕ}
 
 namespace RegularTransfer
 
-open Spine.Closure Events FiniteVariance
+open Spine.Closure Events SignSelection
 
 /-- The witness graphs of the four-spine extension: its selected least shape,
 presented by a finite graph and read at the old variables. -/

@@ -1,5 +1,5 @@
 import DeciNSSE.Complexity.SummaryGraph
-import DeciNSSE.Holes.LevelMaps
+import DeciNSSE.Holes.Depth
 
 /-! # Soundness of the summary search
 
@@ -28,8 +28,6 @@ unary word at level `j`, so its depth is at most `j ≤ d`.
   has a hole of depth at most `d`.
 -/
 
-set_option autoImplicit false
-
 namespace DeciNSSE.Complexity.Summary
 open CoAlignment LetteredHierarchy BoundedDepth Packets
 
@@ -48,21 +46,22 @@ def Realized (j : ℕ) {h₀ : ℕ} (T : Table (Fin h₀) (Cores Q j)) : Prop :=
 /-- A derivation in progress holds the summary of a valid column word over the letters
 without the marker, and the tracks the word has started. -/
 def ColumnsRead {C : Type u} {h₀ g : ℕ} (T : Table (Fin h₀) C) :
-    Option (Deriv C h₀ g) → Prop
+    Option (Derivation C h₀ g) → Prop
   | none => True
   | some ⟨ℓ, h, s, st⟩ => ∃ w : List (Fin h → Option (Fin h₀)), Valid w ∧
-      (∀ col ∈ w, ∀ a, col a ≠ some ℓ) ∧ w.foldl (Summ.step T ℓ) (Summ.start T ℓ h) = s ∧
-      st = started w
+      (∀ col ∈ w, ∀ a, col a ≠ some ℓ) ∧
+      w.foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ h) = s ∧ st = started w
 
 /-- Finishing a derivation keeps the table realized: the derived table on pairwise distinct
 blocks that avoid the marker is realized at the next level. -/
 theorem realized_derive {j h₀ h : ℕ} {T : Table (Fin h₀) (Cores Q j)} (hT : Realized T₀ j T)
-    {ℓ : Fin h₀} {s : Summ (Cores Q j) h} {w : List (Fin h → Option (Fin h₀))} (hw : Valid w)
-    (hav : ∀ col ∈ w, ∀ a, col a ≠ some ℓ) (hs : w.foldl (Summ.step T ℓ) (Summ.start T ℓ h) = s)
-    (hd : ∀ a b, s.2.2.1 a b = true → a = b) : Realized T₀ (j + 1) (derTable T ℓ s) := by
+    {ℓ : Fin h₀} {s : ColumnSummary (Cores Q j) h} {w : List (Fin h → Option (Fin h₀))}
+    (hw : Valid w) (hav : ∀ col ∈ w, ∀ a, col a ≠ some ℓ)
+    (hs : w.foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ h) = s)
+    (hd : ∀ a b, s.equalTracks a b = true → a = b) : Realized T₀ (j + 1) (derivedTable T ℓ s) := by
   obtain ⟨ℓ₀, ρ, hA, hadm⟩ := hT
   have hsum : s.toProp = summ T.toLettered ℓ h (dec w) := by
-    rw [← hs, Summ.toProp_eval, colEval _ _ _ _ hw]
+    rw [← hs, ColumnSummary.toProp_eval, colEval _ _ _ _ hw]
   have hA₂ := hA.derive (List.mem_finRange ℓ) ((List.finRange h).map (dec w))
     (fun _ _ a _ => List.mem_finRange a)
   set ℓ' : (i : ℕ) → Alph (Fin n) i := Function.update ℓ₀ j (ρ ℓ)
@@ -74,7 +73,7 @@ theorem realized_derive {j h₀ h : ℕ} {T : Table (Fin h₀) (Cores Q j)} (hT 
   have hne : List.ofFn ρ ≠ [] := List.ne_nil_of_mem (List.mem_ofFn.mpr ⟨ℓ, rfl⟩)
   refine ⟨ℓ', fun a => (dec w a).map ρ, ?_, ?_, ?_⟩
   · rw [htw]
-    exact (derTable_agree T ℓ hsum hd).comp hA₂
+    exact (derivedTable_agree T ℓ hsum hd).comp hA₂
   · intro X hX hmem
     obtain ⟨a, rfl⟩ := List.mem_ofFn.mp hX
     rw [hℓ'j] at hmem
@@ -110,7 +109,8 @@ theorem exists_hole_of_realized {j h₀ : ℕ} {T : Table (Fin h₀) (Cores Q j)
     admissible_of_subset ℓ j _ _ hadm (List.ne_nil_of_mem (List.mem_ofFn.mpr ⟨z, rfl⟩))
       fun a ha => by rw [List.eq_of_mem_replicate ha]; exact List.mem_ofFn.mpr ⟨z, rfl⟩
   refine ⟨expandTo ℓ j (List.replicate m (ρ z)),
-    (isHole_tower_iff T₀.toLettered ℓ j _ hadm' hne).mp hv, LevelMaps.depth_le_of_isUnary ?_⟩
+    (isHole_tower_iff T₀.toLettered ℓ j _ hadm' hne).mp hv,
+    HierarchyDepth.depth_le_of_isUnary ?_⟩
   rw [(hierOf_expandTo ℓ j _ hadm' hne).1]
   intro a ha b hb
   rw [List.eq_of_mem_replicate ha, List.eq_of_mem_replicate hb]
@@ -124,11 +124,11 @@ variable {Q : Type u} [Fintype Q] [DecidableEq Q] {n d g : ℕ} [NeZero n]
 correctly. -/
 theorem realized_of_reachable {T₀ : Table (Fin n) Q} {c : Config Q n d g}
     (hc : Relation.ReflTransGen (fun a b => b ∈ Config.next a) (Config.init T₀) c) :
-    Realized T₀ c.1 c.2.2.1 ∧ ColumnsRead c.2.2.1 c.2.2.2 := by
+    Realized T₀ c.level c.table ∧ ColumnsRead c.table c.derivation := by
   induction hc with
   | refl => exact ⟨realized_init T₀, trivial⟩
   | tail _ hstep ih =>
-    rcases mem_next_iff.mp hstep with ⟨ℓ, h, -⟩ | ⟨col, hcol⟩ | ⟨-, hd⟩
+    rcases Config.mem_next_iff.mp hstep with ⟨ℓ, h, -⟩ | ⟨col, hcol⟩ | ⟨-, hd⟩
     · exact ⟨ih.1, [], fun _ => ⟨0, [], rfl⟩, by simp, rfl, rfl⟩
     · obtain ⟨hR, w, hw, hav, hs, hst⟩ := ih
       refine ⟨hR, w ++ [col], (valid_snoc_iff hw col).mpr fun a ha => (hcol a).2 (hst ▸ ha),
@@ -147,7 +147,7 @@ depth at most `d`. -/
 theorem summarySearch_sound {T₀ : Table (Fin n) Q} (h : summarySearch T₀ d g = true) :
     ∃ w, T₀.toLettered.IsHole w ∧ HierarchyDepth.depth w ≤ d := by
   obtain ⟨⟨j, h₀, T, o⟩, hc, hacc⟩ := (summarySearch_iff_reachable T₀ d g).mp h
-  obtain ⟨z, m, -, -, hm⟩ := accepting_iff.mp hacc
+  obtain ⟨z, m, -, -, hm⟩ := Config.accepting_iff.mp hacc
   obtain ⟨w, hw, hwd⟩ := exists_hole_of_realized T₀ (realized_of_reachable hc).1 hm
   exact ⟨w, hw, hwd.trans (Nat.lt_succ_iff.mp j.2)⟩
 
@@ -157,7 +157,7 @@ example : summarySearch
     (⟨0, fun _ c => c, fun _ _ => false, fun _ _ => false, fun _ _ => true⟩ :
       Table (Fin 1) (Fin 1)) 0 0 = true :=
   (summarySearch_iff_reachable _ 0 0).mpr ⟨Config.init _, .refl,
-    accepting_iff.mpr ⟨0, 1, le_rfl, by simp, (Table.holeB_iff _ _).mp (by decide)⟩⟩
+    Config.accepting_iff.mpr ⟨0, 1, le_rfl, by simp, (Table.holeB_iff _ _).mp (by decide)⟩⟩
 
 end Sound
 

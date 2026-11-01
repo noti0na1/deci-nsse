@@ -2,27 +2,30 @@ import DeciNSSE.Constraints.Basic
 
 /-! # Semantic unsafety
 
-An unsafe word is a finite top- or bottom-prefix witness in a satisfying
-valuation. Entailment holds exactly when neither side has such a witness.
+An order failure of `x ≤ y` in a valuation is witnessed by a finite word on one of two
+sides: on the top-prefix side `x` reaches top along the word and `y` does not; on the
+bottom-prefix side `y` reaches bottom and `x` does not. An unsafe word is such a witness
+in a satisfying valuation. Entailment holds exactly when neither side has an unsafe word.
+Every decision procedure reduces to the search for unsafe words on the two sides.
+
+## Main declarations
+
+- `Side`: the top-prefix side `Side.l` and the bottom-prefix side `Side.r`.
+- `Unsafe`: unsafety of a word on a side.
+- `entails_iff_not_sideUnsafe`: entailment is the absence of unsafe words.
 -/
 
-section
-
 namespace DeciNSSE
 
-/-- The top-prefix and bottom-prefix sides of an order failure. -/
-inductive Side | l | r
+variable {n k : ℕ}
+
+/-- The top-prefix and bottom-prefix sides of an order failure of `x ≤ y`. -/
+inductive Side
+  /-- The top-prefix side: along the word, `x` reaches top and `y` does not. -/
+  | l
+  /-- The bottom-prefix side: along the word, `y` reaches bottom and `x` does not. -/
+  | r
   deriving DecidableEq, Repr
-
-end DeciNSSE
-
-end
-
-section
-
-namespace DeciNSSE
-
-variable {n m k : ℕ}
 
 /-- Unsafety of a word on a side, for solutions of variance `c` and the query `x ≤ y`. -/
 def Unsafe (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
@@ -45,5 +48,3 @@ theorem entails_iff_not_sideUnsafe (c : Fin n → Bool) (ϕ : Constraint n k) (x
     · by_contra hn; exact h .r w ⟨ρ, hs, hb, hn⟩
 
 end DeciNSSE
-
-end

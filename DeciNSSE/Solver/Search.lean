@@ -10,12 +10,16 @@ namespace DeciNSSE.Solver.Search
 open Certificates
 variable {n k : ℕ}
 
+/-- Words over the letters `Fin n`. -/
 abbrev Word (n : ℕ) := List (Fin n)
-abbrev Q (k : ℕ) := State (2 * k)
+/-- Packed reader states over the `2 * k` signed variables. -/
+abbrev Q (k : ℕ) := PackedState (2 * k)
 
 /-- A candidate has no proof until it passes a checker. -/
 inductive Candidate (n : ℕ) where
+  /-- A candidate refutation. -/
   | refutation (certificate : Refutation n)
+  /-- A candidate entailment certificate. -/
   | entailment (certificate : Entailment n)
 
 private instance {α β : Type} [Ord α] [Ord β] : Ord (α × β) where
@@ -27,11 +31,11 @@ private def canonical {α : Type} [BEq α] [DecidableEq α] [Ord α] (xs : List 
   (xs.mergeSort (fun x y => compare x y != .gt)).dedup
 
 /-- All prefix reader states, including the initial state. -/
-def trace (r : Reader n (2 * k)) (w : Word n) : Array (Q k) :=
+def trace (r : PackedReader n (2 * k)) (w : Word n) : Array (Q k) :=
   w.foldl (fun qs a => qs.push (r.step (qs.back!) a)) #[r.start]
 
 /-- All admitted suffix comparisons of a word. -/
-def comparisons (r : Reader n (2 * k)) (w : Word n) : List (ℕ × ℕ) := Id.run do
+def comparisons (r : PackedReader n (2 * k)) (w : Word n) : List (ℕ × ℕ) := Id.run do
   let qs := trace r w
   let mut out := []
   for e in [:w.length + 1] do
@@ -40,7 +44,7 @@ def comparisons (r : Reader n (2 * k)) (w : Word n) : List (ℕ × ℕ) := Id.ru
         out := (s, e) :: out
   return out
 
-private def hole (r : Reader n (2 * k)) (w : Word n) : Bool :=
+private def hole (r : PackedReader n (2 * k)) (w : Word n) : Bool :=
   !(r.accept (trace r w).back!) && (comparisons r w).isEmpty
 
 /-- A ray stores its source state and the access word used in the certificate. -/
@@ -62,13 +66,13 @@ private def starts (rs : Array (SearchRay n k)) (q : Q k) : List (ℕ × ℕ × 
   (List.range rs.size).filterMap fun j =>
     if rs[j]!.source == q then some (j, 0, false) else none
 
-private def initial (r : Reader n (2 * k)) (rs : Array (SearchRay n k)) : Product n k :=
+private def initial (r : PackedReader n (2 * k)) (rs : Array (SearchRay n k)) : Product n k :=
   ⟨r.start, [], [], starts rs r.start⟩
 
-private def covered (r : Reader n (2 * k)) (s : Product n k) : Bool :=
+private def covered (r : PackedReader n (2 * k)) (s : Product n k) : Bool :=
   r.accept s.reader || !s.residuals.isEmpty || s.active.any (·.2.2)
 
-private def step (r : Reader n (2 * k)) (b : ℕ) (rs : Array (SearchRay n k))
+private def step (r : PackedReader n (2 * k)) (b : ℕ) (rs : Array (SearchRay n k))
     (s : Product n k) (a : Fin n) : Product n k := Id.run do
   let q := r.step s.reader a
   let roots := canonical ((s.reader, [a].take b) ::
@@ -93,11 +97,11 @@ structure Prover (n k : ℕ) where
   seen : Std.HashSet (Product n k)
   cursor : ℕ := 0
 
-private def newProver (r : Reader n (2 * k)) (rs : Array (SearchRay n k)) : Prover n k :=
+private def newProver (r : PackedReader n (2 * k)) (rs : Array (SearchRay n k)) : Prover n k :=
   let s := initial r rs
   ⟨rs, #[(s, [])], .emptyWithCapacity |>.insert s, 0⟩
 
-private def proverTurn (r : Reader n (2 * k)) (window : ℕ) (p : Prover n k) :
+private def proverTurn (r : PackedReader n (2 * k)) (window : ℕ) (p : Prover n k) :
     Prover n k × Option (Sum (Word n) (Cover (Fin n))) := Id.run do
   if p.cursor ≥ p.queue.size then
     return (p, some (.inr ⟨window, p.rays.toList.map (·.certificate),
@@ -127,13 +131,14 @@ structure Node (n k : ℕ) where
   run : Array (Q k)
   periods : Nat
 
+/-- The iterative-deepening refuter: the current depth and the depth-first stack. -/
 structure Refuter (n k : ℕ) where
   depth : ℕ := 0
   stack : List (Node n k)
 
-private def root (r : Reader n (2 * k)) : Node n k := ⟨#[], #[r.start], 0⟩
+private def root (r : PackedReader n (2 * k)) : Node n k := ⟨#[], #[r.start], 0⟩
 
-private def refuterTurn (r : Reader n (2 * k)) (d : Refuter n k) :
+private def refuterTurn (r : PackedReader n (2 * k)) (d : Refuter n k) :
     Refuter n k × Option (Word n) := Id.run do
   match d.stack with
   | [] => return (⟨d.depth + 1, [root r]⟩, none)
@@ -153,12 +158,13 @@ private def refuterTurn (r : Reader n (2 * k)) (d : Refuter n k) :
         d := {d with stack := ⟨s.word.push a, s.run.push q, periods⟩ :: d.stack}
     return (d, none)
 
+/-- The breadth-first scout over reader states, with an access word for each state. -/
 structure Scout (n k : ℕ) where
   queue : Array (Q k × Word n)
   seen : Std.HashSet (Q k)
   cursor : ℕ := 0
 
-private def scoutTurn (r : Reader n (2 * k)) (s : Scout n k) :
+private def scoutTurn (r : PackedReader n (2 * k)) (s : Scout n k) :
     Scout n k × Option (Word n) := Id.run do
   if s.cursor ≥ s.queue.size then return (s, none)
   let (q, w) := s.queue[s.cursor]!
@@ -170,14 +176,15 @@ private def scoutTurn (r : Reader n (2 * k)) (s : Scout n k) :
       s := {s with queue := s.queue.push (t, w ++ [a]), seen := s.seen.insert t}
   return (s, none)
 
+/-- The three searches of one side, and the cover found by the prover, if any. -/
 structure SideSearch (n k : ℕ) where
-  reader : Reader n (2 * k)
+  reader : PackedReader n (2 * k)
   prover : Prover n k
   refuter : Refuter n k
   scout : Scout n k
   cover : Option (Cover (Fin n)) := none
 
-private def newSide (r : Reader n (2 * k)) : SideSearch n k :=
+private def newSide (r : PackedReader n (2 * k)) : SideSearch n k :=
   ⟨r, newProver r #[], ⟨0, [root r]⟩,
     ⟨#[(r.start, [])], .emptyWithCapacity |>.insert r.start, 0⟩, none⟩
 
@@ -213,10 +220,7 @@ private def interleave (window : ℕ) : ℕ → ℕ → SideSearch n k → SideS
 /-- Fairly interleave the three searches on each side. -/
 def search (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (fuel : ℕ) (window : ℕ := 0) : Option (Candidate n) :=
-  let l := newSide (reader (Events.sideSystem c ϕ .l)
-    (Events.sideQuery x y .l).1 (Events.sideQuery x y .l).2)
-  let r := newSide (reader (Events.sideSystem c ϕ .r)
-    (Events.sideQuery x y .r).1 (Events.sideQuery x y .r).2)
-  interleave window fuel 0 l r
+  interleave window fuel 0 (newSide (packedSideReader c ϕ x y .l))
+    (newSide (packedSideReader c ϕ x y .r))
 
 end DeciNSSE.Solver.Search

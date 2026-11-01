@@ -12,70 +12,69 @@ trees, so neither answer is vacuous. For contravariant `f` the first system
 still entails `x ≤ y`, while `x ≤ f(y), y ≤ f(x)` does not.
 
 The label readers have `2 * 4^4 = 512` states. In the covariant positive case
-neither side reaches its target, so both scans read all 512 states.
+neither side reaches its target, so both scans read all 512 states. The checks
+are `example`s, so they run on every build and export no declarations.
 -/
 
-set_option autoImplicit false
-
-namespace DeciNSSE.Unary
+namespace DeciNSSE.Complexity.Unary
 
 /-- `x ≤ f(x)` and `f(y) ≤ y`: a lower spine and an upper spine. -/
-def lowerUpper : Constraint 1 2 := [.leF 0 ![0], .fLe ![1] 1]
+private def lowerUpper : Constraint 1 2 := [.leF 0 ![0], .fLe ![1] 1]
 
 /-- `x ≤ f(x)` and `y ≤ f(y)`: two lower spines. -/
-def lowerLower : Constraint 1 2 := [.leF 0 ![0], .leF 1 ![1]]
+private def lowerLower : Constraint 1 2 := [.leF 0 ![0], .leF 1 ![1]]
 
 /-- `x ≤ f(y)` and `y ≤ f(x)`. -/
-def crossed : Constraint 1 2 := [.leF 0 ![1], .leF 1 ![0]]
+private def crossed : Constraint 1 2 := [.leF 0 ![1], .leF 1 ![0]]
 
 /-- The covariant variance at arity one. -/
-def covariant : Fin 1 → Bool := fun _ => false
+private def covariant : Fin 1 → Bool := fun _ => false
 
 /-- The contravariant variance at arity one. -/
-def contravariant : Fin 1 → Bool := fun _ => true
+private def contravariant : Fin 1 → Bool := fun _ => true
 
 /-- The first system has a finite solution. -/
-theorem lowerUpper_satisfiableFin : SatisfiableFin covariant lowerUpper :=
+example : SatisfiableFin covariant lowerUpper :=
   (satFinB_iff _ _).mp (by decide +kernel)
 
 /-- The second system has a finite solution. -/
-theorem lowerLower_satisfiableFin : SatisfiableFin covariant lowerLower :=
+example : SatisfiableFin covariant lowerLower :=
   (satFinB_iff _ _).mp (by decide +kernel)
 
 /-- A lower spine lies below an upper spine, over arbitrary trees. -/
-theorem lowerUpper_entails : Entails covariant lowerUpper 0 1 :=
+example : Entails covariant lowerUpper 0 1 :=
   (decideEntailsUnary_correct _ _ _ _).mp (by decide +kernel)
 
 /-- A lower spine lies below an upper spine, over regular trees. -/
-theorem lowerUpper_entailsReg : EntailsReg covariant lowerUpper 0 1 :=
+example : EntailsReg covariant lowerUpper 0 1 :=
   (decideEntailsRegUnary_correct _ _ _ _).mp (by decide +kernel)
 
 /-- A lower spine lies below an upper spine, over finite trees. -/
-theorem lowerUpper_entailsFin : EntailsFin covariant lowerUpper 0 1 :=
+example : EntailsFin covariant lowerUpper 0 1 :=
   (decideEntailsFinUnary_correct _ _ _ _).mp (by decide +kernel)
 
 /-- Two lower spines need not be ordered, over arbitrary trees. -/
-theorem lowerLower_not_entails : ¬ Entails covariant lowerLower 0 1 :=
+example : ¬ Entails covariant lowerLower 0 1 :=
   fun h => absurd ((decideEntailsUnary_correct _ _ _ _).mpr h) (by decide +kernel)
 
 /-- Two lower spines need not be ordered, over regular trees. -/
-theorem lowerLower_not_entailsReg : ¬ EntailsReg covariant lowerLower 0 1 :=
+example : ¬ EntailsReg covariant lowerLower 0 1 :=
   fun h => absurd ((decideEntailsRegUnary_correct _ _ _ _).mpr h) (by decide +kernel)
 
 /-- Two lower spines need not be ordered, over finite trees. -/
-theorem lowerLower_not_entailsFin : ¬ EntailsFin covariant lowerLower 0 1 :=
+example : ¬ EntailsFin covariant lowerLower 0 1 :=
   fun h => absurd ((decideEntailsFinUnary_correct _ _ _ _).mpr h) (by decide +kernel)
 
 /-- The first system has a finite solution for contravariant `f`. -/
-theorem lowerUpper_satisfiableFin_contravariant : SatisfiableFin contravariant lowerUpper :=
+example : SatisfiableFin contravariant lowerUpper :=
   (satFinB_iff _ _).mp (by decide +kernel)
 
 /-- The first system also entails `x ≤ y` for contravariant `f`. -/
-theorem lowerUpper_entails_contravariant : Entails contravariant lowerUpper 0 1 :=
+example : Entails contravariant lowerUpper 0 1 :=
   (decideEntailsUnary_correct _ _ _ _).mp (by decide +kernel)
 
 /-- For contravariant `f`, `x ≤ f(y), y ≤ f(x)` does not entail `x ≤ y`. -/
-theorem crossed_not_entails_contravariant : ¬ Entails contravariant crossed 0 1 :=
+example : ¬ Entails contravariant crossed 0 1 :=
   fun h => absurd ((decideEntailsUnary_correct _ _ _ _).mpr h) (by decide +kernel)
 
-end DeciNSSE.Unary
+end DeciNSSE.Complexity.Unary

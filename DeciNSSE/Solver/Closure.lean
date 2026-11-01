@@ -138,7 +138,8 @@ def cacheLiteral : Lit n k → Lit n k
   | cons l ls ih => simp only [List.map_cons, cacheLiteral_eq, ih]
 
 /-- Compute the same closure with packed rows. -/
-def derivedRows (ϕ : Constraint n k) : Rows k := closeRows (ϕ.map cacheLiteral) (table fun _ => BitVec.zero k)
+def derivedRows (ϕ : Constraint n k) : Rows k :=
+  closeRows (ϕ.map cacheLiteral) (table fun _ => BitVec.zero k)
 
 theorem derivedRows_spec (ϕ : Constraint n k) : relation (derivedRows ϕ) = derivedPairs ϕ := by
   rw [derivedRows, closeRows_spec]

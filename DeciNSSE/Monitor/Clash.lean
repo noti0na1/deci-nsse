@@ -13,7 +13,7 @@ it never clashes.
 
 namespace DeciNSSE.Spine.Closure
 
-open FiniteVariance Events
+open SignSelection Events
 
 variable {n k : ℕ}
 

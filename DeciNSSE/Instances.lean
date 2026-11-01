@@ -1,4 +1,4 @@
-import DeciNSSE.Semantics.Normalisation
+import DeciNSSE.Semantics.Normalization
 
 /-! # Product and arrow variance
 

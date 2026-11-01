@@ -1,5 +1,6 @@
 import DeciNSSE.Complexity.SummaryGraph
 import DeciNSSE.Holes.ElementaryBound
+import DeciNSSE.Words
 
 /-! # Completeness of the summary search
 
@@ -23,23 +24,12 @@ the configuration accepts.
   succeed when `g` is at least the dictionary bound.
 -/
 
-set_option autoImplicit false
-
 namespace DeciNSSE.Complexity.Summary
 open CoAlignment LetteredHierarchy BoundedDepth Packets HierarchyDepth NormalForm
-  ElementaryBound
+  ElementaryBound Words
 open scoped List
 
 universe u
-
-/-- A word whose letters have preimages in `S` is the image of a word over `S`. -/
-theorem exists_map_eq {β γ : Type*} {f : β → γ} {S : List β} :
-    ∀ {u : List γ}, (∀ y ∈ u, ∃ b ∈ S, f b = y) → ∃ x : List β, x.map f = u ∧ ∀ b ∈ x, b ∈ S
-  | [], _ => ⟨[], rfl, by simp⟩
-  | y :: u, h => by
-    obtain ⟨b, hb, rfl⟩ := h y List.mem_cons_self
-    obtain ⟨x, hx, hxS⟩ := exists_map_eq fun z hz => h z (List.mem_cons_of_mem _ hz)
-    exact ⟨b :: x, by rw [List.map_cons, hx], by simpa [hb] using hxS⟩
 
 section Columns
 variable {Q : Type u} [Fintype Q] [DecidableEq Q] {n d g : ℕ} {j : Fin (d + 1)}
@@ -50,21 +40,22 @@ configuration stores the summary of the columns read and the tracks that have st
 theorem reaches_columns (p : List (Fin h → Option (Fin h₀))) :
     ∀ w : List (Fin h → Option (Fin h₀)), Valid (p ++ w) → (∀ col ∈ w, ∀ a, col a ≠ some ℓ) →
       Relation.ReflTransGen (fun a b => b ∈ Config.next a)
-        (⟨j, h₀, T, some ⟨ℓ, h, p.foldl (Summ.step T ℓ) (Summ.start T ℓ h), started p⟩⟩ :
-          Config Q n d g)
-        ⟨j, h₀, T, some ⟨ℓ, h, (p ++ w).foldl (Summ.step T ℓ) (Summ.start T ℓ h),
-          started (p ++ w)⟩⟩
+        (⟨j, h₀, T, some ⟨ℓ, h, p.foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ h),
+          started p⟩⟩ : Config Q n d g)
+        ⟨j, h₀, T, some ⟨ℓ, h,
+          (p ++ w).foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ h), started (p ++ w)⟩⟩
   | [], _, _ => by rw [List.append_nil]
   | col :: w, hw, hℓ => by
     rw [List.append_cons] at hw ⊢
     have hv : Valid (p ++ [col]) := hw.sublist (List.sublist_append_left _ _)
-    have hc : ColOK ℓ (started p) col := fun a =>
+    have hc : ColumnAllowed ℓ (started p) col := fun a =>
       ⟨hℓ col List.mem_cons_self a,
         (valid_snoc_iff (hv.sublist (List.sublist_append_left _ _)) col).mp hv a⟩
-    have h1 := mem_next_iff.mpr (Step.column (j := j) (h₀ := h₀) (T := T) (ℓ := ℓ) (h := h)
-      (s := p.foldl (Summ.step T ℓ) (Summ.start T ℓ h)) col hc)
-    rw [show Summ.step T ℓ (p.foldl (Summ.step T ℓ) (Summ.start T ℓ h)) col =
-        (p ++ [col]).foldl (Summ.step T ℓ) (Summ.start T ℓ h) by simp,
+    have h1 := Config.mem_next_iff.mpr (Config.Step.column (j := j) (h₀ := h₀) (T := T)
+      (ℓ := ℓ) (h := h) (s := p.foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ h)) col hc)
+    rw [show ColumnSummary.step T ℓ
+          (p.foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ h)) col =
+        (p ++ [col]).foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ h) by simp,
       show (fun a => started p a || (col a).isSome) = started (p ++ [col]) from
         funext fun a => (started_snoc p col a).symm] at h1
     exact .head h1 (reaches_columns (p ++ [col]) w hw
@@ -120,34 +111,34 @@ theorem levelReached_succ (hv : T₀.toLettered.IsHole v) {j : ℕ} (hj : j < de
   have hcols : ∀ col ∈ conv Ys, ∀ a, col a ≠ some ℓ := fun col hcol a hca =>
     hYℓ a (dec_conv Ys ▸ mem_dec.mpr ⟨col, hcol, hca⟩)
   have hjd : j < d := by omega
-  have h1 := mem_next_iff.mpr (Step.start (Q := Q) (n := n) (j := ⟨j, by omega⟩) (h₀ := h₀)
-    (T := T) ℓ K hjd)
+  have h1 := Config.mem_next_iff.mpr (Config.Step.start (Q := Q) (n := n) (j := ⟨j, by omega⟩)
+    (h₀ := h₀) (T := T) ℓ K hjd)
   have h2 := reaches_columns (Q := Q) (d := d) (j := ⟨j, by omega⟩) (T := T) (ℓ := ℓ) (h := K)
     [] (conv Ys) (by simpa using valid_conv Ys) hcols
   simp only [List.nil_append] at h2
-  set s := (conv Ys).foldl (Summ.step T ℓ) (Summ.start T ℓ K)
+  set s := (conv Ys).foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ K)
   have hs : s.toProp = summ T.toLettered ℓ K Ys := by
-    rw [Summ.toProp_eval, colEval T.toLettered ℓ K _ (valid_conv Ys), dec_conv]
-  have hdist : ∀ a b, s.2.2.1 a b = true → a = b := by
+    rw [ColumnSummary.toProp_eval, colEval T.toLettered ℓ K _ (valid_conv Ys), dec_conv]
+  have hdist : ∀ a b, s.equalTracks a b = true → a = b := by
     intro a b hab
     have heq : Ys a = Ys b :=
-      (Iff.of_eq (congrFun (congrFun (congrArg (fun s => s.2.2.1) hs) a) b)).mp hab
+      (Iff.of_eq (congrFun (congrFun (congrArg CS.equalTracks hs) a) b)).mp hab
     have := congrArg (List.map φ) heq
     rw [hYs, hYs] at this
     exact Fin.ext ((List.nodup_dedup _).getElem_inj_iff.mp this)
-  have h3 := mem_next_iff.mpr (Step.finish (j := ⟨j, by omega⟩) (h₀ := h₀) (T := T) (ℓ := ℓ)
-    (h := K) (s := s) (st := started (conv Ys)) hjd hdist)
+  have h3 := Config.mem_next_iff.mpr (Config.Step.finish (j := ⟨j, by omega⟩) (h₀ := h₀)
+    (T := T) (ℓ := ℓ) (h := K) (s := s) (st := started (conv Ys)) hjd hdist)
   obtain ⟨x', hx', hx'E⟩ : ∃ x' : List (Fin K), x'.map (fun a => B[a]) = hierOf v (j + 1) ∧
       ∀ b ∈ x', b ∈ List.finRange K := by
     refine exists_map_eq fun Y hY => ?_
     obtain ⟨i, hi, hiY⟩ := List.getElem_of_mem (List.mem_dedup.mpr hY)
     exact ⟨⟨i, hi⟩, List.mem_finRange _, hiY⟩
-  have hA := (derTable_agree T ℓ hs hdist).comp (hag.derive (hxE ℓ hℓx)
+  have hA := (derivedTable_agree T ℓ hs hdist).comp (hag.derive (hxE ℓ hℓx)
     ((List.finRange K).map Ys) fun X hX a ha => by
       obtain ⟨b, -, rfl⟩ := List.mem_map.mp hX
       exact hxE a (hYx b a ha))
   rw [show (List.map φ ∘ Ys) = fun a => B[a] from funext hYs, hℓ] at hA
-  exact ⟨⟨K, lt_max_succ_of_lt_succ K⟩, derTable T ℓ s, fun a => B[a], x', List.finRange K,
+  exact ⟨⟨K, lt_max_succ_of_lt_succ K⟩, derivedTable T ℓ s, fun a => B[a], x', List.finRange K,
     hreach.tail h1 |>.trans h2 |>.tail h3, hx', hx'E, hA⟩
 
 /-- At the first unary level the lifted word is a unary hole of the table, so the
@@ -167,7 +158,7 @@ theorem summarySearch_of_levelReached (hv : T₀.toLettered.IsHole v) (hd : dept
     ⟨x.length, hrep ▸ hhole⟩
   rw [card_cores] at hm2
   exact (summarySearch_iff_reachable T₀ d g).mpr
-    ⟨_, hreach, accepting_iff.mpr ⟨z, m, hm1, hm2, hm⟩⟩
+    ⟨_, hreach, Config.accepting_iff.mpr ⟨z, m, hm1, hm2, hm⟩⟩
 
 /-- Completeness of the summary search. If the table has a hole of depth at most `d` and
 `g` is at least the dictionary bound, the search succeeds. -/

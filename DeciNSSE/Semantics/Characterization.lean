@@ -1,6 +1,6 @@
 import DeciNSSE.Constraints.Basic
 
-/-! # Semantic characterisations
+/-! # Semantic characterizations
 
 The pathwise variance order is the greatest fixed point of the constructor rule;
 its least fixed point differs at positive arity. Finite terms represent exactly
@@ -9,13 +9,13 @@ finitely many subtrees. Flat constraints express a variable inequality exactly
 at positive arity, allowing existential auxiliary variables and distinct inputs.
 -/
 
-namespace DeciNSSE.Characterisation
+namespace DeciNSSE.Characterization
 
 open DeciNSSE.Tree
 
 variable {n : ℕ}
 
-/-- One-step unfolding of the polarised non-structural order:
+/-- One-step unfolding of the polarized non-structural order:
 `⊥ ≤ t`, `t ≤ ⊤`, and `f(a) ≤ f(b)` iff each child pair is related covariantly or
 contravariantly according to `c i`. -/
 def Step (c : Fin n → Bool) (R : Tree n → Tree n → Prop) (t u : Tree n) : Prop :=
@@ -528,4 +528,4 @@ theorem nil_not_entails (c : Fin n → Bool) : ¬ Entails c ([] : Constraint n 2
   have := h (fun v => if v = 0 then top else bot) (by simp [Sat])
   simp at this
 
-end DeciNSSE.Characterisation
+end DeciNSSE.Characterization

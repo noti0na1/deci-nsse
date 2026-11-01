@@ -8,9 +8,25 @@ import DeciNSSE.Transfer.Regular
 Satisfiability is tested before either hole search. The absence of holes on
 both sides decides arbitrary-tree entailment; regular and finite transfer
 give the corresponding decisions in the restricted domains.
--/
 
-set_option autoImplicit false
+The deciders take the two side monitors and a decider for the existence of side
+holes. By default this is the bounded hole search `SideMonitor.decideHoles`; the
+summary and arity-one deciders pass their own hole searches.
+
+## Main declarations
+
+- `Monitor.entails_iff_of_monitors`: entailment is unsatisfiability or the absence of
+  holes on both sides.
+- `Monitor.entailsFin_iff_satFinB`: finite entailment is finite unsatisfiability or
+  unrestricted entailment.
+- `Monitor.decideEntailsOfMonitors`, `Monitor.decideEntailsRegOfMonitors`,
+  `Monitor.decideEntailsFinOfMonitors`: entailment over arbitrary, regular and finite
+  trees from two side monitors and a side-hole decider.
+- `Monitor.decideEntailsOf`, `Monitor.decideEntailsRegOf`, `Monitor.decideEntailsFinOf`:
+  the same deciders for a monitor family, with the correctness theorems
+  `Monitor.decideEntailsOf_correct`, `Monitor.decideEntailsRegOf_correct` and
+  `Monitor.decideEntailsFinOf_correct`.
+-/
 
 namespace DeciNSSE.Monitor
 
@@ -52,7 +68,7 @@ theorem entails_iff_no_holes (Pl : SideMonitor n c ϕ x y .l)
   simp
 
 /-- Finite entailment is finite unsatisfiability or unrestricted entailment. -/
-theorem entailsFin_iff_decider (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
+theorem entailsFin_iff_satFinB (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
     EntailsFin c ϕ x y ↔ satFinB c ϕ = false ∨ Entails c ϕ x y := by
   rw [entailsFin_iff, satFinB_eq_false_iff]
 
@@ -62,29 +78,43 @@ section Monitors
 
 variable {ϕ : Constraint n k} {x y : V k}
 
-/-- Entailment over arbitrary trees, from the two side monitors. Satisfiability
-is tested first; the hole searches run only on satisfiable systems. -/
+/-- Entailment over arbitrary trees, from the two side monitors and a decider `dec` for
+the existence of side holes, by default the bounded hole search
+`SideMonitor.decideHoles`. Satisfiability is tested first; the hole searches run only
+on satisfiable systems. -/
 @[instance_reducible] def decideEntailsOfMonitors (Pl : SideMonitor n c ϕ x y .l)
-    (Pr : SideMonitor n c ϕ x y .r) : Decidable (Entails c ϕ x y) :=
+    (Pr : SideMonitor n c ϕ x y .r)
+    (dec : ∀ {θ : Side} (P : SideMonitor n c ϕ x y θ), Decidable (∃ w, P.Hole w) :=
+      SideMonitor.decideHoles) :
+    Decidable (Entails c ϕ x y) :=
   if h : satB c ϕ = true then
-    letI := Pl.decideHoles
-    letI := Pr.decideHoles
+    letI := dec Pl
+    letI := dec Pr
     decidable_of_iff _ (entails_iff_no_holes Pl Pr h).symm
   else
     isTrue (entails_of_satB_false (Bool.eq_false_iff.mpr h))
 
-/-- Decide regular entailment using the two side monitors and regular transfer. -/
+/-- Entailment over regular trees, from the two side monitors and a side-hole decider,
+by regular transfer. -/
 @[instance_reducible] def decideEntailsRegOfMonitors (Pl : SideMonitor n c ϕ x y .l)
-    (Pr : SideMonitor n c ϕ x y .r) : Decidable (EntailsReg c ϕ x y) :=
-  letI := decideEntailsOfMonitors Pl Pr
+    (Pr : SideMonitor n c ϕ x y .r)
+    (dec : ∀ {θ : Side} (P : SideMonitor n c ϕ x y θ), Decidable (∃ w, P.Hole w) :=
+      SideMonitor.decideHoles) :
+    Decidable (EntailsReg c ϕ x y) :=
+  letI := decideEntailsOfMonitors Pl Pr dec
   decidable_of_iff _ (entailsReg_iff_entails c ϕ x y).symm
 
-/-- Decide finite entailment by finite satisfiability and the two side monitors. -/
+/-- Entailment over finite trees, from the two side monitors and a side-hole decider.
+Finite satisfiability is tested first; the unrestricted decision runs only on finitely
+satisfiable systems. -/
 @[instance_reducible] def decideEntailsFinOfMonitors (Pl : SideMonitor n c ϕ x y .l)
-    (Pr : SideMonitor n c ϕ x y .r) : Decidable (EntailsFin c ϕ x y) :=
+    (Pr : SideMonitor n c ϕ x y .r)
+    (dec : ∀ {θ : Side} (P : SideMonitor n c ϕ x y θ), Decidable (∃ w, P.Hole w) :=
+      SideMonitor.decideHoles) :
+    Decidable (EntailsFin c ϕ x y) :=
   if h : satFinB c ϕ = true then
-    letI := decideEntailsOfMonitors Pl Pr
-    decidable_of_iff (Entails c ϕ x y) (by rw [entailsFin_iff_decider, h]; simp)
+    letI := decideEntailsOfMonitors Pl Pr dec
+    decidable_of_iff (Entails c ϕ x y) (by rw [entailsFin_iff_satFinB, h]; simp)
   else
     isTrue (entailsFin_of_not_satFinB (Bool.eq_false_iff.mpr h) x y)
 

@@ -8,7 +8,7 @@ path judgements change sign by exactly the accumulated path polarity.
 
 namespace DeciNSSE.Signs
 
-open FiniteVariance
+open SignSelection
 
 variable {n k : ℕ}
 

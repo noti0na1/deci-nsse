@@ -1,9 +1,14 @@
-import DeciNSSE.Semantics.Normalisation
+import DeciNSSE.Semantics.Safety
 
 /-! # Finite tree terms
 
 Inductive terms embed injectively into path trees. Their covariant order is
 the order inherited from this embedding.
+
+## Main declarations
+- `FTree`, the embedding `FTree.toTree` and its injectivity `FTree.toTree_injective`
+- `FTree.bot_le`, `FTree.le_top`, `FTree.node_le_node_iff`: the inherited order
+- `FTree.normalize`, with `FTree.normalize_toTree`
 -/
 
 namespace DeciNSSE
@@ -17,7 +22,7 @@ inductive FTree (n : ℕ) where
 namespace FTree
 variable {n : ℕ}
 
-/-- Embed a finite term as a well-formed partial labelling of paths. -/
+/-- Embed a finite term as a well-formed partial labeling of paths. -/
 def toTree : FTree n → Tree n
   | bot => Tree.bot
   | top => Tree.top
@@ -50,6 +55,17 @@ instance : PartialOrder (FTree n) :=
 
 @[simp] theorem node_le_node_iff (a b : Fin n → FTree n) :
     node a ≤ node b ↔ ∀ i, a i ≤ b i := Tree.node_le_node_iff _ _
+
+/-- The bottom term is least. -/
+theorem bot_le (t : FTree n) : (bot : FTree n) ≤ t := Tree.bot_le t.toTree
+
+/-- The top term is greatest. -/
+theorem le_top (t : FTree n) : t ≤ top := Tree.le_top t.toTree
+
+/-- Descending into a constructor term gives the embedded child. -/
+@[simp] theorem descend_toTree_node (a : Fin n → FTree n) (i : Fin n) :
+    Safety.descend (node a).toTree i = (a i).toTree := by
+  simp
 
 /-- Flip each leaf by its polarity `p ⊕ pol(π)` along the finite tree. -/
 def normalize (c : Fin n → Bool) (p : Bool) : FTree n → FTree n

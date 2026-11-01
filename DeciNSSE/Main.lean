@@ -6,6 +6,28 @@ import DeciNSSE.Monitor.Decision
 Entailment for one constructor of any finite arity and variance is decidable
 over arbitrary, regular and finite trees. Satisfiability and two finite hole
 searches decide unrestricted entailment; transfer gives the other two domains.
+Importing this module is enough for the three decision procedures.
+
+The deciders are `@[instance_reducible] def`s rather than instances because each
+proposition has several of them (these, the summary and arity-one deciders, and the packed
+decider) and instance search should not choose one silently; the attribute gives them the
+reducibility of an instance where they are installed with `letI` or passed to `@decide`.
+
+## Compiled code
+
+The `@[csimp]` lemma `Solver.decideEntails_eq_decideEntailsPacked`, in `Solver.Complete`,
+makes compiled code of `decideEntails` run `Solver.decideEntailsPacked` whenever
+`DeciNSSE.Solver` is imported. That decider uses packed Boolean checks and computes the
+reader state count from its formula. `decideEntailsReg` and `decideEntailsFin` are not
+redirected. They evaluate the packaged side monitors, whose `Fintype` instance enumerates
+every reader state.
+
+## Main declarations
+
+- `decideEntails`, `decideEntailsReg`, `decideEntailsFin`: entailment over arbitrary,
+  regular and finite trees, for every arity and variance.
+- `decideEntails_correct`, `decideEntailsReg_correct`, `decideEntailsFin_correct`: each
+  decision returns true exactly when the entailment holds.
 -/
 
 namespace DeciNSSE

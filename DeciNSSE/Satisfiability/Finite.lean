@@ -4,7 +4,19 @@ import DeciNSSE.Satisfiability.LeastShape
 /-! # Finite covariant satisfiability
 
 Finite solutions exist exactly when there are neither label nor cycle clashes.
-Repeated pairs of path endpoints bound the depth of the least-shape solution.
+Repeated pairs of path endpoints bound the depth of the least-shape solution:
+on a long path, a pair of endpoints repeats, and the enclosed segment is a cycle
+clash. Without cycle clashes the least shape has depth at most `k * k + 1`, and
+truncation at that depth gives a finite solution.
+
+## Main declarations
+
+- `cycleClash_bounded_of_long_path`: a long path with lower and upper bounds yields a
+  cycle clash on a path of length at most `k * k`.
+- `leastShape_depth`: without cycle clashes, the least shape has bounded depth.
+- `FTree.ofTree`, `FTree.toTree_ofTree`: truncation of a tree of bounded depth.
+- `satFin_iff`: finite solutions exist iff there is neither a label nor a cycle clash.
+- `cycleClash_iff_bounded`: without a label clash, cycle clashes have short witnesses.
 -/
 
 namespace DeciNSSE
@@ -64,12 +76,14 @@ theorem pathChain_of_nonempty {α : Type*} (R : List (Fin n) → α → α → P
 
 end FiniteSat
 
+/-- A nonempty lower path judgment has a chain of intermediate bounds. -/
 theorem LowerAt.chain {π : List (Fin n)} {x z : V k}
     (h : LowerAt ϕ π x z) (hπ : π ≠ []) :
     FiniteSat.PathChain (fun τ u v => LowerAt ϕ τ v u) π z x :=
   FiniteSat.pathChain_of_nonempty _ (fun u => .nil (.refl u))
     (fun h₁ h₂ => h₂.comp h₁) (fun hp => hp.factor) hπ h
 
+/-- A nonempty upper path judgment has a chain of intermediate bounds. -/
 theorem UpperAt.chain {π : List (Fin n)} {z y : V k}
     (h : UpperAt ϕ π z y) (hπ : π ≠ []) :
     FiniteSat.PathChain (UpperAt ϕ) π z y :=

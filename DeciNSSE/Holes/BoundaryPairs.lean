@@ -4,9 +4,17 @@ import DeciNSSE.Holes.Supports
 
 Ordered nonterminal boundary pairs descend from upper boundary pairs or endpoint
 pairs. Endpoint pairs have a fixed final letter, giving a linear counting bound.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `IsBP`, `boundaryPairs`, `endpointPairs`: boundary pairs of nonterminal and
+  terminal left-maximal comparisons.
+- `boundaryPairs_expand_subset`: boundary pairs below come from boundary or
+  endpoint pairs above.
+- `boundaryCount_step_add_one`: the counting step between levels.
+
+The declarations are in the namespace `DeciNSSE.BoundaryPairs`.
+-/
 
 namespace DeciNSSE.BoundaryPairs
 open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy DeciNSSE.Supports
@@ -22,15 +30,18 @@ def fmis : List Γ → List Γ → Option Γ
   | a :: _, [] => some a
   | a :: A, b :: B => if a = b then fmis A B else some a
 
+/-- A common prefix does not change the first mismatch. -/
 theorem fmis_append_left : ∀ (Y A B : List Γ), fmis (Y ++ A) (Y ++ B) = fmis A B
   | [], _, _ => rfl
   | y :: Y, A, B => by simp [fmis, fmis_append_left Y A B]
 
+/-- A list has no mismatch with itself. -/
 theorem fmis_self (A : List Γ) : fmis A A = none := by
   have := fmis_append_left A [] []
   simp only [List.append_nil] at this
   rw [this]; rfl
 
+/-- Lists with different first letters mismatch at the first letter. -/
 theorem fmis_getD_of_ne (ℓ : Γ) : ∀ (A B : List Γ), A.head?.getD ℓ ≠ B.head?.getD ℓ →
     (fmis A B).getD ℓ = A.head?.getD ℓ
   | [], _, _ => rfl
@@ -43,14 +54,9 @@ theorem fmis_getD_of_ne (ℓ : Γ) : ∀ (A B : List Γ), A.head?.getD ℓ ≠ B
 def mu (ℓ : Γ) (X Y : List Γ) : Γ × Γ :=
   ((fmis X.reverse Y.reverse).getD ℓ, (fmis Y.reverse X.reverse).getD ℓ)
 
+/-- A packet body has no right-aligned mismatch with itself. -/
 theorem mu_self (ℓ : Γ) (X : List Γ) : mu ℓ X X = (ℓ, ℓ) := by
   simp [mu, fmis_self]
-
-theorem mu_nil_left (ℓ : Γ) (Y : List Γ) : (mu ℓ [] Y).1 = ℓ := by
-  simp [mu, fmis]
-
-theorem mu_nil_right (ℓ : Γ) (X : List Γ) : (mu ℓ X []).2 = ℓ := by
-  simp [mu, fmis]
 
 end Mismatch
 
@@ -135,21 +141,26 @@ noncomputable def endpointPairs (v : List Γ) : Finset (Γ × Γ) := by
     p.1 ≠ p.2 ∧ ∃ s, IsLeftMax v s v.length ∧
       v[s - 1]? = some p.1 ∧ v[v.length - 1]? = some p.2)
 
+/-- Both letters of a boundary pair occur in the word. -/
 theorem IsBP.mem {v : List Γ} {x y : Γ} (h : IsBP v x y) : x ∈ v ∧ y ∈ v := by
   obtain ⟨s, e, _, _, hx, hy⟩ := h
   exact ⟨List.mem_of_getElem? hx, List.mem_of_getElem? hy⟩
 
+/-- The letters of a boundary pair are distinct. -/
 theorem IsBP.ne {v : List Γ} {x y : Γ} (h : IsBP v x y) : x ≠ y := by
   obtain ⟨s, e, hlm, _, hx, hy⟩ := h
   intro heq
   exact hlm.2.2 (by rw [hx, hy, heq])
 
+/-- Membership in `boundaryPairs` is `IsBP`. -/
 @[simp] theorem mem_boundaryPairs {v : List Γ} {p : Γ × Γ} :
     p ∈ boundaryPairs v ↔ IsBP v p.1 p.2 := by
   classical
   simp only [boundaryPairs, Finset.mem_filter, Finset.mem_product, List.mem_toFinset]
   exact ⟨And.right, fun h => ⟨h.mem, h⟩⟩
 
+/-- Membership in `endpointPairs`: distinct boundary letters of a left-maximal comparison that ends
+at the final cut. -/
 @[simp] theorem mem_endpointPairs {v : List Γ} {p : Γ × Γ} :
     p ∈ endpointPairs v ↔ p.1 ≠ p.2 ∧ ∃ s, IsLeftMax v s v.length ∧
       v[s - 1]? = some p.1 ∧ v[v.length - 1]? = some p.2 := by
@@ -217,7 +228,8 @@ theorem card_endpointPairs_le [DecidableEq Γ] {v : List Γ} (hv : v ≠ []) :
     (endpointPairs v).card ≤ ((v.toFinset.erase z).image (fun x => (x, z))).card :=
       Finset.card_le_card hsub
     _ ≤ (v.toFinset.erase z).card := Finset.card_image_le
-    _ = v.toFinset.card - 1 := Finset.card_erase_of_mem (List.mem_toFinset.mpr (List.getLast_mem hv))
+    _ = v.toFinset.card - 1 :=
+      Finset.card_erase_of_mem (List.mem_toFinset.mpr (List.getLast_mem hv))
 
 /-- A unary word has no nonterminal boundary pair. -/
 theorem boundaryPairs_eq_empty_of_isUnary {v : List Γ} (hu : IsUnary v) :
@@ -247,13 +259,6 @@ theorem boundaryCount_step_add_one {w : List α} (hw : w ≠ []) (i : ℕ) :
   have hp : 0 < (hierOf w (i + 1)).toFinset.card := by
     apply Finset.card_pos.mpr
     exact ⟨markOf w (i + 1), List.mem_toFinset.mpr (markOf_mem hw _)⟩
-  omega
-
-/-- The linear one-step boundary-count bound. -/
-theorem boundaryCount_step {w : List α} (hw : w ≠ []) (i : ℕ) :
-    (boundaryPairs (hierOf w i)).card ≤
-      (boundaryPairs (hierOf w (i + 1))).card + (hierOf w (i + 1)).toFinset.card - 1 := by
-  have := boundaryCount_step_add_one hw i
   omega
 
 end Hierarchy

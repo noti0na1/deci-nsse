@@ -17,8 +17,6 @@ evaluation. The level-zero table of a reader is its lettered monitor.
 - `Summary.card_table`, `Summary.card_table_le`: the number of tables.
 -/
 
-set_option autoImplicit false
-
 namespace DeciNSSE.Complexity.Summary
 open CoAlignment LetteredHierarchy
 open scoped List

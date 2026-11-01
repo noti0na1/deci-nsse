@@ -6,9 +6,22 @@ import DeciNSSE.Semantics.Selector
 The polarity selector converts a finite signed solution to a finite variance
 solution. Finite satisfiability is therefore decided by the covariant test
 on the signed translation.
+
+## Main declarations
+
+- `FiniteVariance.selectedShape`: the selected least shape of the signed translation.
+- `FiniteVariance.finite_selected_solution`: a finite signed solution yields a finite
+  variance solution, namely the decoded selected least shape.
+- `sat_iff_signed_sat`, `satFin_iff_signed`: the signed translation preserves and reflects
+  satisfiability and finite satisfiability.
+- `satFinB`, `satFinB_iff`, `satFinB_eq_false_iff`: the executable finite satisfiability
+  test for every variance.
+- `entailsFin_of_not_satFinB`: without finite solutions, finite entailment holds.
 -/
 
 namespace DeciNSSE.FiniteVariance
+
+open SignSelection
 
 variable {n k : ℕ}
 
@@ -26,6 +39,7 @@ theorem selectedShape_sat {c : Fin n → Bool} {ϕ : Constraint n k}
 theorem selectedShape_fixed (c : Fin n → Bool) (ϕ : Constraint n k) :
     Signed.dual (selectedShape c ϕ) = selectedShape c ϕ := select_fixed _ _ _
 
+/-- Selection preserves the domain of the least shape. -/
 @[simp] theorem selectedShape_domain (c : Fin n → Bool) (ϕ : Constraint n k)
     (z : V (2 * k)) (π : List (Fin n)) :
     ((selectedShape c ϕ z).fn π).isSome = ((leastShape (signed c ϕ) z).fn π).isSome :=
@@ -71,13 +85,13 @@ variable {n k : ℕ}
 signed solution has no label clash, so the selected least shape decodes to a
 variance solution. -/
 theorem sat_iff_signed_sat (c : Fin n → Bool) (ϕ : Constraint n k) :
-    (∃ ρ, Sat c ρ ϕ) ↔ ∃ A, Covariant.Sat A (signed c ϕ) :=
+    Satisfiable c ϕ ↔ ∃ A, Covariant.Sat A (signed c ϕ) :=
   ⟨sat_implies_signed_sat c ϕ,
     fun h => ⟨_, decoded_selectedShape_sat (fun hc => hc.unsatisfiable h)⟩⟩
 
 /-- Signed translation preserves and reflects finite satisfiability. -/
 theorem satFin_iff_signed (c : Fin n → Bool) (ϕ : Constraint n k) :
-    (∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ) ↔
+    SatisfiableFin c ϕ ↔
       (∃ σ : V (2 * k) → FTree n, Covariant.Sat (FTree.toTree ∘ σ) (signed c ϕ)) := by
   constructor
   · rintro ⟨σ, hσ⟩
@@ -97,13 +111,12 @@ def satFinB (c : Fin n → Bool) (ϕ : Constraint n k) : Bool := Covariant.satFi
 
 /-- The finite variance satisfiability test succeeds exactly when a finite solution exists. -/
 theorem satFinB_iff (c : Fin n → Bool) (ϕ : Constraint n k) :
-    satFinB c ϕ = true ↔ ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ :=
+    satFinB c ϕ = true ↔ SatisfiableFin c ϕ :=
   (Covariant.satFinB_iff _).trans (satFin_iff_signed c ϕ).symm
 
 /-- The finite satisfiability test fails exactly when no finite solution exists. -/
 theorem satFinB_eq_false_iff (c : Fin n → Bool) (ϕ : Constraint n k) :
-    satFinB c ϕ = false ↔
-      ¬ ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ := by
+    satFinB c ϕ = false ↔ ¬ SatisfiableFin c ϕ := by
   rw [← satFinB_iff, Bool.not_eq_true]
 
 /-- Rejection makes every finite entailment hold vacuously. -/

@@ -4,9 +4,15 @@ import DeciNSSE.Holes.BoundedDepth
 
 The first unary level of the canonical hierarchy exists because every
 non-unary step strictly decreases word length. This level defines depth.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `length_hierOf_succ_lt`: a non-unary level is longer than the next one.
+- `depth`, `isUnary_depth`, `depth_le_of_isUnary`: the canonical depth, the
+  first unary level.
+
+The declarations are in the namespace `DeciNSSE.HierarchyDepth`.
+-/
 
 namespace DeciNSSE.HierarchyDepth
 open DeciNSSE.LetteredHierarchy DeciNSSE.BoundedDepth
@@ -17,6 +23,7 @@ universe u v
 section Depth
 variable {α : Type u} [DecidableEq α] [Inhabited α]
 
+/-- A nonempty level ends with its marker. -/
 theorem getLast?_hierOf_of_ne_nil {w : List α} {k : ℕ} (h : hierOf w k ≠ []) :
     (hierOf w k).getLast? = some (markOf w k) := by
   rw [markOf, List.getLastD_eq_getLast?]
@@ -42,6 +49,7 @@ theorem length_hierOf_succ_lt {w : List α} {k : ℕ} (h : ¬ IsUnary (hierOf w 
     have heq := List.count_eq_length.mp (le_antisymm hle hge)
     exact h fun a ha b hb => by rw [← heq a ha, ← heq b hb]
 
+/-- Some level of the canonical hierarchy is unary. -/
 theorem exists_isUnary_hierOf (w : List α) : ∃ k, IsUnary (hierOf w k) := by
   by_contra hne
   push Not at hne
@@ -56,12 +64,18 @@ theorem exists_isUnary_hierOf (w : List α) : ∃ k, IsUnary (hierOf w k) := by
 /-- The canonical depth `D(w)`: the first unary level of the canonical hierarchy. -/
 def depth (w : List α) : ℕ := Nat.find (exists_isUnary_hierOf w)
 
+/-- The level at the canonical depth is unary. -/
 theorem isUnary_depth (w : List α) : IsUnary (hierOf w (depth w)) :=
   Nat.find_spec (exists_isUnary_hierOf w)
 
+/-- Levels below the canonical depth are not unary. -/
 theorem not_isUnary_of_lt_depth {w : List α} {k : ℕ} (hk : k < depth w) :
     ¬ IsUnary (hierOf w k) :=
   Nat.find_min (exists_isUnary_hierOf w) hk
+
+/-- Every unary level lies at or above the canonical depth. -/
+theorem depth_le_of_isUnary {w : List α} {k : ℕ} (hk : IsUnary (hierOf w k)) : depth w ≤ k :=
+  Nat.find_min' (exists_isUnary_hierOf w) hk
 
 end Depth
 

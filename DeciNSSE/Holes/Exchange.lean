@@ -4,8 +4,20 @@ import DeciNSSE.Holes.StartCores
 /-! # Protected-letter exchange and finite types
 
 Equal closed types permit identifying a letter whose co-alignment partners are protected.
+
+## Main declarations
+
+- `Lettered.SameType`, `Lettered.isHole_identify`: same-type letters, and the
+  identification that preserves holes.
+- `closedType`, `exType`, `card_exType_le`: finitely many exchange types.
+- `Qset`, `Uset`, `Pset`: ordinary, used and protected cores and letters.
+- `Isolated`, `isolated_merge`: an isolated letter merges with a letter of the
+  same type.
+
+The monitor-level part (`SameType`, `rowsOf`, `closedType` and their lemmas) is in
+the namespace `DeciNSSE.CoAlignment.Lettered`, for dot notation on monitors; the
+rest is in `DeciNSSE.Exchange`.
 -/
-set_option autoImplicit false
 
 namespace DeciNSSE.CoAlignment
 open DeciNSSE.Holes
@@ -16,17 +28,25 @@ variable {Γ C : Type*} (D : Lettered Γ C)
 /-- Agreement of self, protected-partner, and initial-label admission rows. -/
 structure PairRows (P : Lab Γ C → Lab Γ C → Prop) (Qo U : Set C) (Z : Set Γ) (x y : Γ) :
     Prop where
+  /-- The rows of the letter against itself agree. -/
   self : ∀ q ∈ Qo, ∀ q' ∈ Qo, P (some (q, x)) (some (q', x)) ↔ P (some (q, y)) (some (q', y))
+  /-- The rows against protected labels on the right agree. -/
   left : ∀ q ∈ Qo, ∀ c ∈ U, ∀ z ∈ Z, P (some (q, x)) (some (c, z)) ↔ P (some (q, y)) (some (c, z))
+  /-- The rows against protected labels on the left agree. -/
   right : ∀ q ∈ Qo, ∀ c ∈ U, ∀ z ∈ Z,
     P (some (c, z)) (some (q, x)) ↔ P (some (c, z)) (some (q, y))
+  /-- The rows against the start label agree. -/
   start : ∀ q ∈ Qo, P none (some (q, x)) ↔ P none (some (q, y))
 
 /-- Equal transitions, target predicates, and both admission tables on the recorded cores. -/
 structure SameType (Qo U : Set C) (Z : Set Γ) (x y : Γ) : Prop where
+  /-- The same transitions from the recorded cores. -/
   κ_eq : ∀ q ∈ Qo, D.κ x q = D.κ y q
+  /-- The same target condition at the recorded cores. -/
   tf : ∀ q ∈ Qo, D.Tf q x ↔ D.Tf q y
+  /-- Agreeing interior admission rows. -/
   rowsΛ : PairRows D.Λ Qo U Z x y
+  /-- Agreeing terminal admission rows. -/
   rowsΛf : PairRows D.Λf Qo U Z x y
 
 variable [DecidableEq Γ]
@@ -142,6 +162,7 @@ def rowsOf (P : Lab Γ C → Lab Γ C → Prop) (Qo U : Finset C) (Z : Finset Γ
     fun q c z => P (some (c.1, z.1)) (some (q.1, x)),
     fun q => P none (some (q.1, x)))
 
+/-- Letters with equal admission tables have agreeing rows. -/
 theorem pairRows_of_rowsOf_eq {P : Lab Γ C → Lab Γ C → Prop} {Qo U : Finset C}
     {Z : Finset Γ} {x y : Γ} (h : rowsOf P Qo U Z x = rowsOf P Qo U Z y) :
     PairRows P (Qo : Set C) (U : Set C) (Z : Set Γ) x y := by
@@ -166,6 +187,7 @@ theorem sum_map_identify_le (wt : Γ → ℕ) {a b : Γ} (h : wt b ≤ wt a) :
       · subst hc; rw [identify_self_left]; omega
       · rw [identify_of_ne hc]; omega
 
+/-- Identifying a letter `a` with another letter `b` of the word removes `a` from the alphabet. -/
 theorem toFinset_identify_subset {v : List Γ} {a b : Γ} (hab : a ≠ b) (hb : b ∈ v) :
     (v.map (identify a b)).toFinset ⊆ v.toFinset.erase a := by
   intro z hz
@@ -199,6 +221,7 @@ def closedType (Qo U : Finset C) (Z : Finset Γ) (hcl : ∀ a, ∀ q ∈ Qo, D.�
   (fun q => ⟨D.κ x q.1, hcl x q.1 q.2⟩, fun q => D.Tf q.1 x,
     Lettered.rowsOf D.Λ Qo U Z x, Lettered.rowsOf D.Λf Qo U Z x)
 
+/-- Letters with equal closed types have the same type. -/
 theorem sameType_of_closedType_eq {Qo U : Finset C} {Z : Finset Γ}
     {hcl : ∀ a, ∀ q ∈ Qo, D.κ a q ∈ Qo} {x y : Γ}
     (h : closedType D Qo U Z hcl x = closedType D Qo U Z hcl y) :
@@ -209,10 +232,12 @@ theorem sameType_of_closedType_eq {Qo U : Finset C} {Z : Finset Γ}
     fun q hq => Iff.of_eq (congrFun h2 ⟨q, hq⟩),
     Lettered.pairRows_of_rowsOf_eq h3, Lettered.pairRows_of_rowsOf_eq h4⟩
 
+/-- Finitely many row types. -/
 instance instFintypeRowType' [DecidableEq C] [DecidableEq Γ] (Qo U : Finset C) (Z : Finset Γ) :
     Fintype (Lettered.RowType Qo U Z) :=
   inferInstance
 
+/-- Finitely many closed types. -/
 instance instFintypeClosedType [DecidableEq C] [DecidableEq Γ] (Qo U : Finset C)
     (Z : Finset Γ) : Fintype (ClosedType Qo U Z) :=
   @instFintypeProd _ _ inferInstance (@instFintypeProd _ _ inferInstance
@@ -231,6 +256,7 @@ end Closed
 section CoresSets
 variable {Q : Type v}
 
+/-- The cores of every level have decidable equality. -/
 instance instDecEqCores [DecidableEq Q] : ∀ i, DecidableEq (Cores Q i)
   | 0 => (inferInstance : DecidableEq Q)
   | i + 1 => by haveI := instDecEqCores i; exact (inferInstance : DecidableEq (Option (Cores Q i)))
@@ -243,6 +269,7 @@ variable (Q) in
 def Qset (i : ℕ) : Finset (Cores Q i) := Finset.univ.filter fun c => isStart i c = false
 
 omit [DecidableEq Q] in
+/-- The ordinary cores of level `i` are those that are not start cores. -/
 theorem mem_Qset {i : ℕ} {c : Cores Q i} : c ∈ Qset Q i ↔ isStart i c = false := by
   simp [Qset]
 
@@ -286,6 +313,7 @@ variable [Fintype Q] [DecidableEq Q]
 def Uset (D0 : Lettered α Q) (w : List α) (i : ℕ) : Finset (Cores Q i) :=
   Qset Q i ∪ (Finset.range (sCount D0 w i)).image ((tower D0 (markOf w) i).core (hierOf w i))
 
+/-- At most `N + s_i` cores are used at level `i`. -/
 theorem card_Uset_le (D0 : Lettered α Q) (w : List α) (i : ℕ) :
     (Uset D0 w i).card ≤ Fintype.card Q + sCount D0 w i := by
   refine (Finset.card_union_le _ _).trans ?_
@@ -298,13 +326,15 @@ def exType (D0 : Lettered α Q) (w : List α) (i : ℕ) (Z : Finset (Alph α i))
   closedType (tower D0 (markOf w) i) (Qset Q i) (Uset D0 w i) Z
     (fun a q hq => mem_Qset.mpr (isStart_κ_tower D0 (markOf w) i q a (mem_Qset.mp hq))) x
 
+/-- Letters with equal exchange types have the same type in the tower. -/
 theorem sameType_of_exType_eq (D0 : Lettered α Q) {w : List α} {i : ℕ} {Z : Finset (Alph α i)}
     {x y : Alph α i} (h : exType D0 w i Z x = exType D0 w i Z y) :
     (tower D0 (markOf w) i).SameType (Qset Q i : Set (Cores Q i)) (Uset D0 w i : Set (Cores Q i))
       (Z : Set (Alph α i)) x y :=
   sameType_of_closedType_eq _ h
 
-/-- The finite number of types with `N` ordinary cores, `m` used cores, and `z` protected letters. -/
+/-- The finite number of types with `N` ordinary cores, `m` used cores, and `z` protected
+letters. -/
 def typeBound (N m z : ℕ) : ℕ := N ^ N * 2 ^ (2 * N ^ 2 + 4 * N * m * z + 3 * N)
 
 /-- The number of exchange types depends only on the ordinary, used, and protected counts. -/

@@ -6,9 +6,21 @@ import Mathlib.Logic.Equiv.List
 
 /-! # A total certifying entailment solver
 
-Search results are checked before they become answers. Exhausted fuel falls
-back to the complete decider. Refutations carry regular countermodels unless
-they are not requested.
+Search results are checked before they become answers. Exhausted fuel, or a
+candidate certificate that fails its check, falls back to the complete decider.
+Refutations carry regular countermodels unless they are not requested.
+All checks use the packed checkers of `Solver.Checked`, and the fallback evaluates
+`decideEntails`, which compiles to `Solver.decideEntailsPacked`
+(`Solver.decideEntails_eq_decideEntailsPacked`).
+
+## Main declarations
+
+- `Countermodel`, `SolverEvidence`, `Result`: the answers of the solver and their evidence.
+- `Result.answer`, `Result.correct`: every result certifies its Boolean answer.
+- `Solver.countermodel`: the reachable regular countermodel of an accepted refutation.
+- `Solver.fallback`: the complete decider, as a result.
+- `solveWithFuel`, `solve`: the solver, with the correctness theorems
+  `solveWithFuel_correct` and `solve_correct`.
 -/
 
 namespace DeciNSSE
@@ -17,22 +29,31 @@ variable {n k : ℕ}
 
 /-- A regular assignment whose unfolding satisfies `ϕ` and violates `x ≤ y`. -/
 structure Countermodel (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) where
+  /-- A finite rooted graph for each variable. -/
   graphs : V k → RGraph n
+  /-- The unfolded graphs satisfy `ϕ` and violate `x ≤ y`. -/
   correct : Sat c (RGraph.unfold ∘ graphs) ϕ ∧
     ¬ Tree.Le c (graphs x).unfold (graphs y).unfold
 
 /-- Evidence for an answer, including the complete-decision fallback. -/
 inductive SolverEvidence (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) where
+  /-- An entailment certificate accepted by the checker. -/
   | entailed (certificate : Entailment n)
-      (checked : Solver.Checked.checkEntailment c ϕ x y certificate = true)
+      (checked : Solver.Checked.checkEntailmentPacked c ϕ x y certificate = true)
+  /-- The complete decision procedure returned that the entailment holds. -/
   | complete (checked : @decide _ (decideEntails c ϕ x y) = true)
+  /-- A refutation accepted by the checker, with a regular countermodel if one was
+  requested. -/
   | refuted (certificate : Refutation n)
-      (checked : Solver.Checked.checkRefutation c ϕ x y certificate = true)
+      (checked : Solver.Checked.checkRefutationPacked c ϕ x y certificate = true)
       (model : Option (Countermodel c ϕ x y))
 
-/-- An answer retains its evidence and records whether search exhausted its fuel. -/
+/-- An answer retains its evidence and records whether the solver used the
+complete-decision fallback. -/
 structure Result (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) where
+  /-- The evidence that certifies the answer. -/
   evidence : SolverEvidence c ϕ x y
+  /-- Whether the solver used the complete-decision fallback. -/
   usedFallback : Bool
 
 /-- The Boolean answer certified by the evidence. -/
@@ -48,42 +69,34 @@ theorem Result.correct {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k}
   rcases r with ⟨e, fallback⟩
   cases e with
   | entailed cert h =>
-    exact iff_of_true rfl (Solver.Checked.checkEntailment_sound c ϕ x y cert h)
+    exact iff_of_true rfl (Solver.Checked.checkEntailmentPacked_sound c ϕ x y cert h)
   | complete h => exact iff_of_true rfl ((decideEntails_correct c ϕ x y).mp h)
   | refuted cert h _ =>
-    exact iff_of_false (by simp [Result.answer]) (Certificates.checkRefutation_sound c ϕ x y cert
-      ((Solver.Checked.checkRefutation_eq c ϕ x y cert).symm.trans h))
+    exact iff_of_false (by simp [Result.answer]) (refutesB_correct
+      ((Solver.Checked.checkRefutationPacked_eq_refutesB c ϕ x y cert).symm.trans h))
 
 namespace Solver
 
 /-- The reachable regular countermodel of an accepted refutation. -/
 def countermodel (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
-    (cert : Refutation n) (h : Checked.checkRefutation c ϕ x y cert = true) :
+    (cert : Refutation n) (h : Checked.checkRefutationPacked c ϕ x y cert = true) :
     Countermodel c ϕ x y :=
   let model := extractReachable c ϕ x y cert.side cert.word
   have hu : Unsafe c ϕ x y cert.side cert.word :=
-    (refutesB_iff_unsafe c ϕ x y cert.side cert.word).mp (by
-      have hc := (Checked.checkRefutation_eq c ϕ x y cert).symm.trans h
-      exact hc)
-  have he : RGraph.unfold ∘ model =
-      RGraph.unfold ∘ extractRegular c ϕ x y cert.side cert.word :=
-    funext (extractReachable_unfold c ϕ x y cert.side cert.word)
-  have hs : Sat c (RGraph.unfold ∘ model) ϕ ∧
-      ¬ Tree.Le c (model x).unfold (model y).unfold := by
-    have hspec := extractRegular_of_unsafe hu
-    rw [he]
-    exact ⟨hspec.1, by
-      rw [show (model x).unfold = _ from congrFun he x,
-        show (model y).unfold = _ from congrFun he y]
-      exact hspec.2⟩
-  ⟨model, hs⟩
+    (refutesB_iff_unsafe c ϕ x y cert.side cert.word).mp
+      ((Checked.checkRefutationPacked_eq_refutesB c ϕ x y cert).symm.trans h)
+  have hm (z : V k) :
+      (model z).unfold = (extractRegular c ϕ x y cert.side cert.word z).unfold :=
+    extractReachable_unfold c ϕ x y cert.side cert.word z
+  ⟨model, by simpa only [Function.comp_def, hm] using extractRegular_of_unsafe hu⟩
 
 /-- Answer an accepted refutation, building its countermodel only if `withModel`. -/
 def refuted (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
-    (cert : Refutation n) (h : Checked.checkRefutation c ϕ x y cert = true)
+    (cert : Refutation n) (h : Checked.checkRefutationPacked c ϕ x y cert = true)
     (fallback withModel : Bool) : Result c ϕ x y :=
   ⟨.refuted cert h (if withModel then some (countermodel c ϕ x y cert h) else none), fallback⟩
 
+/-- The refutation numbered `j` by the encoding of side–word pairs. -/
 private def decodedRefutation (j : ℕ) : Refutation n :=
   match Encodable.decode (α := Bool × List (Fin n)) j with
   | none => ⟨.l, []⟩
@@ -91,11 +104,12 @@ private def decodedRefutation (j : ℕ) : Refutation n :=
 
 /-- Failure of the complete decider provides a computably searchable certificate. -/
 def completeRefutation (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
-    (h : ¬ Entails c ϕ x y) : {cert : Refutation n // Checked.checkRefutation c ϕ x y cert = true} :=
-  have hex : ∃ j, Checked.checkRefutation c ϕ x y (decodedRefutation j) = true := by
+    (h : ¬ Entails c ϕ x y) :
+    {cert : Refutation n // Checked.checkRefutationPacked c ϕ x y cert = true} :=
+  have hex : ∃ j, Checked.checkRefutationPacked c ϕ x y (decodedRefutation j) = true := by
     obtain ⟨θ, w, hw⟩ := (not_entails_iff_refutesB c ϕ x y).mp h
-    have hc : Checked.checkRefutation c ϕ x y ⟨θ, w⟩ = true := by
-      rw [Checked.checkRefutation_eq]
+    have hc : Checked.checkRefutationPacked c ϕ x y ⟨θ, w⟩ = true := by
+      rw [Checked.checkRefutationPacked_eq_refutesB]
       exact hw
     cases θ
     · exact ⟨Encodable.encode (false, w), by simpa [decodedRefutation] using hc⟩
@@ -116,16 +130,16 @@ end Solver
 Countermodels of negative answers are built only if `withModel`. -/
 def solveWithFuel (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (fuel : ℕ) (window : ℕ := 0) (withModel : Bool := true) : Result c ϕ x y :=
-  if h : Solver.Checked.checkEntailment c ϕ x y .unsat = true then
+  if h : Solver.Checked.checkEntailmentPacked c ϕ x y .unsat = true then
     ⟨.entailed .unsat h, false⟩
   else
     match Solver.Search.search c ϕ x y fuel window with
     | some (.entailment cert) =>
-      if hc : Solver.Checked.checkEntailment c ϕ x y cert = true then
+      if hc : Solver.Checked.checkEntailmentPacked c ϕ x y cert = true then
         ⟨.entailed cert hc, false⟩
       else Solver.fallback c ϕ x y withModel
     | some (.refutation cert) =>
-      if hc : Solver.Checked.checkRefutation c ϕ x y cert = true then
+      if hc : Solver.Checked.checkRefutationPacked c ϕ x y cert = true then
         Solver.refuted c ϕ x y cert hc false withModel
       else Solver.fallback c ϕ x y withModel
     | none => Solver.fallback c ϕ x y withModel

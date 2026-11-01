@@ -30,13 +30,9 @@ theorem node_bot_le_iff {n : ℕ} (t : Tree n) :
   · simp
   · simp
 
-open FiniteVariance Safety
+open SignSelection Safety
 
 variable {n k : ℕ}
-
-theorem take_succ_of_lt {w : List (Fin n)} {j : ℕ} (hj : j < w.length) :
-    w.take (j + 1) = w.take j ++ [w[j]] := by
-  rw [List.take_add_one, List.getElem?_eq_getElem hj]; rfl
 
 theorem signed_ext {K : ℕ} {z z' : V (2 * K)} (hb : base z = base z') (hs : sign z = sign z') :
     z = z' := by
@@ -297,7 +293,8 @@ theorem top_mem : Lit.eqTop (lv c X Y w false w.length) ∈ Spine.extension c ψ
 theorem bot_mem : Lit.eqBot (flipV (lv c X Y w false w.length)) ∈ Spine.extension c ψ X Y w :=
   flip_half_mem (l := .eqTop _) (mem_lowerHalf.mpr (Or.inr (Or.inl rfl)))
 
-theorem end_mem : Lit.fLe (endKids c X Y w) (lv c X Y w true w.length) ∈ Spine.extension c ψ X Y w :=
+theorem end_mem :
+    Lit.fLe (endKids c X Y w) (lv c X Y w true w.length) ∈ Spine.extension c ψ X Y w :=
   half_mem (mem_lowerHalf.mpr (Or.inr (Or.inr (Or.inl rfl))))
 
 theorem flip_end_mem :
@@ -309,7 +306,8 @@ theorem bfill_mem (q : Bool) : Lit.eqBot (bfill w q) ∈ Spine.extension c ψ X 
   half_mem (mem_lowerHalf.mpr (Or.inr (Or.inr (Or.inr ⟨q, rfl⟩))))
 
 /-- Lower constructor literals: lifted, a link of a lower spine, or the terminal bound of `W_m`. -/
-theorem mem_fLe {a : Fin n → V (2 * (k + (2 * w.length + 2)))} {u : V (2 * (k + (2 * w.length + 2)))}
+theorem mem_fLe {a : Fin n → V (2 * (k + (2 * w.length + 2)))}
+    {u : V (2 * (k + (2 * w.length + 2)))}
     (h : Lit.fLe a u ∈ Spine.extension c ψ X Y w) :
     (∃ a' u', Lit.fLe a' u' ∈ ψ ∧ a = lift ∘ a' ∧ u = lift u') ∨
       (∃ s j, ∃ hj : j < w.length, a = kids c X Y w s j w[j] ∧ u = lv c X Y w s j) ∨
@@ -326,7 +324,8 @@ theorem eq_flipV_of_flipV_eq {K : ℕ} {z z' : V (2 * K)} (h : flipV z = z') : z
   rw [← h, flipV_flipV]
 
 /-- Upper constructor literals: lifted, or the sign dual of a lower spine literal. -/
-theorem mem_leF {v : V (2 * (k + (2 * w.length + 2)))} {b : Fin n → V (2 * (k + (2 * w.length + 2)))}
+theorem mem_leF {v : V (2 * (k + (2 * w.length + 2)))}
+    {b : Fin n → V (2 * (k + (2 * w.length + 2)))}
     (h : Lit.leF v b ∈ Spine.extension c ψ X Y w) :
     (∃ v' b', Lit.leF v' b' ∈ ψ ∧ v = lift v' ∧ b = lift ∘ b') ∨
       (∃ s j, ∃ hj : j < w.length,
@@ -395,7 +394,7 @@ theorem lowerHalf_coherent {a : Fin n → V (2 * (k + (2 * w.length + 2)))}
   · simp only [Lit.fLe.injEq] at he
     obtain ⟨rfl, rfl⟩ := he
     by_cases hi : i = w[j]
-    · rw [hi, kids_self, sign_lv (by omega), sign_lv hj.le, take_succ_of_lt hj,
+    · rw [hi, kids_self, sign_lv (by omega), sign_lv hj.le, List.take_succ_eq_append_getElem hj,
         polarity_append_singleton, Bool.xor_assoc]
     · simp [kids_of_ne hi]
   · simp at he
@@ -578,7 +577,7 @@ theorem lv_le_trace {M : V (2 * (k + (2 * w.length + 2))) → Tree n}
   | j + 1, hj => by
     have hd := descend_mono (hM _ (link_mem (ψ := ψ) s (by omega : j < w.length))) w[j]
     simp only [descend_node, Function.comp_apply, kids_self] at hd
-    rw [take_succ_of_lt (by omega), trace_append, trace_cons, trace_nil]
+    rw [List.take_succ_eq_append_getElem (by omega), trace_append, trace_cons, trace_nil]
     exact le_trans hd (descend_mono (lv_le_trace hM s j (by omega)) _)
 
 /-- A sign-fixed solution of the extension restricts to a sign-fixed top-prefix witness. -/
@@ -641,7 +640,8 @@ theorem extend_lift {A : V (2 * k) → Tree n} (hfix : Signed.dual A = A) (z : V
   exact normalize_sign_of_fixed hfix z
 
 theorem extend_lv {A : V (2 * k) → Tree n} (hfix : Signed.dual A = A) (s : Bool) {j : ℕ}
-    (hj : j ≤ w.length) : extend c X Y w A (lv c X Y w s j) = trace (A (lroot X Y s)) (w.take j) := by
+    (hj : j ≤ w.length) :
+    extend c X Y w A (lv c X Y w s j) = trace (A (lroot X Y s)) (w.take j) := by
   by_cases h0 : 0 < j
   · have hv := base_lv_val (c := c) (X := X) (Y := Y) (s := s) ⟨h0, hj⟩
     have hm := boff_le w.length s
@@ -696,8 +696,8 @@ theorem extend_sat {A : V (2 * k) → Tree n} (hA : Covariant.Sat A ψ) (hfix : 
     · change Tree.node (_ ∘ _) ≤ _
       rw [extend_lv hfix s hj.le]
       refine node_le_of_descend (i := w[j]) (hcut s j) ?_ fun i' hi' => ?_
-      · rw [kids_self, extend_lv hfix s (by omega), take_succ_of_lt hj, trace_append, trace_cons,
-          trace_nil]
+      · rw [kids_self, extend_lv hfix s (by omega), List.take_succ_eq_append_getElem hj,
+          trace_append, trace_cons, trace_nil]
       · rw [kids_of_ne hi', extend_bfill]
     · change extend c X Y w A _ = Tree.top
       rw [extend_lv hfix false le_rfl, List.take_length]

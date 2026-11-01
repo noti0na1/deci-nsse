@@ -8,7 +8,7 @@ import DeciNSSE.Certificates
 import DeciNSSE.Solver
 import DeciNSSE.Countermodels
 import DeciNSSE.Instances
-import DeciNSSE.Semantics.Characterisation
+import DeciNSSE.Semantics.Characterization
 import DeciNSSE.Complexity
 
 /-! # Non-structural subtype entailment

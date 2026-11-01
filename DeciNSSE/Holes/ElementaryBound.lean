@@ -4,9 +4,20 @@ import DeciNSSE.Holes.NormalForm
 
 Normal forms bound the positive dictionaries by a geometric recurrence.
 Supported column compression then gives a length bound with fixed exponential height.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `dictionaryBound`, `lengthBound`: the dictionary and length allowances
+  `G(N, d)` and `L(N, d)`.
+- `exists_bounded_dictionary_hole`: a hole with bounded positive dictionaries.
+- `exists_short_hole`: a hole of depth at most `d` has one of length at most
+  `lengthBound N d`.
+- `dictionaryExponent`, `dictionaryBound_le`, `colBound_le_pow`,
+  `lengthBound_le`: `lengthBound N d ≤ 2 ^ 2 ^ (5 E + 3)` for the dictionary
+  exponent `E`.
+
+The declarations are in the namespace `DeciNSSE.ElementaryBound`.
+-/
 
 namespace DeciNSSE.ElementaryBound
 open CoAlignment LetteredHierarchy HierarchyDepth NormalForm BoundaryPairs BoundedDepth
@@ -78,7 +89,8 @@ theorem normal_alphCard_le (hw : D0.IsHole w) (hn : Normal D0 w)
   simp only [mul_one] at hm
   omega
 
-/-- Every hole has a hole of the same depth and no greater length with bounded positive dictionaries. -/
+/-- Every hole has a hole of the same depth and no greater length with bounded positive
+dictionaries. -/
 theorem exists_bounded_dictionary_hole (hw : D0.IsHole w) (hd : depth w ≤ d) :
     ∃ v, D0.IsHole v ∧ depth v = depth w ∧ v.length ≤ w.length ∧
       ∀ i, 1 ≤ i → i ≤ depth v → alphCard v i ≤ dictionaryBound (Fintype.card Q) d := by

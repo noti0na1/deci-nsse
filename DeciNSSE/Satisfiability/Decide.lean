@@ -3,10 +3,20 @@ import DeciNSSE.Satisfiability.Finite
 /-! # Finite searches for satisfiability
 
 Finite closure and bounded path searches decide label and cycle clashes,
-and hence arbitrary-tree and finite-tree covariant satisfiability.
--/
+and hence arbitrary-tree and finite-tree covariant satisfiability. Path judgments
+are computed by recursion over the path with a precomputed closure. Cycle clashes are
+searched among paths of length at most `k * k`, which suffices in the absence of a label
+clash.
 
-section
+## Main declarations
+
+- `PathDecision.lower`, `PathDecision.upper`, `lowerAtB`, `upperAtB`, `lowerAtB_iff`,
+  `upperAtB_iff`: executable lower and upper path judgments.
+- `satInfB`, `satInfB_iff`: covariant satisfiability over arbitrary trees.
+- `cycleClashB`, `cycleClashB_sound`, `cycleClashB_complete`: the bounded cycle-clash
+  search.
+- `Covariant.satFinB`, `Covariant.satFinB_iff`: covariant satisfiability over finite trees.
+-/
 
 namespace DeciNSSE
 
@@ -75,6 +85,7 @@ theorem upperAtB_iff (ϕ : Constraint n k) (π : List (Fin n)) (x y : V k) :
 /-- Satisfiability over arbitrary, possibly infinite path trees. -/
 def satInfB (ϕ : Constraint n k) : Bool := !labelClashB ϕ
 
+/-- The covariant satisfiability test succeeds exactly without a label clash. -/
 theorem satInfB_iff_not_labelClash (ϕ : Constraint n k) :
     satInfB ϕ = true ↔ ¬ LabelClash ϕ := by
   simp [satInfB, Bool.eq_false_iff, labelClashB_iff]
@@ -84,22 +95,13 @@ theorem satInfB_iff (ϕ : Constraint n k) :
     satInfB ϕ = true ↔ ∃ ρ : V k → Tree n, Covariant.Sat ρ ϕ := by
   rw [satisfiable_iff_not_labelClash, satInfB_iff_not_labelClash]
 
-end DeciNSSE
-
-end
-
-section
-
-namespace DeciNSSE
-
-variable {n k : ℕ}
-
 /-- All nonempty paths over `Fin n` of length at most the supplied bound. -/
 def pathsUpTo (n : ℕ) : ℕ → List (List (Fin n))
   | 0 => []
   | m + 1 => (List.finRange n).map (fun i => [i]) ++
       (List.finRange n).flatMap (fun i => (pathsUpTo n m).map (i :: ·))
 
+/-- The listed paths are the nonempty paths within the bound. -/
 theorem mem_pathsUpTo (ρ : List (Fin n)) (m : ℕ) :
     ρ ∈ pathsUpTo n m ↔ 0 < ρ.length ∧ ρ.length ≤ m := by
   induction m generalizing ρ with
@@ -137,6 +139,7 @@ def cycleClashB (ϕ : Constraint n k) : Bool :=
       PathDecision.lower ϕ pairs ρ x x && decide ((x, y) ∈ pairs) &&
         PathDecision.upper ϕ pairs ρ y y
 
+/-- The cycle-clash search finds exactly the cycle clashes of length at most `k * k`. -/
 theorem cycleClashB_iff_bounded (ϕ : Constraint n k) :
     cycleClashB ϕ = true ↔ ∃ ρ x y,
       0 < ρ.length ∧ ρ.length ≤ k * k ∧
@@ -152,11 +155,13 @@ theorem cycleClashB_iff_bounded (ϕ : Constraint n k) :
   · rintro ⟨ρ, x, y, h1, h2, hl, hd, hu⟩
     exact ⟨ρ, ⟨h1, h2⟩, x, y, ⟨hl, hd⟩, hu⟩
 
+/-- A successful cycle-clash search finds a cycle clash. -/
 theorem cycleClashB_sound {ϕ : Constraint n k} (h : cycleClashB ϕ = true) :
     CycleClash ϕ := by
   obtain ⟨ρ, x, y, hp, _, hl, hd, hu⟩ := (cycleClashB_iff_bounded ϕ).mp h
   exact ⟨ρ, x, y, List.ne_nil_of_length_pos hp, hl, hd, hu⟩
 
+/-- Without a label clash, the search finds every cycle clash. -/
 theorem cycleClashB_complete {ϕ : Constraint n k} (hn : ¬ LabelClash ϕ)
     (h : CycleClash ϕ) : cycleClashB ϕ = true :=
   (cycleClashB_iff_bounded ϕ).mpr ((cycleClash_iff_bounded hn).mp h)
@@ -164,6 +169,7 @@ theorem cycleClashB_complete {ϕ : Constraint n k} (hn : ¬ LabelClash ϕ)
 /-- Satisfiability over finite trees. -/
 def Covariant.satFinB (ϕ : Constraint n k) : Bool := !labelClashB ϕ && !cycleClashB ϕ
 
+/-- The finite test succeeds exactly without label and cycle clashes. -/
 theorem Covariant.satFinB_iff_not_clash (ϕ : Constraint n k) :
     Covariant.satFinB ϕ = true ↔ ¬ LabelClash ϕ ∧ ¬ CycleClash ϕ := by
   change (satInfB ϕ && !cycleClashB ϕ) = true ↔ _
@@ -183,5 +189,3 @@ theorem Covariant.satFinB_iff (ϕ : Constraint n k) :
   rw [satFin_iff, Covariant.satFinB_iff_not_clash]
 
 end DeciNSSE
-
-end

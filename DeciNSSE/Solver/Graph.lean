@@ -4,9 +4,18 @@ import DeciNSSE.Countermodels
 
 An untrusted breadth-first traversal supplies a finite closed list. Membership
 checks justify the restriction, whose unfolding is unchanged.
+
+## Main declarations
+
+- `Solver.Graph.Closed`, `Solver.Graph.closedB`: closed lists of graph states and their
+  check.
+- `Solver.Graph.restrict`, `Solver.Graph.unfold_restrict`: the restriction to a closed
+  list preserves the unfolding.
+- `Solver.Graph.compact`, `Solver.Graph.unfold_compact`: the checked restriction to the
+  reachable states.
 -/
 
-namespace DeciNSSE.RGraph
+namespace DeciNSSE.Solver.Graph
 variable {n : ℕ}
 
 /-- A closed list contains the root and all constructor successors. -/
@@ -18,6 +27,7 @@ def closedB (g : RGraph n) (qs : List (Fin g.size)) : Bool :=
   decide (g.root ∈ qs) && qs.all (fun q => if g.label q = .f then
     (List.finRange n).all (fun a => decide (g.child q a ∈ qs)) else true)
 
+/-- The closure check accepts exactly the closed lists. -/
 theorem closedB_iff (g : RGraph n) (qs : List (Fin g.size)) :
     closedB g qs = true ↔ Closed g qs := by
   simp only [closedB, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
@@ -32,12 +42,14 @@ theorem closedB_iff (g : RGraph n) (qs : List (Fin g.size)) :
 def locate {g : RGraph n} (qs : List (Fin g.size)) (q : Fin g.size) (h : q ∈ qs) :
     Fin qs.length := ⟨qs.idxOf q, List.idxOf_lt_length_iff.mpr h⟩
 
+/-- The located position holds the state. -/
 @[simp] theorem get_locate {g : RGraph n} (qs : List (Fin g.size))
     (q : Fin g.size) (h : q ∈ qs) : qs.get (locate qs q h) = q := by
   simp [locate, List.get_eq_getElem]
 
 /-- Number a closed list by its positions. -/
-@[implicit_reducible] def restrict (g : RGraph n) (qs : List (Fin g.size)) (h : Closed g qs) : RGraph n where
+@[implicit_reducible] def restrict (g : RGraph n) (qs : List (Fin g.size)) (h : Closed g qs) :
+    RGraph n where
   size := qs.length
   root := locate qs g.root h.1
   label i := g.label (qs.get i)
@@ -53,7 +65,7 @@ theorem unfold_restrict (g : RGraph n) (qs : List (Fin g.size)) (h : Closed g qs
     induction w generalizing i with
     | nil => rfl
     | cons a w ih =>
-      simp only [walkFrom, restrict]
+      simp only [RGraph.walkFrom, restrict]
       split <;> rename_i hf
       · simpa only [restrict, dite_eq_left hf, get_locate] using ih
           (locate qs (g.child (qs.get i) a) (h.2 _ (List.get_mem ..) hf a))
@@ -95,4 +107,4 @@ theorem unfold_compact (g : RGraph n) (fuel : ℕ) :
   · exact unfold_restrict ..
   · rfl
 
-end DeciNSSE.RGraph
+end DeciNSSE.Solver.Graph

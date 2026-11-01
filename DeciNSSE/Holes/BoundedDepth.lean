@@ -1,583 +1,41 @@
-import Mathlib.Data.Fintype.BigOperators
-import Mathlib.Data.Fintype.Option
-import Mathlib.Data.Fintype.Pi
 import DeciNSSE.Holes.Hierarchy
-import DeciNSSE.Holes.Packets
+import DeciNSSE.Holes.Columns
 
 /-! # Finite search at bounded hierarchy depth
 
-Finite summaries record transitions, admissions and block equalities.
-Short representatives preserve the derived monitor on its support. At a unary
-level a short power of one letter is a hole; iterating the compression below
-it bounds the length of a witness at bounded depth. This does not bound every
-hole at that depth.
--/
+At a unary level `i` of the canonical hierarchy a short power of one letter is
+a hole. Below it, column compression replaces the letters of a support by
+short sub-words with the same derived atomic type; deduplicating the supports
+keeps every compression within a bounded positive dictionary. Iterating down
+to level `0` bounds the length of a witness of depth at most `d`. This does
+not bound every hole of that depth.
 
-set_option autoImplicit false
+## Main declarations
+
+- `card_cores`: the level-`i` instance has `N + i` cores.
+- `PositiveDictionaryBound`, `descentFactor`: the dictionary bound and the
+  compression factor of one level.
+- `shorten_level_supported`: compression of a support of level `j`, with the
+  steps `length_le_of_dictionaryBound`, `admissible_update_map` and
+  `length_expandTo_update_le`.
+- `exists_short_hole_of_dictionary`: a hole with a bounded dictionary through a
+  unary level has a witness of length at most
+  `(N + d + 1) * descentFactor N d g ^ d`.
+
+The agreement of monitors (`Holes/Agree`) and the column automaton
+(`Holes/Columns`) are in their own modules, imported here. All three modules
+use the namespace `DeciNSSE.BoundedDepth`.
+-/
 
 namespace DeciNSSE.BoundedDepth
 open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy
 open scoped List
 
-section Agree
-variable {Γ Γ' Γ'' C : Type*}
-
-/-- Labels whose letter lies in `E` (and the start label `S`). -/
-def LabIn (E : List Γ) : Lab Γ C → Prop
-  | none => True
-  | some (_, a) => a ∈ E
-
-/-- Agreement on a support. `φ` carries the atomic type of the letters of `E` in `D` to
-that of their images in `D'`, possibly over another alphabet: the start core is the same,
-`φ` is injective on `E`, and `κ`, `Tf`, `Λ`, `Λ^f` (the `S`-rows included) are preserved on
-all labels whose letters lie in `E`, for all cores. -/
-structure Agree (D : Lettered Γ C) (D' : Lettered Γ' C) (φ : Γ → Γ') (E : List Γ) : Prop where
-  start : D'.start = D.start
-  inj : ∀ a ∈ E, ∀ b ∈ E, φ a = φ b → a = b
-  κ : ∀ a ∈ E, ∀ c, D'.κ (φ a) c = D.κ a c
-  tf : ∀ a ∈ E, ∀ c, (D'.Tf c (φ a) ↔ D.Tf c a)
-  Λ : ∀ L L', LabIn E L → LabIn E L' → (D'.Λ (mapLab φ id L) (mapLab φ id L') ↔ D.Λ L L')
-  Λf : ∀ L L', LabIn E L → LabIn E L' → (D'.Λf (mapLab φ id L) (mapLab φ id L') ↔ D.Λf L L')
-
-@[simp] theorem mapLab_none (φ : Γ → Γ') : mapLab φ (id : C → C) none = none := rfl
-
-@[simp] theorem mapLab_some (φ : Γ → Γ') (c : C) (a : Γ) :
-    mapLab φ id (some (c, a)) = some (c, φ a) := rfl
-
-theorem mapLab_id (L : Lab Γ C) : mapLab (id : Γ → Γ) (id : C → C) L = L := by
-  rcases L with _ | ⟨c, a⟩ <;> rfl
-
-theorem mapLab_comp (φ : Γ' → Γ'') (ψ : Γ → Γ') (L : Lab Γ C) :
-    mapLab (φ ∘ ψ) (id : C → C) L = mapLab φ id (mapLab ψ id L) := by
-  rcases L with _ | ⟨c, a⟩ <;> rfl
-
-theorem Agree.refl (D : Lettered Γ C) (E : List Γ) : Agree D D id E where
-  start := rfl
-  inj _ _ _ _ h := h
-  κ _ _ _ := rfl
-  tf _ _ _ := Iff.rfl
-  Λ L L' _ _ := by rw [mapLab_id, mapLab_id]
-  Λf L L' _ _ := by rw [mapLab_id, mapLab_id]
-
-theorem LabIn.map {E : List Γ} (φ : Γ → Γ') {L : Lab Γ C} (h : LabIn E L) :
-    LabIn (E.map φ) (mapLab φ id L) := by
-  rcases L with _ | ⟨c, a⟩
-  · trivial
-  · exact List.mem_map_of_mem h
-
-/-- Composition of agreements. -/
-theorem Agree.comp {D : Lettered Γ C} {D' : Lettered Γ' C} {D'' : Lettered Γ'' C}
-    {ψ : Γ → Γ'} {φ : Γ' → Γ''} {E : List Γ}
-    (h₁ : Agree D D' ψ E) (h₂ : Agree D' D'' φ (E.map ψ)) : Agree D D'' (φ ∘ ψ) E where
-  start := h₂.start.trans h₁.start
-  inj a ha b hb h := h₁.inj a ha b hb
-    (h₂.inj _ (List.mem_map_of_mem ha) _ (List.mem_map_of_mem hb) h)
-  κ a ha c := (h₂.κ _ (List.mem_map_of_mem ha) c).trans (h₁.κ a ha c)
-  tf a ha c := (h₂.tf _ (List.mem_map_of_mem ha) c).trans (h₁.tf a ha c)
-  Λ L L' hL hL' := by
-    rw [mapLab_comp, mapLab_comp]
-    exact (h₂.Λ _ _ (hL.map ψ) (hL'.map ψ)).trans (h₁.Λ L L' hL hL')
-  Λf L L' hL hL' := by
-    rw [mapLab_comp, mapLab_comp]
-    exact (h₂.Λf _ _ (hL.map ψ) (hL'.map ψ)).trans (h₁.Λf L L' hL hL')
-
-variable {D : Lettered Γ C} {D' : Lettered Γ' C} {φ : Γ → Γ'} {E : List Γ}
-
-theorem Agree.kst_map (h : Agree D D' φ E) :
-    ∀ (w : List Γ), (∀ a ∈ w, a ∈ E) → ∀ c, kst D' c (w.map φ) = kst D c w
-  | [], _, _ => rfl
-  | a :: w, hw, c => by
-      rw [List.map_cons, kst_cons, kst_cons, h.κ a (hw a List.mem_cons_self)]
-      exact h.kst_map w (fun b hb => hw b (List.mem_cons_of_mem _ hb)) _
-
-theorem labIn_labFrom (D : Lettered Γ C) {w : List Γ} (hw : ∀ a ∈ w, a ∈ E) (c : C) :
-    ∀ p, LabIn E (labFrom D c w p)
-  | 0 => trivial
-  | x + 1 => by
-      simp only [labFrom]
-      rcases hx : w[x]? with _ | a
-      · trivial
-      · exact hw a (List.mem_of_getElem? hx)
-
-theorem Agree.labFrom_map (h : Agree D D' φ E) {w : List Γ} (hw : ∀ a ∈ w, a ∈ E) (c : C) :
-    ∀ p, labFrom D' c (w.map φ) p = mapLab φ id (labFrom D c w p)
-  | 0 => rfl
-  | x + 1 => by
-      simp only [DeciNSSE.LetteredHierarchy.labFrom, List.getElem?_map, ← List.map_take,
-        h.kst_map _ (fun a ha => hw a (List.mem_of_mem_take ha))]
-      rcases w[x]? with _ | a <;> rfl
-
-theorem labIn_label (D : Lettered Γ C) {v : List Γ} (hv : ∀ a ∈ v, a ∈ E) (x : ℕ) :
-    LabIn E (D.label v x) := by
-  rw [label_eq_labFrom]; exact labIn_labFrom D hv _ x
-
-theorem Agree.label_map (h : Agree D D' φ E) {v : List Γ} (hv : ∀ a ∈ v, a ∈ E) (x : ℕ) :
-    D'.label (v.map φ) x = mapLab φ id (D.label v x) := by
-  rw [label_eq_labFrom, label_eq_labFrom, h.start]
-  exact h.labFrom_map hv _ x
-
-theorem Agree.isComp_iff (h : Agree D D' φ E) {v : List Γ} (hv : ∀ a ∈ v, a ∈ E) (s e : ℕ) :
-    IsComp (v.map φ) s e ↔ IsComp v s e :=
-  isComp_map_iff φ v (fun _ _ _ _ _ _ he => h.inj _ (hv _ (List.getElem_mem _)) _
-    (hv _ (List.getElem_mem _)) he) s e
-
-/-- Transfer. Under an agreement on a support containing the letters of
-`v`, `φ(v)` is a hole of `D'` iff `v` is a hole of `D`. -/
-theorem Agree.isHole_iff (h : Agree D D' φ E) {v : List Γ} (hv : ∀ a ∈ v, a ∈ E) :
-    D'.IsHole (v.map φ) ↔ D.IsHole v := by
-  have hl := h.label_map hv
-  have hu := labIn_label (E := E) D hv
-  unfold Lettered.IsHole
-  rw [List.length_map, hl]
-  refine and_congr ?_ (and_congr ?_ ?_)
-  · have hU := hu v.length
-    rcases hL : D.label v v.length with _ | ⟨c, a⟩
-    · simp
-    · rw [hL] at hU
-      rw [mapLab_some, exists_some_eq_iff, exists_some_eq_iff]
-      exact h.tf a hU c
-  · refine forall_congr' fun s => imp_congr_right fun _ => not_congr ?_
-    rw [hl]
-    exact h.Λf _ _ (hu s) (hu _)
-  · refine forall_congr' fun s => forall_congr' fun e => ?_
-    rw [h.isComp_iff hv]
-    refine imp_congr_right fun _ => imp_congr_right fun _ => not_congr ?_
-    rw [hl, hl]
-    exact h.Λ _ _ (hu s) (hu e)
-
-section DerAgree
-variable (h : Agree D D' φ E) {ℓ : Γ} (hℓ : ℓ ∈ E)
-include h hℓ
-
-theorem Agree.fcore_map {X : List Γ} (hX : ∀ a ∈ X, a ∈ E) (c : Option C) :
-    fcore D' (φ ℓ) c (X.map φ) = fcore D ℓ c X := by
-  rcases c with _ | c
-  · simp only [DeciNSSE.LetteredHierarchy.fcore, h.start]; exact h.kst_map X hX _
-  · simp only [DeciNSSE.LetteredHierarchy.fcore]
-    rw [show φ ℓ :: X.map φ = (ℓ :: X).map φ from rfl]
-    exact h.kst_map (ℓ :: X) (fun a ha => by
-      rcases List.mem_cons.mp ha with rfl | ha
-      · exact hℓ
-      · exact hX a ha) c
-
-theorem Agree.zlab_map {X : List Γ} (hX : ∀ a ∈ X, a ∈ E) (c : Option C) (p : ℕ) :
-    zlab D' (φ ℓ) c (X.map φ) p = mapLab φ id (zlab D ℓ c X p) := by
-  rcases c with _ | c
-  · simp only [DeciNSSE.LetteredHierarchy.zlab, h.start]; exact h.labFrom_map hX _ p
-  · simp only [DeciNSSE.LetteredHierarchy.zlab]
-    rw [show φ ℓ :: X.map φ = (ℓ :: X).map φ from rfl]
-    exact h.labFrom_map (fun a ha => by
-      rcases List.mem_cons.mp ha with rfl | ha
-      · exact hℓ
-      · exact hX a ha) c (p + 1)
-
-omit h in
-theorem labIn_zlab (D : Lettered Γ C) {X : List Γ} (hX : ∀ a ∈ X, a ∈ E) (c : Option C)
-    (p : ℕ) : LabIn E (zlab D ℓ c X p) := by
-  rcases c with _ | c
-  · exact labIn_labFrom D hX _ p
-  · exact labIn_labFrom D (fun a ha => by
-      rcases List.mem_cons.mp ha with rfl | ha
-      · exact hℓ
-      · exact hX a ha) c (p + 1)
-
-theorem Agree.derΛ_map {X Y : List Γ} (hX : ∀ a ∈ X, a ∈ E) (hY : ∀ a ∈ Y, a ∈ E)
-    (c c' : Option C) :
-    derΛ D' (φ ℓ) (some (c, X.map φ)) (some (c', Y.map φ)) ↔
-      derΛ D ℓ (some (c, X)) (some (c', Y)) := by
-  simp only [DeciNSSE.LetteredHierarchy.derΛ]
-  constructor
-  · rintro ⟨x, x', y, hx, hy, hΛ⟩
-    obtain ⟨X1, X2, rfl, rfl, rfl⟩ := List.map_eq_append_iff.mp hx
-    obtain ⟨Y1, Y2, rfl, rfl, h2⟩ := List.map_eq_append_iff.mp hy
-    have hX2 : ∀ a ∈ X2, a ∈ E := fun a ha => hX a (List.mem_append_right _ ha)
-    have hY2 : ∀ a ∈ Y2, a ∈ E := fun a ha => hY a (List.mem_append_right _ ha)
-    obtain rfl := map_inj_on h.inj hY2 hX2 h2
-    rw [h.zlab_map hℓ hX, h.zlab_map hℓ hY, List.length_map, List.length_map] at hΛ
-    exact ⟨X1, Y1, Y2, rfl, rfl,
-      (h.Λ _ _ (labIn_zlab hℓ D hX c _) (labIn_zlab hℓ D hY c' _)).mp hΛ⟩
-  · rintro ⟨x, x', y, rfl, rfl, hΛ⟩
-    refine ⟨x.map φ, x'.map φ, y.map φ, by simp, by simp, ?_⟩
-    rw [h.zlab_map hℓ hX, h.zlab_map hℓ hY, List.length_map, List.length_map]
-    exact (h.Λ _ _ (labIn_zlab hℓ D hX c _) (labIn_zlab hℓ D hY c' _)).mpr hΛ
-
-theorem Agree.blockΛf_map {X : List Γ} (hX : ∀ a ∈ X, a ∈ E) (c : Option C) (d : C) :
-    (∃ p ≤ (X.map φ).length, D'.Λf (zlab D' (φ ℓ) c (X.map φ) p) (some (d, φ ℓ))) ↔
-      ∃ p ≤ X.length, D.Λf (zlab D ℓ c X p) (some (d, ℓ)) := by
-  rw [List.length_map]
-  refine exists_congr fun p => and_congr_right fun _ => ?_
-  rw [h.zlab_map hℓ hX, show (some (d, φ ℓ) : Lab Γ' C) = mapLab φ id (some (d, ℓ)) from rfl]
-  exact h.Λf _ _ (labIn_zlab hℓ D hX c p) hℓ
-
-/-- Agreement passes through `Der(·, ℓ)`. If `φ` agrees on a support `E ∋ ℓ`, then the
-letterwise map agrees on every list of level-`(j+1)` letters over `E`, between `Der(D, ℓ)` and
-`Der(D', φ ℓ)`. -/
-theorem Agree.derive (F : List (List Γ)) (hF : ∀ X ∈ F, ∀ a ∈ X, a ∈ E) :
-    Agree (der D ℓ) (der D' (φ ℓ)) (List.map φ) F where
-  start := rfl
-  inj X hX Y hY hXY := map_inj_on h.inj (hF X hX) (hF Y hY) hXY
-  κ X hX c := by rw [der_κ, der_κ, h.fcore_map hℓ (hF X hX)]
-  tf X hX c := by
-    simp only [der_Tf, derTf]
-    rw [h.fcore_map hℓ (hF X hX), h.tf ℓ hℓ, h.blockΛf_map hℓ (hF X hX)]
-  Λ L L' hL hL' := by
-    rcases L with _ | ⟨c, X⟩ <;> rcases L' with _ | ⟨c', Y⟩
-    · simp [derΛ]
-    · simp [derΛ]
-    · simp [derΛ]
-    · exact h.derΛ_map hℓ (hF X hL) (hF Y hL') c c'
-  Λf L L' hL hL' := by
-    rcases L with _ | ⟨c, X⟩ <;> rcases L' with _ | ⟨c', Y⟩
-    · simp [derΛf]
-    · simp [derΛf]
-    · simp [derΛf]
-    · simp only [mapLab_some, der_Λf, derΛf]
-      rw [h.derΛ_map hℓ (hF X hL) (hF Y hL') c c', h.fcore_map hℓ (hF Y hL'),
-        h.blockΛf_map hℓ (hF X hL)]
-
-end DerAgree
-
-end Agree
-
-section Column
-variable {Γ C : Type*} (D : Lettered Γ C) (ℓ : Γ)
-
-/-- The label of position `0` of a shifted block: `(c, ℓ)`, or `S` for the new start core. -/
-def lab0 (c : Option C) : Lab Γ C := c.map fun c => (c, ℓ)
-
-theorem zlab_zero (c : Option C) (X : List Γ) : zlab D ℓ c X 0 = lab0 ℓ c := by
-  rcases c with _ | c
-  · rfl
-  · simp [zlab, labFrom, lab0]
-
-theorem fcore_snoc (c : Option C) (X : List Γ) (z : Γ) :
-    fcore D ℓ c (X ++ [z]) = D.κ z (fcore D ℓ c X) := by
-  rcases c with _ | c
-  · simp only [fcore, kst_append]; rfl
-  · simp only [fcore]; rw [← List.cons_append, kst_append]; rfl
-
-theorem zlab_snoc_le (c : Option C) (X : List Γ) (z : Γ) {p : ℕ} (hp : p ≤ X.length) :
-    zlab D ℓ c (X ++ [z]) p = zlab D ℓ c X p := by
-  rcases c with _ | c
-  · exact labFrom_append_le D _ X [z] hp
-  · simp only [zlab]
-    rw [← List.cons_append]
-    exact labFrom_append_le D _ (ℓ :: X) [z] (by simp; omega)
-
-theorem zlab_snoc_last (c : Option C) (X : List Γ) (z : Γ) :
-    zlab D ℓ c (X ++ [z]) (X.length + 1) = some (fcore D ℓ c X, z) := by
-  rcases c with _ | c
-  · simp [zlab, labFrom, fcore]
-  · simp [zlab, labFrom, fcore]
-
-theorem blockΛf_snoc (c : Option C) (X : List Γ) (z : Γ) (L : Lab Γ C) :
-    (∃ p ≤ (X ++ [z]).length, D.Λf (zlab D ℓ c (X ++ [z]) p) L) ↔
-      (∃ p ≤ X.length, D.Λf (zlab D ℓ c X p) L) ∨ D.Λf (some (fcore D ℓ c X, z)) L := by
-  constructor
-  · rintro ⟨p, hp, hΛ⟩
-    rw [List.length_append, List.length_singleton] at hp
-    rcases Nat.lt_or_ge X.length p with h | h
-    · obtain rfl : p = X.length + 1 := by omega
-      rw [zlab_snoc_last] at hΛ; exact Or.inr hΛ
-    · rw [zlab_snoc_le D ℓ c X z h] at hΛ; exact Or.inl ⟨p, h, hΛ⟩
-  · rintro (⟨p, hp, hΛ⟩ | hΛ)
-    · exact ⟨p, by simp; omega, by rw [zlab_snoc_le D ℓ c X z hp]; exact hΛ⟩
-    · exact ⟨X.length + 1, by simp, by rw [zlab_snoc_last]; exact hΛ⟩
-
-theorem blockΛf_nil (c : Option C) (L : Lab Γ C) :
-    (∃ p ≤ ([] : List Γ).length, D.Λf (zlab D ℓ c [] p) L) ↔ D.Λf (lab0 ℓ c) L := by
-  constructor
-  · rintro ⟨p, hp, hΛ⟩
-    obtain rfl : p = 0 := by simpa using hp
-    rwa [zlab_zero] at hΛ
-  · intro hΛ; exact ⟨0, le_rfl, by rwa [zlab_zero]⟩
-
-theorem derΛ_nil_nil (c c' : Option C) :
-    derΛ D ℓ (some (c, [])) (some (c', [])) ↔ D.Λ (lab0 ℓ c) (lab0 ℓ c') := by
-  simp only [derΛ]
-  constructor
-  · rintro ⟨x, x', y, hx, hx', hΛ⟩
-    obtain ⟨rfl, rfl⟩ := List.append_eq_nil_iff.mp hx.symm
-    obtain ⟨rfl, -⟩ := List.append_eq_nil_iff.mp hx'.symm
-    simpa [zlab_zero] using hΛ
-  · intro hΛ; exact ⟨[], [], [], rfl, rfl, by simpa [zlab_zero] using hΛ⟩
-
-theorem derΛ_nil_snoc (c c' : Option C) (Y : List Γ) (z' : Γ) :
-    derΛ D ℓ (some (c, [])) (some (c', Y ++ [z'])) ↔
-      D.Λ (lab0 ℓ c) (some (fcore D ℓ c' Y, z')) := by
-  simp only [derΛ]
-  constructor
-  · rintro ⟨x, x', y, hx, hx', hΛ⟩
-    obtain ⟨rfl, rfl⟩ := List.append_eq_nil_iff.mp hx.symm
-    rw [List.append_nil] at hx'
-    subst hx'
-    rwa [List.length_nil, zlab_zero, List.length_append, List.length_singleton,
-      zlab_snoc_last] at hΛ
-  · intro hΛ
-    refine ⟨[], Y ++ [z'], [], rfl, (List.append_nil _).symm, ?_⟩
-    rwa [List.length_nil, zlab_zero, List.length_append, List.length_singleton, zlab_snoc_last]
-
-theorem derΛ_snoc_nil (c c' : Option C) (X : List Γ) (z : Γ) :
-    derΛ D ℓ (some (c, X ++ [z])) (some (c', [])) ↔
-      D.Λ (some (fcore D ℓ c X, z)) (lab0 ℓ c') := by
-  simp only [derΛ]
-  constructor
-  · rintro ⟨x, x', y, hx, hx', hΛ⟩
-    obtain ⟨rfl, rfl⟩ := List.append_eq_nil_iff.mp hx'.symm
-    rw [List.append_nil] at hx
-    subst hx
-    rwa [List.length_nil, zlab_zero, List.length_append, List.length_singleton,
-      zlab_snoc_last] at hΛ
-  · intro hΛ
-    refine ⟨X ++ [z], [], [], (List.append_nil _).symm, rfl, ?_⟩
-    rwa [List.length_nil, zlab_zero, List.length_append, List.length_singleton, zlab_snoc_last]
-
-theorem derΛ_snoc_snoc (c c' : Option C) (X Y : List Γ) (z z' : Γ) :
-    derΛ D ℓ (some (c, X ++ [z])) (some (c', Y ++ [z'])) ↔
-      D.Λ (some (fcore D ℓ c X, z)) (some (fcore D ℓ c' Y, z')) ∨
-        (z = z' ∧ derΛ D ℓ (some (c, X)) (some (c', Y))) := by
-  simp only [derΛ]
-  constructor
-  · rintro ⟨x, x', y, hx, hy, hΛ⟩
-    rcases List.eq_nil_or_concat y with rfl | ⟨y0, u, rfl⟩
-    · rw [List.append_nil] at hx hy
-      subst hx; subst hy
-      left
-      rwa [List.length_append, List.length_singleton, zlab_snoc_last,
-        List.length_append, List.length_singleton, zlab_snoc_last] at hΛ
-    · rw [List.concat_eq_append, ← List.append_assoc] at hx hy
-      obtain ⟨hX, hz⟩ := List.append_inj' hx rfl
-      obtain ⟨hY, hz'⟩ := List.append_inj' hy rfl
-      simp only [List.cons.injEq, and_true] at hz hz'
-      right
-      refine ⟨hz.trans hz'.symm, x, x', y0, hX, hY, ?_⟩
-      rwa [zlab_snoc_le D ℓ c X z (p := x.length) (by rw [hX]; simp),
-        zlab_snoc_le D ℓ c' Y z' (p := x'.length) (by rw [hY]; simp)] at hΛ
-  · rintro (hΛ | ⟨hzz, x, x', y, hX, hY, hΛ⟩)
-    · refine ⟨X ++ [z], Y ++ [z'], [], (List.append_nil _).symm, (List.append_nil _).symm, ?_⟩
-      rwa [List.length_append, List.length_singleton, zlab_snoc_last,
-        List.length_append, List.length_singleton, zlab_snoc_last]
-    · refine ⟨x, x', y ++ [z], by rw [hX, List.append_assoc], by
-        rw [hY, List.append_assoc, hzz], ?_⟩
-      rwa [zlab_snoc_le D ℓ c X z (p := x.length) (by rw [hX]; simp),
-        zlab_snoc_le D ℓ c' Y z' (p := x'.length) (by rw [hY]; simp)]
-
-/-- States of the column automaton for `k` tracks over cores `C`: the exits `fc(c, X_a)`, the
-sets `B_a(c) ∋ d` (some label of the shifted block `Ẑ_a(c)` is `Λ^f`-related to `(d, ℓ)`),
-the equality relation of the tracks, and the ladders `Λ'` for all pairs of tracks and start
-cores. -/
-abbrev CS (C : Type*) (k : ℕ) :=
-  (Fin k → Option C → C) × (Fin k → Option C → C → Prop) × (Fin k → Fin k → Prop) ×
-    (Fin k → Fin k → Option C → Option C → Prop)
-
-variable (k : ℕ)
-
-/-- The transition of the column automaton on a column (`none` = padding; columns are
-right-aligned, so a padded track is still empty). -/
-def colStep (x : CS C k) (col : Fin k → Option Γ) : CS C k :=
-  (fun a c => match col a with
-      | none => x.1 a c
-      | some z => D.κ z (x.1 a c),
-   fun a c d => match col a with
-      | none => x.2.1 a c d
-      | some z => x.2.1 a c d ∨ D.Λf (some (x.1 a c, z)) (some (d, ℓ)),
-   fun a b => x.2.2.1 a b ∧ col a = col b,
-   fun a b c c' => match col a, col b with
-      | none, none => x.2.2.2 a b c c'
-      | none, some z' => D.Λ (lab0 ℓ c) (some (x.1 b c', z'))
-      | some z, none => D.Λ (some (x.1 a c, z)) (lab0 ℓ c')
-      | some z, some z' =>
-          D.Λ (some (x.1 a c, z)) (some (x.1 b c', z')) ∨ (z = z' ∧ x.2.2.2 a b c c'))
-
-/-- The initial state (all tracks empty). -/
-def colStart : CS C k :=
-  (fun _ c => fcore D ℓ c [], fun _ c d => D.Λf (lab0 ℓ c) (some (d, ℓ)), fun _ _ => True,
-    fun _ _ c c' => D.Λ (lab0 ℓ c) (lab0 ℓ c'))
-
-/-- The finite reader that accumulates a summary of padded word columns. -/
-def colDFA : DFA (Fin k → Option Γ) (CS C k) where
-  step := colStep D ℓ k
-  start := colStart D ℓ k
-  accept := ∅
-
-/-- The intended value of the column automaton on a tuple of level-`(j+1)` letters. -/
-def summ (Ws : Fin k → List Γ) : CS C k :=
-  (fun a c => fcore D ℓ c (Ws a),
-   fun a c d => ∃ p ≤ (Ws a).length, D.Λf (zlab D ℓ c (Ws a) p) (some (d, ℓ)),
-   fun a b => Ws a = Ws b,
-   fun a b c c' => derΛ D ℓ (some (c, Ws a)) (some (c', Ws b)))
-
-open DeciNSSE.Packets in
-
-theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
-    (colDFA D ℓ k).eval w = summ D ℓ k (dec w) := by
-  induction w using List.reverseRecOn with
-  | nil =>
-    have hd : ∀ a, dec ([] : List (Fin k → Option Γ)) a = [] := fun _ => rfl
-    show colStart D ℓ k = summ D ℓ k (dec [])
-    simp only [colStart, summ, hd]
-    refine Prod.ext rfl (Prod.ext ?_ (Prod.ext ?_ ?_))
-    · funext a c d; exact propext (blockΛf_nil D ℓ c _).symm
-    · funext a b; simp
-    · funext a b c c'; exact propext (derΛ_nil_nil D ℓ c c').symm
-  | append_singleton w col ih =>
-    rw [DFA.eval_append_singleton, ih (hw.sublist (List.sublist_append_left _ _))]
-    have hpad : ∀ a, col a = none → dec w a = [] := dec_eq_nil_of_pad hw
-    show colStep D ℓ k (summ D ℓ k (dec w)) col = summ D ℓ k (dec (w ++ [col]))
-    simp only [colStep, summ, dec_snoc]
-    refine Prod.ext ?_ (Prod.ext ?_ (Prod.ext ?_ ?_))
-    · funext a c
-      dsimp only
-      rcases col a with _ | z
-      · simp
-      · simp [fcore_snoc]
-    · funext a c d
-      dsimp only
-      rcases col a with _ | z
-      · simp
-      · simp only [Option.toList_some]
-        exact propext (blockΛf_snoc D ℓ c _ z _).symm
-    · funext a b
-      dsimp only
-      apply propext
-      rcases hca : col a with _ | z <;> rcases hcb : col b with _ | z'
-      · rw [hpad a hca, hpad b hcb]; simp
-      · rw [hpad a hca]; simp
-      · rw [hpad b hcb]; simp
-      · simp only [Option.toList_some, Option.some.injEq]
-        constructor
-        · rintro ⟨h1, rfl⟩; rw [h1]
-        · intro h
-          obtain ⟨e1, e2⟩ := List.append_inj' h rfl
-          simp only [List.cons.injEq, and_true] at e2
-          exact ⟨e1, e2⟩
-    · funext a b c c'
-      dsimp only
-      apply propext
-      rcases hca : col a with _ | z <;> rcases hcb : col b with _ | z'
-      · simp
-      · rw [hpad a hca]
-        simp only [Option.toList_none, Option.toList_some, List.append_nil]
-        exact (derΛ_nil_snoc D ℓ c c' _ z').symm
-      · rw [hpad b hcb]
-        simp only [Option.toList_none, Option.toList_some, List.append_nil]
-        exact (derΛ_snoc_nil D ℓ c c' _ z).symm
-      · simp only [Option.toList_some]
-        exact (derΛ_snoc_snoc D ℓ c c' _ _ z z').symm
-
-instance instFintypeCS [Fintype C] [DecidableEq C] : Fintype (CS C k) :=
-  @instFintypeProd _ _ inferInstance
-    (@instFintypeProd _ _ inferInstance (@instFintypeProd _ _ inferInstance inferInstance))
-
-/-- The number of column-automaton states for `N` cores and `k` tracks. -/
-def colBound (N k : ℕ) : ℕ :=
-  (N ^ (N + 1)) ^ k * ((2 ^ N) ^ (N + 1)) ^ k * (2 ^ k) ^ k *
-    (((2 ^ (N + 1)) ^ (N + 1)) ^ k) ^ k
-
-theorem card_CS [Fintype C] [DecidableEq C] :
-    Fintype.card (CS C k) = colBound (Fintype.card C) k := by
-  rw [Fintype.card_prod, Fintype.card_prod, Fintype.card_prod]
-  simp [Fintype.card_option, colBound, mul_assoc]
-
-/-- The summary determines the atomic type at level `j + 1`:
-two `k`-tuples with the same column summary have the same equality pattern and the same
-`κ'`, `Tf'`, `Λ'`, `Λ'^f` in `Der(D, ℓ)` (all start cores). -/
-theorem der_type_of_summ {Ws Ws' : Fin k → List Γ} (hs : summ D ℓ k Ws' = summ D ℓ k Ws)
-    (a b : Fin k) :
-    (Ws' a = Ws' b ↔ Ws a = Ws b) ∧
-    (∀ c, (der D ℓ).κ (Ws' a) c = (der D ℓ).κ (Ws a) c) ∧
-    (∀ c, (der D ℓ).Tf c (Ws' a) ↔ (der D ℓ).Tf c (Ws a)) ∧
-    (∀ c c', (der D ℓ).Λ (some (c, Ws' a)) (some (c', Ws' b)) ↔
-      (der D ℓ).Λ (some (c, Ws a)) (some (c', Ws b))) ∧
-    (∀ c c', (der D ℓ).Λf (some (c, Ws' a)) (some (c', Ws' b)) ↔
-      (der D ℓ).Λf (some (c, Ws a)) (some (c', Ws b))) := by
-  have h1 : ∀ a c, fcore D ℓ c (Ws' a) = fcore D ℓ c (Ws a) := fun a c =>
-    congrFun (congrFun (congrArg Prod.fst hs) a) c
-  have h2 : ∀ a c d, (∃ p ≤ (Ws' a).length, D.Λf (zlab D ℓ c (Ws' a) p) (some (d, ℓ))) ↔
-      ∃ p ≤ (Ws a).length, D.Λf (zlab D ℓ c (Ws a) p) (some (d, ℓ)) := fun a c d =>
-    Iff.of_eq (congrFun (congrFun (congrFun (congrArg (fun s => s.2.1) hs) a) c) d)
-  have h3 : ∀ a b, Ws' a = Ws' b ↔ Ws a = Ws b := fun a b =>
-    Iff.of_eq (congrFun (congrFun (congrArg (fun s => s.2.2.1) hs) a) b)
-  have h4 : ∀ a b c c', derΛ D ℓ (some (c, Ws' a)) (some (c', Ws' b)) ↔
-      derΛ D ℓ (some (c, Ws a)) (some (c', Ws b)) := fun a b c c' =>
-    Iff.of_eq (congrFun (congrFun (congrFun (congrFun
-      (congrArg (fun s => s.2.2.2) hs) a) b) c) c')
-  refine ⟨h3 a b, fun c => ?_, fun c => ?_, fun c c' => h4 a b c c', fun c c' => ?_⟩
-  · rw [der_κ, der_κ, h1]
-  · simp only [der_Tf, derTf]
-    rw [h1, h2]
-  · simp only [der_Λf, derΛf]
-    rw [h4, h1, h2]
-
-open DeciNSSE.Packets in
-
-/-- Short realisers of a summary. Every `k`-tuple of level-`(j+1)` letters has a tuple of
-sub-words, each shorter than `colBound |C| k`, with the same column summary. -/
-theorem exists_short_tuple [Fintype C] [DecidableEq C] (Ws : Fin k → List Γ) :
-    ∃ Ws' : Fin k → List Γ, (∀ a, (Ws' a).Sublist (Ws a)) ∧
-      (∀ a, (Ws' a).length < colBound (Fintype.card C) k) ∧ summ D ℓ k Ws' = summ D ℓ k Ws := by
-  obtain ⟨Ws', h1, h2, h3⟩ := exists_short_conv (fun x => (colDFA D ℓ k).eval x)
-    (fun x y a h => by simp only [DFA.eval_append_singleton]; rw [h]) Ws
-  refine ⟨Ws', h1, fun a => (h2 a).trans_eq (card_CS k), ?_⟩
-  have e1 := colEval D ℓ k _ (valid_conv Ws')
-  have e2 := colEval D ℓ k _ (valid_conv Ws)
-  rw [dec_conv] at e1 e2
-  rw [← e1, ← e2]
-  exact h3
-
-/-- For every list `E` of at most `k`
-level-`(j+1)` letters (words over the level-`j` alphabet) there is a map `ψ` sending each
-`X ∈ E` to a sub-word of `X` of length `< colBound |C| k` and preserving the atomic type of `E`
-in `Der(D, ℓ)`. -/
-theorem exists_short_letters [Fintype C] [DecidableEq C] (E : List (List Γ))
-    (hk : E.length ≤ k) :
-    ∃ ψ : List Γ → List Γ, Agree (der D ℓ) (der D ℓ) ψ E ∧
-      ∀ X ∈ E, (ψ X).Sublist X ∧ (ψ X).length < colBound (Fintype.card C) k := by
-  classical
-  set Ws : Fin k → List Γ := fun a => E.getD a.1 [] with hWs
-  obtain ⟨Ws', hsub, hlen, hsumm⟩ := exists_short_tuple D ℓ k Ws
-  have hT := der_type_of_summ D ℓ k hsumm
-  have hidx : ∀ X ∈ E, E.idxOf X < k := fun X hX =>
-    (List.idxOf_lt_length_of_mem hX).trans_le hk
-  let idx : ∀ X ∈ E, Fin k := fun X hX => ⟨E.idxOf X, hidx X hX⟩
-  have hWsidx : ∀ X (hX : X ∈ E), Ws (idx X hX) = X := fun X hX => by
-    simp only [hWs, idx]
-    rw [List.getD_eq_getElem _ _ (List.idxOf_lt_length_of_mem hX), List.getElem_idxOf]
-  let ψ : List Γ → List Γ := fun X => if hX : X ∈ E then Ws' (idx X hX) else X
-  have hψ : ∀ X (hX : X ∈ E), ψ X = Ws' (idx X hX) := fun X hX => dite_eq_left hX
-  refine ⟨ψ, ⟨rfl, ?_, ?_, ?_, ?_, ?_⟩, fun X hX => ?_⟩
-  · intro X hX Y hY hXY
-    rw [hψ X hX, hψ Y hY, (hT (idx X hX) (idx Y hY)).1, hWsidx X hX, hWsidx Y hY] at hXY
-    exact hXY
-  · intro X hX c
-    rw [hψ X hX, (hT (idx X hX) (idx X hX)).2.1, hWsidx X hX]
-  · intro X hX c
-    rw [hψ X hX, (hT (idx X hX) (idx X hX)).2.2.1, hWsidx X hX]
-  · intro L L' hL hL'
-    rcases L with _ | ⟨c, X⟩ <;> rcases L' with _ | ⟨c', Y⟩
-    · simp [derΛ]
-    · simp [derΛ]
-    · simp [derΛ]
-    · simp only [mapLab_some]
-      rw [hψ X hL, hψ Y hL', (hT (idx X hL) (idx Y hL')).2.2.2.1, hWsidx X hL, hWsidx Y hL']
-  · intro L L' hL hL'
-    rcases L with _ | ⟨c, X⟩ <;> rcases L' with _ | ⟨c', Y⟩
-    · simp [derΛf]
-    · simp [derΛf]
-    · simp [derΛf]
-    · simp only [mapLab_some]
-      rw [hψ X hL, hψ Y hL', (hT (idx X hL) (idx Y hL')).2.2.2.2, hWsidx X hL, hWsidx Y hL']
-  · rw [hψ X hX]
-    refine ⟨?_, hlen _⟩
-    have := hsub (idx X hX)
-    rwa [hWsidx X hX] at this
-
-end Column
-
 section Cores
 universe v
 variable {Q : Type v}
 
+/-- The cores of every level are finite. -/
 instance instFintypeCores [Fintype Q] : ∀ i, Fintype (Cores Q i)
   | 0 => (inferInstance : Fintype Q)
   | i + 1 => by haveI := instFintypeCores i; exact (inferInstance : Fintype (Option (Cores Q i)))
@@ -598,34 +56,8 @@ section Levels
 universe u v
 variable {α : Type u} {Q : Type v}
 
-theorem admissible_congr {ℓ ℓ' : (i : ℕ) → Alph α i} : ∀ (j : ℕ), (∀ t < j, ℓ t = ℓ' t) →
-    ∀ v : List (Alph α j), Admissible ℓ j v ↔ Admissible ℓ' j v
-  | 0, _, _ => Iff.rfl
-  | j + 1, h, v => by
-      show ((∀ X ∈ v, ℓ j ∉ X) ∧ Admissible ℓ j (expand (ℓ j) v)) ↔
-        ((∀ X ∈ v, ℓ' j ∉ X) ∧ Admissible ℓ' j (expand (ℓ' j) v))
-      rw [h j (by omega), admissible_congr j (fun t ht => h t (by omega))]
-
-theorem expandTo_congr {ℓ ℓ' : (i : ℕ) → Alph α i} : ∀ (j : ℕ), (∀ t < j, ℓ t = ℓ' t) →
-    ∀ v : List (Alph α j), expandTo ℓ j v = expandTo ℓ' j v
-  | 0, _, _ => rfl
-  | j + 1, h, v => by
-      show expandTo ℓ j (expand (ℓ j) v) = expandTo ℓ' j (expand (ℓ' j) v)
-      rw [h j (by omega), expandTo_congr j (fun t ht => h t (by omega))]
-
-theorem expandTo_append (ℓ : (i : ℕ) → Alph α i) : ∀ (j : ℕ) (u u' : List (Alph α j)),
-    expandTo ℓ j (u ++ u') = expandTo ℓ j u ++ expandTo ℓ j u'
-  | 0, _, _ => rfl
-  | j + 1, u, u' => by
-      show expandTo ℓ j (expand (ℓ j) (u ++ u')) =
-        expandTo ℓ j (expand (ℓ j) u) ++ expandTo ℓ j (expand (ℓ j) u')
-      rw [expand_append, expandTo_append ℓ j]
-
-theorem expandTo_nil (ℓ : (i : ℕ) → Alph α i) : ∀ j, expandTo ℓ j [] = []
-  | 0 => rfl
-  | j + 1 => expandTo_nil ℓ j
-
-/-- The level-`0` length of a level-`j` word is the sum of the lengths of its letters. -/
+/-- A level-`j` word whose letters expand to at most `B` letters each expands to at most
+`|u| B` letters. -/
 theorem length_expandTo_le (ℓ : (i : ℕ) → Alph α i) (j : ℕ) {B : ℕ} :
     ∀ u : List (Alph α j), (∀ z ∈ u, (expandTo ℓ j [z]).length ≤ B) →
       (expandTo ℓ j u).length ≤ u.length * B
@@ -659,8 +91,80 @@ theorem mem_lower_dictionary [DecidableEq α] [Inhabited α] {w : List α}
   rw [← expand_hierOf hw j]
   exact mem_expand.mpr ⟨X, hX, List.mem_append_left _ ha⟩
 
-/-- Compress a support inside a fixed original hierarchy. Recursive supports are
- deduplicated; the identity base case needs no bound on the level-zero alphabet. -/
+/-- A duplicate-free list of letters of a positive level has at most `g` entries under a
+positive dictionary bound. -/
+theorem length_le_of_dictionaryBound [DecidableEq α] [Inhabited α] {w : List α} {j g : ℕ}
+    (hg : PositiveDictionaryBound w (j + 1) g) {E : List (Alph α (j + 1))} (hE : E.Nodup)
+    (hsub : ∀ x ∈ E, x ∈ hierOf w (j + 1)) : E.length ≤ g := by
+  rw [← List.toFinset_card_of_nodup hE]
+  have hfin : E.toFinset ⊆ (hierOf w (j + 1)).toFinset := by
+    intro x hx
+    exact List.mem_toFinset.mpr (hsub x (List.mem_toFinset.mp hx))
+  exact (Finset.card_le_card hfin).trans (hg _ (by omega) le_rfl)
+
+/-- Admissibility after one compression step. Suppose `φ₀` sends no letter of a support
+`F ∋ m` other than `m` to `φ₀ m`, and `F.map φ₀` is admissible for `ℓ''` at level `j`. If the
+blocks `ψ X` lie over `F` and avoid `m`, then the blocks `(ψ X).map φ₀` form an admissible
+level-`(j + 1)` word once the marker of level `j` is set to `φ₀ m`. -/
+theorem admissible_update_map (ℓ'' : (i : ℕ) → Alph α i) {j : ℕ} (φ₀ : Alph α j → Alph α j)
+    {F : List (Alph α j)} {m : Alph α j} (hm : m ∈ F) (hinj : ∀ a ∈ F, φ₀ a = φ₀ m → a = m)
+    (hadm : Admissible ℓ'' j (F.map φ₀)) {E : List (Alph α (j + 1))}
+    (ψ : Alph α (j + 1) → Alph α (j + 1)) (hF : ∀ X ∈ E, ∀ a ∈ ψ X, a ∈ F)
+    (hav : ∀ X ∈ E, m ∉ ψ X) :
+    Admissible (Function.update ℓ'' j (φ₀ m)) (j + 1) (E.map fun X => (ψ X).map φ₀) := by
+  have hℓ'j : Function.update ℓ'' j (φ₀ m) j = φ₀ m := Function.update_self _ _ _
+  have hℓ'lt : ∀ t < j, Function.update ℓ'' j (φ₀ m) t = ℓ'' t := fun t ht =>
+    Function.update_of_ne (by omega) _ _
+  refine ⟨?_, ?_⟩
+  · intro Y hY hmem
+    obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hY
+    rw [hℓ'j] at hmem
+    obtain ⟨z, hz, hzeq⟩ := List.mem_map.mp hmem
+    rw [hinj z (hF X hX z hz) hzeq] at hz
+    exact hav X hX hz
+  · rw [hℓ'j, admissible_congr j hℓ'lt]
+    refine admissible_of_subset ℓ'' j _ (F.map φ₀) hadm (by
+      intro he
+      have := List.mem_map_of_mem (f := φ₀) hm
+      rw [he] at this
+      simp at this) ?_
+    intro a ha
+    obtain ⟨Y, hY, haY⟩ := mem_expand.mp ha
+    obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hY
+    rcases List.mem_append.mp haY with h1 | h1
+    · obtain ⟨z, hz, rfl⟩ := List.mem_map.mp h1
+      exact List.mem_map_of_mem (hF X hX z hz)
+    · rw [List.mem_singleton] at h1
+      rw [h1]
+      exact List.mem_map_of_mem hm
+
+/-- Length after one compression step. With the marker of level `j` set to `φ₀ m`, the
+letter `Y.map φ₀` of level `j + 1` expands to at most `(|Y| + 1) B` letters when `m` and every
+letter of `Y` expand under `φ₀` to at most `B` letters. -/
+theorem length_expandTo_update_le (ℓ'' : (i : ℕ) → Alph α i) {j : ℕ}
+    (φ₀ : Alph α j → Alph α j) (m : Alph α j) (Y : List (Alph α j)) {B : ℕ}
+    (hB : ∀ y ∈ Y ++ [m], (expandTo ℓ'' j [φ₀ y]).length ≤ B) :
+    (expandTo (Function.update ℓ'' j (φ₀ m)) (j + 1) [Y.map φ₀]).length ≤
+      (Y.length + 1) * B := by
+  have hℓ'lt : ∀ t < j, Function.update ℓ'' j (φ₀ m) t = ℓ'' t := fun t ht =>
+    Function.update_of_ne (by omega) _ _
+  have e1 : expandTo (Function.update ℓ'' j (φ₀ m)) (j + 1) [Y.map φ₀] =
+      expandTo ℓ'' j ((Y ++ [m]).map φ₀) := by
+    show expandTo _ j (expand (Function.update ℓ'' j (φ₀ m) j) [Y.map φ₀]) = _
+    rw [expandTo_congr j hℓ'lt, Function.update_self]
+    simp [expand]
+  rw [e1]
+  refine (length_expandTo_le ℓ'' j (B := B) _ ?_).trans ?_
+  · intro z hz
+    obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hz
+    exact hB y hy
+  · rw [List.length_map, List.length_append, List.length_singleton]
+
+/-- Compression of a support of level `j` inside a fixed original hierarchy. Every
+duplicate-free list `E` of letters of `u_j` has a new marker sequence `ℓ'` and a letter map `φ`
+that agree with the canonical tower on `E`, keep `E` admissible, and make each letter of `E`
+expand to at most `descentFactor N d g ^ j` letters. The supports of the recursive calls are
+deduplicated, and the identity base case needs no bound on the level-zero alphabet. -/
 theorem shorten_level_supported (D0 : Lettered α Q) [Fintype Q]
     [DecidableEq α] [Inhabited α] {w : List α} (hw : w ≠ [])
     {d g j : ℕ} (hj : j ≤ d) (hg : PositiveDictionaryBound w j g)
@@ -680,15 +184,10 @@ theorem shorten_level_supported (D0 : Lettered α Q) [Fintype Q]
       have hadm : Admissible ℓ (j + 1) E :=
         admissible_of_subset ℓ (j + 1) E _ (admissible_hierOf hw _)
           (hierOf_ne_nil hw _) hsub
-      have hk : E.length ≤ g := by
-        rw [← List.toFinset_card_of_nodup hE]
-        have hfin : E.toFinset ⊆ (hierOf w (j + 1)).toFinset := by
-          intro x hx
-          exact List.mem_toFinset.mpr (hsub x (List.mem_toFinset.mp hx))
-        exact (Finset.card_le_card hfin).trans (hg _ (by omega) le_rfl)
       set N := Fintype.card Q with hN
       set D := tower D0 ℓ j with hD
-      obtain ⟨ψ, hψA, hψ⟩ := exists_short_letters D (ℓ j) g E hk
+      obtain ⟨ψ, hψA, hψ⟩ := exists_short_letters D (ℓ j) g E
+        (length_le_of_dictionaryBound hg hE hsub)
       rw [card_cores j] at hψ
       set Ebig : List (Alph α j) := (ℓ j :: (E.map ψ).flatten).dedup with hEbig
       have hmemBig : ∀ X ∈ E, ∀ a ∈ ψ X, a ∈ Ebig := fun X hX a ha =>
@@ -719,47 +218,16 @@ theorem shorten_level_supported (D0 : Lettered α Q) [Fintype Q]
           intro Y hY a ha
           obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hY
           exact hmemBig X hX a ha))
-      · refine ⟨?_, ?_⟩
-        · intro Y hY hmem
-          obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hY
-          rw [hℓ'j] at hmem
-          obtain ⟨z, hz, hzeq⟩ := List.mem_map.mp hmem
-          have hzℓ := hA.inj z (hmemBig X hX z hz) (ℓ j) hℓBig hzeq
-          rw [hzℓ] at hz
-          exact hadm.1 X hX ((hψ X hX).1.subset hz)
-        · rw [hℓ'j, admissible_congr j hℓ'lt]
-          refine admissible_of_subset ℓ'' j _ (Ebig.map φ₀) hadm'' (by
-            intro he
-            have := List.mem_map_of_mem (f := φ₀) hℓBig
-            rw [he] at this
-            simp at this) ?_
-          intro a ha
-          obtain ⟨Y, hY, haY⟩ := mem_expand.mp ha
-          obtain ⟨X, hX, rfl⟩ := List.mem_map.mp hY
-          rcases List.mem_append.mp haY with h1 | h1
-          · obtain ⟨z, hz, rfl⟩ := List.mem_map.mp h1
-            exact List.mem_map_of_mem (hmemBig X hX z hz)
-          · rw [List.mem_singleton] at h1
-            rw [h1]
-            exact List.mem_map_of_mem hℓBig
+      · exact admissible_update_map ℓ'' φ₀ hℓBig (fun a ha h => hA.inj a ha (ℓ j) hℓBig h)
+          hadm'' ψ hmemBig (fun X hX h => hadm.1 X hX ((hψ X hX).1.subset h))
       · intro X hX
-        have e1 : expandTo ℓ' (j + 1) [(ψ X).map φ₀] =
-            expandTo ℓ'' j ((ψ X ++ [ℓ j]).map φ₀) := by
-          show expandTo ℓ' j (expand (ℓ' j) [(ψ X).map φ₀]) = _
-          rw [expandTo_congr j hℓ'lt, hℓ'j]
-          simp [expand]
-        rw [e1]
-        refine (length_expandTo_le ℓ'' j _ (B := descentFactor N d g ^ j)
-          ?_).trans ?_
-        · intro z hz
-          obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hz
-          refine hsize y ?_
-          rcases List.mem_append.mp hy with h1 | h1
+        refine (length_expandTo_update_le ℓ'' φ₀ (ℓ j) (ψ X)
+          (B := descentFactor N d g ^ j) fun y hy => hsize y ?_).trans ?_
+        · rcases List.mem_append.mp hy with h1 | h1
           · exact hmemBig X hX y h1
-          · rw [List.mem_singleton] at h1
-            rw [h1]
+          · rw [List.mem_singleton.mp h1]
             exact hℓBig
-        · rw [List.length_map, List.length_append, List.length_singleton, pow_succ']
+        · rw [pow_succ']
           apply Nat.mul_le_mul_right
           exact (hψ X hX).2.trans_le (colBound_mono_core (by omega) (by omega))
 
@@ -767,9 +235,7 @@ end Levels
 
 section Final
 universe u v
-variable {α : Type u} {Q : Type v}
-
-variable [DecidableEq α] [Inhabited α]
+variable {α : Type u} {Q : Type v} [DecidableEq α] [Inhabited α]
 
 /-- A hole with a bounded dictionary through a unary level has a short witness.
 The unary level is explicit so this theorem does not depend on canonical depth. -/
@@ -817,13 +283,12 @@ theorem exists_short_hole_of_dictionary (D0 : Lettered α Q) [Fintype Q]
 
 end Final
 
-section Monitor
-universe u v
-open DeciNSSE.Holes
+section Decidable
 
+/-- Unary words are decidable. -/
 instance decIsUnary {β : Type*} [DecidableEq β] (u : List β) : Decidable (IsUnary u) :=
   inferInstanceAs (Decidable (∀ a ∈ u, ∀ b ∈ u, a = b))
 
-end Monitor
+end Decidable
 
 end DeciNSSE.BoundedDepth

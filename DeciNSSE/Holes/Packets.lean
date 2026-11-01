@@ -7,11 +7,21 @@ import DeciNSSE.Holes.Desubstitution
 Right-aligned padded convolutions encode tuples of blocks as words. Finite
 right congruences give shorter tuples with the same summary and preserve
 the comparisons needed by the derived monitors.
+
+## Main declarations
+
+- `exists_short_evalFrom`, `exists_short_of_congr`: short words with the same
+  state of a finite automaton or right congruence.
+- `tr`, `dec`, `Valid`, `conv`: tracks, decoding, valid column words and the
+  convolution of a tuple.
+- `exists_short_conv`: short sub-tuples with the same state.
+- `boundedLists`, `isReaderHole_iff_bounded`, `decHole`: bounded enumeration
+  of words and decidable holes.
+
+The declarations are in the namespace `DeciNSSE.Packets`.
 -/
 
 section
-
-set_option autoImplicit false
 
 namespace DeciNSSE.Packets
 open DeciNSSE.Holes
@@ -49,6 +59,7 @@ noncomputable def congrDFA (f : List α → S) : DFA α S where
   start := f []
   accept := ∅
 
+/-- The DFA of a right-congruent map computes the map. -/
 theorem congrDFA_evalFrom (f : List α → S)
     (hf : ∀ x y a, f x = f y → f (x ++ [a]) = f (y ++ [a])) (x : List α) :
     (congrDFA f).evalFrom (f []) x = f x := by
@@ -78,8 +89,6 @@ end
 
 section
 
-set_option autoImplicit false
-
 namespace DeciNSSE.Packets
 open DeciNSSE.Holes
 open scoped List
@@ -94,7 +103,8 @@ def tr (w : List (Fin r → Option σ)) (k : Fin r) : List (Option σ) := w.map 
 def dec (w : List (Fin r → Option σ)) (k : Fin r) : List σ := (tr w k).reduceOption
 
 /-- A padded track: padding first, then letters (right alignment). -/
-def PadPre (l : List (Option σ)) : Prop := ∃ (a : ℕ) (P : List σ), l = List.replicate a none ++ P.map some
+def PadPre (l : List (Option σ)) : Prop :=
+  ∃ (a : ℕ) (P : List σ), l = List.replicate a none ++ P.map some
 
 /-- A valid (right-aligned, padded) column sequence. -/
 def Valid (w : List (Fin r → Option σ)) : Prop := ∀ k, PadPre (tr w k)
@@ -110,22 +120,26 @@ track `k` the `p`-th letter of `W_k` padded on the left. -/
 def conv (Ws : Fin r → List σ) : List (Fin r → Option σ) :=
   List.ofFn fun p : Fin (clen Ws) => fun k => (padL (clen Ws) (Ws k)).getD p none
 
+/-- Removing the padding of an unpadded track. -/
 theorem reduceOption_map_some (P : List σ) : (P.map some).reduceOption = P := by
   induction P with
   | nil => rfl
   | cons a P ih => rw [List.map_cons, List.reduceOption_cons_of_some, ih]
 
+/-- Removing left padding. -/
 theorem reduceOption_pad (a : ℕ) (P : List σ) :
     (List.replicate a none ++ P.map some).reduceOption = P := by
   rw [List.reduceOption_append, List.reduceOption_replicate_none, List.nil_append,
     reduceOption_map_some]
 
+/-- A padded track is its padding followed by its letters. -/
 theorem PadPre.eq {l : List (Option σ)} (h : PadPre l) :
     l = List.replicate (l.length - l.reduceOption.length) none ++ l.reduceOption.map some := by
   obtain ⟨a, P, rfl⟩ := h
   rw [reduceOption_pad]
   simp
 
+/-- Sublists of padded tracks are padded tracks. -/
 theorem PadPre.sublist {l l' : List (Option σ)} (h : PadPre l) (hs : l' <+ l) : PadPre l' := by
   obtain ⟨a, P, rfl⟩ := h
   obtain ⟨l1, l2, rfl, h1, h2⟩ := List.sublist_append_iff.mp hs
@@ -133,32 +147,41 @@ theorem PadPre.sublist {l l' : List (Option σ)} (h : PadPre l) (hs : l' <+ l) :
   obtain ⟨P', -, rfl⟩ := List.sublist_map_iff.mp h2
   exact ⟨n, P', rfl⟩
 
+/-- Every track has the length of the column word. -/
 theorem tr_length (w : List (Fin r → Option σ)) (k : Fin r) : (tr w k).length = w.length :=
   List.length_map _
 
+/-- Appending a column appends its letter, if any, to each track. -/
 theorem dec_snoc (w : List (Fin r → Option σ)) (c : Fin r → Option σ) (k : Fin r) :
     dec (w ++ [c]) k = dec w k ++ (c k).toList := by
   simp only [dec, tr, List.map_append, List.map_singleton, List.reduceOption_append,
     List.reduceOption_singleton]
 
+/-- Sublists of valid column words are valid. -/
 theorem Valid.sublist {w w' : List (Fin r → Option σ)} (hw : Valid w) (hs : w' <+ w) :
     Valid w' := fun k => (hw k).sublist (hs.map _)
 
+/-- A sublist of a column word decodes to sublists. -/
 theorem dec_sublist {w w' : List (Fin r → Option σ)} (hs : w' <+ w) (k : Fin r) :
     (dec w' k).Sublist (dec w k) := (hs.map _).filterMap _
 
+/-- A decoded track is no longer than the column word. -/
 theorem length_dec_le (w : List (Fin r → Option σ)) (k : Fin r) : (dec w k).length ≤ w.length :=
   (List.reduceOption_length_le _).trans (tr_length w k).le
 
+/-- Every word is at most as long as the convolution. -/
 theorem le_clen (Ws : Fin r → List σ) (k : Fin r) : (Ws k).length ≤ clen Ws :=
   Finset.le_sup (f := fun k => (Ws k).length) (Finset.mem_univ k)
 
+/-- Left padding reaches the requested length. -/
 theorem padL_length {L : ℕ} {W : List σ} (h : W.length ≤ L) : (padL L W).length = L := by
   simp only [padL, List.length_append, List.length_replicate, List.length_map]
   omega
 
+/-- The convolution has length `clen`. -/
 theorem length_conv (Ws : Fin r → List σ) : (conv Ws).length = clen Ws := List.length_ofFn
 
+/-- Track `k` of a convolution is `W_k` padded on the left. -/
 theorem tr_conv (Ws : Fin r → List σ) (k : Fin r) : tr (conv Ws) k = padL (clen Ws) (Ws k) := by
   have hl := padL_length (le_clen Ws k)
   apply List.ext_getElem (by rw [tr_length, length_conv, hl])
@@ -166,10 +189,12 @@ theorem tr_conv (Ws : Fin r → List σ) (k : Fin r) : tr (conv Ws) k = padL (cl
   simp only [tr, conv, List.getElem_map, List.getElem_ofFn]
   rw [List.getD_eq_getElem _ _ h2]
 
+/-- Decoding a convolution gives back the words. -/
 theorem dec_conv (Ws : Fin r → List σ) : dec (conv Ws) = Ws := by
   funext k
   rw [dec, tr_conv, padL, reduceOption_pad]
 
+/-- Convolutions are valid column words. -/
 theorem valid_conv (Ws : Fin r → List σ) : Valid (conv Ws) := fun k => ⟨_, _, tr_conv Ws k⟩
 
 /-- Column sequences are determined by their tracks. -/
@@ -278,6 +303,7 @@ def boundedLists {α : Type*} [DecidableEq α] (S : Finset α) : ℕ → Finset 
   | 0 => {[]}
   | n + 1 => insert [] ((S ×ˢ boundedLists S n).image fun p => p.1 :: p.2)
 
+/-- `boundedLists S n` contains the lists over `S` of length at most `n`. -/
 theorem mem_boundedLists {α : Type*} [DecidableEq α] (S : Finset α) (n : ℕ) (l : List α) :
     l ∈ boundedLists S n ↔ l.length ≤ n ∧ ∀ x ∈ l, x ∈ S := by
   induction n generalizing l with
@@ -317,6 +343,7 @@ theorem isReaderHole_iff_bounded {α : Type*} (M : DFA α Q) (R : Q → Q → Pr
     rintro p q ⟨s, e, hse, hel, rfl, rfl, hc⟩
     exact hB s (Finset.mem_range.mpr (by omega)) e (Finset.mem_range.mpr (by omega)) hse hc
 
+/-- Reader holes are decidable for decidable relations and targets. -/
 instance decHole {α : Type*} [DecidableEq α] (M : DFA α Q) (R : Q → Q → Prop) [DecidableRel R]
     (T : Set Q) [DecidablePred (· ∈ T)] (w : List α) : Decidable (IsReaderHole M R T w) :=
   decidable_of_iff _ (isReaderHole_iff_bounded M R T w).symm

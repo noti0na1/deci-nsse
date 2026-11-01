@@ -11,10 +11,16 @@ import Mathlib.Tactic.ByContra
 /-! # Finite words and periods
 
 Prefix comparisons, powers and finite periodic words supply the word operations
-used by the rejected-tail argument.
+used by the rejected-tail argument, together with two facts about mapped and
+flattened lists.
+
+## Main declarations
+- `Words.pow`, `Words.HasPeriod`, `Words.fine_wilf`, `Words.fine_wilf_escape`
+- `Words.comparison_period`: a comparison gives a period
+- `Words.exists_map_eq`: a word whose letters have preimages is an image
+- `Words.length_flatMap_le`: the length of a flattening of bounded pieces
 -/
 
-set_option autoImplicit false
 namespace DeciNSSE.Words
 variable {α : Type*}
 variable {μ π u v w : List α} {p q n : ℕ}
@@ -143,5 +149,25 @@ theorem comparison_period {w : List α} {s e : ℕ} (hse : s ≤ e)
     simpa only [List.drop_drop, Nat.add_sub_of_le hse] using hp
   have hh := (List.prefix_append_right_inj ((w.drop s).take (e-s))).mpr hd
   simpa only [List.take_append_drop] using hh
+
+/-- A word whose letters have preimages in `S` is the image of a word over `S`. -/
+theorem exists_map_eq {β γ : Type*} {f : β → γ} {S : List β} :
+    ∀ {u : List γ}, (∀ y ∈ u, ∃ b ∈ S, f b = y) → ∃ x : List β, x.map f = u ∧ ∀ b ∈ x, b ∈ S
+  | [], _ => ⟨[], rfl, by simp⟩
+  | y :: u, h => by
+    obtain ⟨b, hb, rfl⟩ := h y List.mem_cons_self
+    obtain ⟨x, hx, hxS⟩ := exists_map_eq fun z hz => h z (List.mem_cons_of_mem _ hz)
+    exact ⟨b :: x, by rw [List.map_cons, hx], by simpa [hb] using hxS⟩
+
+/-- A list of lists, each of length at most `c`, flattens to at most `c` times its length. -/
+theorem length_flatMap_le {β γ : Type*} (l : List β) (f : β → List γ) {c : ℕ}
+    (h : ∀ x ∈ l, (f x).length ≤ c) : (l.flatMap f).length ≤ l.length * c := by
+  induction l with
+  | nil => simp
+  | cons a l ih =>
+    rw [List.flatMap_cons, List.length_append, List.length_cons, Nat.succ_mul]
+    have := ih fun x hx => h x (List.mem_cons_of_mem _ hx)
+    have := h a List.mem_cons_self
+    omega
 
 end DeciNSSE.Words

@@ -4,9 +4,14 @@ import DeciNSSE.Holes.Depth
 
 The support of a level is the set of original reader cores still represented
 in it. These supports decrease as the hierarchy is desubstituted.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `orig`: the original core of a level-`i` core.
+- `supp`, `supp_anti`: supports, which decrease along the hierarchy.
+
+The declarations are in the namespace `DeciNSSE.Supports`.
+-/
 
 namespace DeciNSSE.Supports
 open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy
@@ -24,6 +29,7 @@ def orig : (i : ℕ) → Cores Q i → Option Q
   | _ + 1, none => none
   | i + 1, some c => orig i c
 
+/-- Start cores are the cores without an original core. -/
 theorem isStart_eq_true_iff : ∀ (i : ℕ) (c : Cores Q i), isStart i c = true ↔ orig i c = none
   | 0, q => by simp [isStart, orig]
   | i + 1, none => by simp [isStart, orig, stLift]
@@ -41,11 +47,13 @@ def supp (D0 : Lettered α Q) (w : List α) (j : ℕ) : Finset Q :=
   ((List.range (hierOf w j).length).filterMap
     fun x => orig j ((tower D0 (markOf w) j).core (hierOf w j) x)).toFinset
 
+/-- The support consists of the original cores of the run. -/
 theorem mem_supp {D0 : Lettered α Q} {w : List α} {j : ℕ} {q : Q} :
     q ∈ supp D0 w j ↔ ∃ x < (hierOf w j).length,
       orig j ((tower D0 (markOf w) j).core (hierOf w j) x) = some q := by
   simp [supp, List.mem_filterMap]
 
+/-- Supports decrease along the hierarchy. -/
 theorem supp_succ_subset (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) (j : ℕ) :
     supp D0 w (j + 1) ⊆ supp D0 w j := by
   intro q hq
@@ -82,12 +90,14 @@ end Supports
 section ExpandLetters
 variable {Γ : Type*}
 
+/-- Position `p < |X_k|` of block `k` in an expansion. -/
 theorem getElem?_expand_cutP (ℓ : Γ) (v : List (List Γ)) {k : ℕ} (hk : k < v.length) {p : ℕ}
     (hp : p < v[k].length) : (expand ℓ v)[cutP ℓ v k + p]? = v[k][p]? := by
   rw [expand_split ℓ v k hk, List.getElem?_append_right (by simp [cutP])]
   rw [show cutP ℓ v k + p - (expand ℓ (List.take k v)).length = p by simp [cutP]]
   rw [List.getElem?_append_left hp]
 
+/-- The marker ending block `k` in an expansion. -/
 theorem getElem?_expand_marker (ℓ : Γ) (v : List (List Γ)) {k : ℕ} (hk : k < v.length) :
     (expand ℓ v)[cutP ℓ v k + v[k].length]? = some ℓ := by
   rw [expand_split ℓ v k hk, List.getElem?_append_right (by simp [cutP])]

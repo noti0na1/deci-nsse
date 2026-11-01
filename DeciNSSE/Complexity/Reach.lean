@@ -18,8 +18,6 @@ type, which only needs to be `Finite`.
   reachability from `a₀` along `next`.
 -/
 
-set_option autoImplicit false
-
 namespace DeciNSSE.Complexity
 
 variable {α : Type*} [DecidableEq α] (next : α → Finset α)

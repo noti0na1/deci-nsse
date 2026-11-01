@@ -120,18 +120,18 @@ def packedRegular (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
   let witness := fun z => graphs (Spine.Closure.lift z)
   match θ with
   | .l => table (decodedGraph c witness)
-  | .r => table (decodedGraph c (witness ∘ FiniteVariance.flipV))
+  | .r => table (decodedGraph c (witness ∘ SignSelection.flipV))
 
 theorem unfold_packedRegular (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (w : List (Fin n)) (z : V k) :
     (packedRegular c ϕ x y θ w z).unfold = (extractRegular c ϕ x y θ w z).unfold := by
-  have hm {j : ℕ} (ψ : Constraint n (2 * j)) (hf : FiniteVariance.FlipClosed ψ)
+  have hm {j : ℕ} (ψ : Constraint n (2 * j)) (hf : SignSelection.FlipClosed ψ)
       (u : V (2 * j)) :
       (selectGraph c (packedShapes ψ) u).unfold =
         (selectGraph c (shapeGraph ψ) u).unfold := by
     have hg : RGraph.unfold ∘ packedShapes ψ = leastShape ψ :=
       funext fun v => (unfold_packedShapes ψ v).trans (unfold_shapeGraph ψ v)
-    exact congrFun ((unfold_selectGraph c hg (FiniteVariance.leastShape_sameShape_dual hf)).trans
+    exact congrFun ((unfold_selectGraph c hg (SignSelection.leastShape_sameShape_dual hf)).trans
       (unfold_selectGraph_shapeGraph c hf).symm) u
   have hf := Spine.Closure.extension_flipClosed (c := c) (X := (Events.sideQuery x y θ).1)
     (Y := (Events.sideQuery x y θ).2) (w := w) (Events.sideSystem_flipClosed (c := c) (ϕ := ϕ) θ)
@@ -144,11 +144,11 @@ theorem unfold_packedRegular (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V
 def extractReachable (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (w : List (Fin n)) : GraphFamily n k :=
   let gs := packedRegular c ϕ x y θ w
-  table fun z => (gs z).compact
+  table fun z => Graph.compact (gs z)
 
 theorem extractReachable_unfold (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (w : List (Fin n)) (z : V k) :
     (extractReachable c ϕ x y θ w z).unfold = (extractRegular c ϕ x y θ w z).unfold := by
-  simp only [extractReachable, table_eq, RGraph.unfold_compact, unfold_packedRegular]
+  simp only [extractReachable, table_eq, Graph.unfold_compact, unfold_packedRegular]
 
 end DeciNSSE.Solver

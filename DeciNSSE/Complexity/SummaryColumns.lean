@@ -11,67 +11,78 @@ on these blocks.
 
 ## Main declarations
 
-- `Summary.Summ`: Boolean column summaries, with `Summ.step` and `Summ.start`.
-- `Summary.Summ.toProp_eval`: the Boolean run computes the column automaton.
-- `Summary.card_summ`: the number of summaries is `colBound`.
+- `Summary.ColumnSummary`: Boolean column summaries, with `ColumnSummary.step` and
+  `ColumnSummary.start`.
+- `Summary.ColumnSummary.toProp_eval`: the Boolean run computes the column automaton.
+- `Summary.card_columnSummary`: the number of summaries is `colBound`.
 - `Summary.started`, `Summary.valid_snoc_iff`: the tracks that have started, which
   decide whether a column extends a valid column word.
-- `Summary.derTable`, `Summary.derTable_agree`: the derived table of a summary,
+- `Summary.derivedTable`, `Summary.derivedTable_agree`: the derived table of a summary,
   which agrees with the derived monitor on the blocks.
 -/
-
-set_option autoImplicit false
 
 namespace DeciNSSE.Complexity.Summary
 open CoAlignment LetteredHierarchy BoundedDepth Packets
 open scoped List
 
-section Summ
-variable {Γ C : Type*}
-
 /-- Boolean column summaries with `k` tracks over cores `C`: the four fields of
 `BoundedDepth.CS`, with Boolean relations. -/
-abbrev Summ (C : Type*) (k : ℕ) :=
-  (Fin k → Option C → C) × (Fin k → Option C → C → Bool) × (Fin k → Fin k → Bool) ×
-    (Fin k → Fin k → Option C → Option C → Bool)
+structure ColumnSummary (C : Type*) (k : ℕ) where
+  /-- The exit core of each track from each start core. -/
+  exit : Fin k → Option C → C
+  /-- `terminalAdmission a c d`: some label of the shifted block of track `a` from `c` is
+  admitted against the final label `(d, ℓ)`. -/
+  terminalAdmission : Fin k → Option C → C → Bool
+  /-- `equalTracks a b`: tracks `a` and `b` carry the same block. -/
+  equalTracks : Fin k → Fin k → Bool
+  /-- `ladderAdmission a b c c'`: the ladder relates block `a` from `c` and block `b`
+  from `c'`. -/
+  ladderAdmission : Fin k → Fin k → Option C → Option C → Bool
+
+namespace ColumnSummary
+variable {Γ C : Type*}
 
 /-- The column-automaton state denoted by a Boolean summary. -/
-def Summ.toProp {k : ℕ} (s : Summ C k) : CS C k :=
-  (s.1, fun a c d => s.2.1 a c d = true, fun a b => s.2.2.1 a b = true,
-    fun a b c c' => s.2.2.2 a b c c' = true)
+def toProp {k : ℕ} (s : ColumnSummary C k) : CS C k :=
+  (s.exit, fun a c d => s.terminalAdmission a c d = true, fun a b => s.equalTracks a b = true,
+    fun a b c c' => s.ladderAdmission a b c c' = true)
 
 variable (T : Table Γ C) (ℓ : Γ) {k : ℕ}
 
 /-- The initial Boolean summary (all tracks empty), as `BoundedDepth.colStart`. -/
-def Summ.start (k : ℕ) : Summ C k :=
-  (fun _ c => fcore T.toLettered ℓ c [], fun _ c d => T.Λf (lab0 ℓ c) (some (d, ℓ)),
-    fun _ _ => true, fun _ _ c c' => T.Λ (lab0 ℓ c) (lab0 ℓ c'))
+def start (k : ℕ) : ColumnSummary C k where
+  exit _ c := fcore T.toLettered ℓ c []
+  terminalAdmission _ c d := T.Λf (lab0 ℓ c) (some (d, ℓ))
+  equalTracks _ _ := true
+  ladderAdmission _ _ c c' := T.Λ (lab0 ℓ c) (lab0 ℓ c')
 
-theorem Summ.toProp_start : (Summ.start T ℓ k).toProp = colStart T.toLettered ℓ k := by
-  simp only [Summ.start, Summ.toProp, colStart]
+theorem toProp_start : (start T ℓ k).toProp = colStart T.toLettered ℓ k := by
+  simp only [start, toProp, colStart]
   refine Prod.ext rfl (Prod.ext ?_ (Prod.ext ?_ ?_)) <;> simp
 
 variable [DecidableEq Γ]
 
 /-- The transition of the Boolean column automaton (as `BoundedDepth.colStep`). -/
-def Summ.step (x : Summ C k) (col : Fin k → Option Γ) : Summ C k :=
-  (fun a c => match col a with
-      | none => x.1 a c
-      | some z => T.κ z (x.1 a c),
-   fun a c d => match col a with
-      | none => x.2.1 a c d
-      | some z => x.2.1 a c d || T.Λf (some (x.1 a c, z)) (some (d, ℓ)),
-   fun a b => x.2.2.1 a b && decide (col a = col b),
-   fun a b c c' => match col a, col b with
-      | none, none => x.2.2.2 a b c c'
-      | none, some z' => T.Λ (lab0 ℓ c) (some (x.1 b c', z'))
-      | some z, none => T.Λ (some (x.1 a c, z)) (lab0 ℓ c')
-      | some z, some z' =>
-          T.Λ (some (x.1 a c, z)) (some (x.1 b c', z')) || (decide (z = z') && x.2.2.2 a b c c'))
+def step (x : ColumnSummary C k) (col : Fin k → Option Γ) : ColumnSummary C k where
+  exit a c := match col a with
+    | none => x.exit a c
+    | some z => T.κ z (x.exit a c)
+  terminalAdmission a c d := match col a with
+    | none => x.terminalAdmission a c d
+    | some z => x.terminalAdmission a c d || T.Λf (some (x.exit a c, z)) (some (d, ℓ))
+  equalTracks a b := x.equalTracks a b && decide (col a = col b)
+  ladderAdmission a b c c' := match col a, col b with
+    | none, none => x.ladderAdmission a b c c'
+    | none, some z' => T.Λ (lab0 ℓ c) (some (x.exit b c', z'))
+    | some z, none => T.Λ (some (x.exit a c, z)) (lab0 ℓ c')
+    | some z, some z' =>
+        T.Λ (some (x.exit a c, z)) (some (x.exit b c', z')) ||
+          (decide (z = z') && x.ladderAdmission a b c c')
 
-theorem Summ.toProp_step (x : Summ C k) (col : Fin k → Option Γ) :
-    (Summ.step T ℓ x col).toProp = colStep T.toLettered ℓ k x.toProp col := by
-  simp only [Summ.step, Summ.toProp, colStep]
+theorem toProp_step (x : ColumnSummary C k) (col : Fin k → Option Γ) :
+    (step T ℓ x col).toProp = colStep T.toLettered ℓ k x.toProp col := by
+  simp only [step, toProp, colStep, CS.exit_mk, CS.terminalAdmission_mk, CS.equalTracks_mk,
+    CS.ladderAdmission_mk]
   refine Prod.ext ?_ (Prod.ext ?_ (Prod.ext ?_ ?_))
   · funext a c
     dsimp only
@@ -86,34 +97,50 @@ theorem Summ.toProp_step (x : Summ C k) (col : Fin k → Option Γ) :
     rcases col a with _ | z <;> rcases col b with _ | z' <;> simp
 
 /-- The Boolean run computes the column automaton. -/
-theorem Summ.toProp_eval (w : List (Fin k → Option Γ)) :
-    (w.foldl (Summ.step T ℓ) (Summ.start T ℓ k)).toProp = (colDFA T.toLettered ℓ k).eval w := by
-  suffices h : ∀ x : Summ C k, (w.foldl (Summ.step T ℓ) x).toProp =
+theorem toProp_eval (w : List (Fin k → Option Γ)) :
+    (w.foldl (step T ℓ) (start T ℓ k)).toProp = (colDFA T.toLettered ℓ k).eval w := by
+  suffices h : ∀ x : ColumnSummary C k, (w.foldl (step T ℓ) x).toProp =
       (colDFA T.toLettered ℓ k).evalFrom x.toProp w by
-    rw [h, Summ.toProp_start]; rfl
+    rw [h, toProp_start]; rfl
   induction w with
   | nil => intro x; rfl
   | cons col w ih =>
     intro x
-    rw [List.foldl_cons, ih, DFA.evalFrom_cons, Summ.toProp_step]
+    rw [List.foldl_cons, ih, DFA.evalFrom_cons, toProp_step]
     rfl
 
-end Summ
+/-- Summaries as tuples of their fields. -/
+def equivProd : ColumnSummary C k ≃ (Fin k → Option C → C) × (Fin k → Option C → C → Bool) ×
+    (Fin k → Fin k → Bool) × (Fin k → Fin k → Option C → Option C → Bool) where
+  toFun s := (s.exit, s.terminalAdmission, s.equalTracks, s.ladderAdmission)
+  invFun p := ⟨p.1, p.2.1, p.2.2.1, p.2.2.2⟩
+  left_inv _ := rfl
+  right_inv _ := rfl
+
+end ColumnSummary
 
 section Card
 variable {C : Type*} [Fintype C] [DecidableEq C] (k : ℕ)
 
-instance instFintypeSumm : Fintype (Summ C k) :=
+/-- The product of the fields, with its `Fintype` instance spelled out. -/
+@[instance_reducible] private def fieldsFintype :
+    Fintype ((Fin k → Option C → C) × (Fin k → Option C → C → Bool) ×
+      (Fin k → Fin k → Bool) × (Fin k → Fin k → Option C → Option C → Bool)) :=
   @instFintypeProd _ _ inferInstance
     (@instFintypeProd _ _ inferInstance (@instFintypeProd _ _ inferInstance inferInstance))
 
-instance instDecEqSumm : DecidableEq (Summ C k) :=
-  @instDecidableEqProd _ _ inferInstance
-    (@instDecidableEqProd _ _ inferInstance (@instDecidableEqProd _ _ inferInstance inferInstance))
+instance instFintypeColumnSummary : Fintype (ColumnSummary C k) :=
+  @Fintype.ofEquiv _ _ (fieldsFintype k) ColumnSummary.equivProd.symm
+
+instance instDecEqColumnSummary : DecidableEq (ColumnSummary C k) := fun s s' =>
+  decidable_of_iff (s.exit = s'.exit ∧ s.terminalAdmission = s'.terminalAdmission ∧
+      s.equalTracks = s'.equalTracks ∧ s.ladderAdmission = s'.ladderAdmission)
+    (by cases s; cases s'; simp)
 
 /-- The number of Boolean summaries is the number of column-automaton states. -/
-theorem card_summ : Fintype.card (Summ C k) = colBound (Fintype.card C) k := by
-  rw [Fintype.card_prod, Fintype.card_prod, Fintype.card_prod]
+theorem card_columnSummary : Fintype.card (ColumnSummary C k) = colBound (Fintype.card C) k := by
+  rw [@Fintype.card_congr _ _ _ (fieldsFintype k) ColumnSummary.equivProd, fieldsFintype,
+    Fintype.card_prod, Fintype.card_prod, Fintype.card_prod]
   simp [Fintype.card_option, colBound, mul_assoc]
 
 end Card
@@ -180,50 +207,52 @@ variable {Γ C : Type*} (T : Table Γ C) (ℓ : Γ) {k : ℕ}
 
 /-- The table of the derived monitor on `k` blocks, read off their summary: letter `a` is
 block `a`, and the start core is the new core `none`. -/
-def derTable (s : Summ C k) : Table (Fin k) (Option C) where
+def derivedTable (s : ColumnSummary C k) : Table (Fin k) (Option C) where
   start := none
-  κ a c := some (s.1 a c)
+  κ a c := some (s.exit a c)
   Λ L L' := match L, L' with
-    | some (c, a), some (c', b) => s.2.2.2 a b c c'
+    | some (c, a), some (c', b) => s.ladderAdmission a b c c'
     | _, _ => false
   Λf L L' := match L, L' with
-    | some (c, a), some (c', b) => s.2.2.2 a b c c' || s.2.1 a c (s.1 b c')
+    | some (c, a), some (c', b) =>
+      s.ladderAdmission a b c c' || s.terminalAdmission a c (s.exit b c')
     | _, _ => false
-  Tf c a := T.Tf (s.1 a c) ℓ && !s.2.1 a c (s.1 a c)
+  Tf c a := T.Tf (s.exit a c) ℓ && !s.terminalAdmission a c (s.exit a c)
 
 /-- The summary of pairwise distinct blocks `Ys` determines the derived monitor on them:
 the derived table agrees with `Der(T, ℓ)` along `Ys`. -/
-theorem derTable_agree {s : Summ C k} {Ys : Fin k → List Γ}
-    (hs : s.toProp = summ T.toLettered ℓ k Ys) (hd : ∀ a b, s.2.2.1 a b = true → a = b) :
-    Agree (derTable T ℓ s).toLettered (der T.toLettered ℓ) Ys (List.finRange k) := by
-  have h1 : ∀ a c, s.1 a c = fcore T.toLettered ℓ c (Ys a) := fun a c =>
-    congrFun (congrFun (congrArg Prod.fst hs) a) c
-  have h2 : ∀ a c d, s.2.1 a c d = true ↔
+theorem derivedTable_agree {s : ColumnSummary C k} {Ys : Fin k → List Γ}
+    (hs : s.toProp = summ T.toLettered ℓ k Ys) (hd : ∀ a b, s.equalTracks a b = true → a = b) :
+    Agree (derivedTable T ℓ s).toLettered (der T.toLettered ℓ) Ys (List.finRange k) := by
+  have h1 : ∀ a c, s.exit a c = fcore T.toLettered ℓ c (Ys a) := fun a c =>
+    congrFun (congrFun (congrArg CS.exit hs) a) c
+  have h2 : ∀ a c d, s.terminalAdmission a c d = true ↔
       ∃ p ≤ (Ys a).length, T.toLettered.Λf (zlab T.toLettered ℓ c (Ys a) p) (some (d, ℓ)) :=
-    fun a c d => Iff.of_eq (congrFun (congrFun (congrFun (congrArg (fun s => s.2.1) hs) a) c) d)
-  have h3 : ∀ a b, s.2.2.1 a b = true ↔ Ys a = Ys b := fun a b =>
-    Iff.of_eq (congrFun (congrFun (congrArg (fun s => s.2.2.1) hs) a) b)
-  have h4 : ∀ a b c c', s.2.2.2 a b c c' = true ↔
+    fun a c d => Iff.of_eq (congrFun (congrFun (congrFun
+      (congrArg CS.terminalAdmission hs) a) c) d)
+  have h3 : ∀ a b, s.equalTracks a b = true ↔ Ys a = Ys b := fun a b =>
+    Iff.of_eq (congrFun (congrFun (congrArg CS.equalTracks hs) a) b)
+  have h4 : ∀ a b c c', s.ladderAdmission a b c c' = true ↔
       derΛ T.toLettered ℓ (some (c, Ys a)) (some (c', Ys b)) := fun a b c c' =>
     Iff.of_eq (congrFun (congrFun (congrFun (congrFun
-      (congrArg (fun s => s.2.2.2) hs) a) b) c) c')
+      (congrArg CS.ladderAdmission hs) a) b) c) c')
   refine ⟨rfl, fun a _ b _ hab => hd a b ((h3 a b).mpr hab), fun a _ c => ?_, fun a _ c => ?_,
     fun L L' _ _ => ?_, fun L L' _ _ => ?_⟩
-  · simp [der_κ, derTable, h1]
-  · simp only [der_Tf, derTf, Table.toLettered_Tf, derTable, Bool.and_eq_true, Bool.not_eq_true',
-      ← h1, ← h2, Bool.not_eq_true]
+  · simp [der_κ, derivedTable, h1]
+  · simp only [der_Tf, derTf, Table.toLettered_Tf, derivedTable, Bool.and_eq_true,
+      Bool.not_eq_true', ← h1, ← h2, Bool.not_eq_true]
   · rcases L with _ | ⟨c, a⟩ <;> rcases L' with _ | ⟨c', b⟩
-    · simp [derΛ, derTable]
-    · simp [derΛ, derTable]
-    · simp [derΛ, derTable]
-    · simp only [mapLab_some, der_Λ, Table.toLettered_Λ, derTable]
+    · simp [derΛ, derivedTable]
+    · simp [derΛ, derivedTable]
+    · simp [derΛ, derivedTable]
+    · simp only [mapLab_some, der_Λ, Table.toLettered_Λ, derivedTable]
       exact (h4 a b c c').symm
   · rcases L with _ | ⟨c, a⟩ <;> rcases L' with _ | ⟨c', b⟩
-    · simp [derΛf, derTable]
-    · simp [derΛf, derTable]
-    · simp [derΛf, derTable]
-    · simp only [mapLab_some, der_Λf, derΛf, Table.toLettered_Λf, derTable, Bool.or_eq_true,
-        ← h4, ← h1, h2]
+    · simp [derΛf, derivedTable]
+    · simp [derΛf, derivedTable]
+    · simp [derΛf, derivedTable]
+    · simp only [mapLab_some, der_Λf, derΛf, Table.toLettered_Λf, derivedTable,
+        Bool.or_eq_true, ← h4, ← h1, h2]
 
 end Derived
 

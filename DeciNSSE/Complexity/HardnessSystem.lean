@@ -1,10 +1,12 @@
-import DeciNSSE.Complexity.HardnessAutomaton
+import DeciNSSE.Complexity.BinNFA
+import DeciNSSE.Complexity.HardnessCode
+import DeciNSSE.Constraints.Basic
 
 /-! # The constraint system of the hardness reduction
 
 From a binary automaton `M` with states `Fin m`, the system `hardnessSystem n M`
-over one covariant constructor of arity `n` reads codes of words along the
-first two directions. Its automaton `N` accepts the codes of the words of `M`:
+over one covariant constructor of arity `n` reads doubling codes of words along
+the first two directions. Its automaton `N` accepts the codes of the words of `M`:
 each transition `p →a q` of `M` becomes `p →0 t →a q` through a middle state `t`,
 and each final state of `M` reads the closing `1` into a final state of `N`.
 The variables are
@@ -18,7 +20,8 @@ The variables are
   states of `N`. The final state of `N` would equal bottom, so `b` stands for it.
 
 So there are `m + T + 6` variables for `T` transitions, five more than the
-`m + T + 1` states of `N`, and at most `2 m + 2 T + 4` literals.
+`m + T + 1` states of `N` (`Hardness.numVars_eq`), and at most `2 m + 2 T + 4`
+literals.
 
 ## Main declarations
 - `hardnessSystem`, with the variables `Hardness.xVar` and `Hardness.rVar`
@@ -30,10 +33,16 @@ namespace DeciNSSE.Complexity
 
 namespace Hardness
 
+open Directions
+
 variable {n m : ℕ} (M : BinNFA m)
 
 /-- Six auxiliary variables, one variable per state and one per transition. -/
 abbrev numVars : ℕ := 6 + m + M.trans.length
+
+/-- The variables are the `m + T + 1` states of the code automaton and five more. -/
+theorem numVars_eq : numVars M = (m + M.trans.length + 1) + 5 := by
+  unfold numVars; omega
 
 /-- The auxiliary variable with the given index. -/
 def auxVar (i : Fin 6) : V (numVars M) := Fin.castAdd _ (Fin.castAdd m i)
@@ -55,26 +64,9 @@ def stateVar (p : Fin m) : V (numVars M) := Fin.castAdd _ (Fin.natAdd 6 p)
 /-- The variable `Y_t` of the middle state of a transition. -/
 def transVar (j : Fin M.trans.length) : V (numVars M) := Fin.natAdd (6 + m) j
 
-/-- The children `(u, v, w, …, w)` of a constructor: variables in a flat literal, or
-their values. -/
-def kids {α : Type*} (u v w : α) : Fin n → α :=
-  fun i => if i.val = 0 then u else if i.val = 1 then v else w
-
-theorem comp_kids {α β : Type*} (g : α → β) (u v w : α) :
-    g ∘ (kids u v w : Fin n → α) = kids (g u) (g v) (g w) := by
-  funext i
-  simp only [Function.comp_apply, kids]
-  split_ifs <;> rfl
-
-@[simp] theorem kids_dir_zero (hn : 2 ≤ n) {α : Type*} (u v w : α) :
-    kids u v w (dir hn 0) = u := by simp [kids, dir]
-
-@[simp] theorem kids_dir_one (hn : 2 ≤ n) {α : Type*} (u v w : α) :
-    kids u v w (dir hn 1) = v := by simp [kids, dir]
-
 /-- The children read by the middle state of a transition: its target in the
 direction of its letter, the filler in the other binary direction, and `b` elsewhere. -/
-def readKids (j : Fin M.trans.length) : Fin n → V (numVars M) :=
+def readChildren (j : Fin M.trans.length) : Fin n → V (numVars M) :=
   fun i => if i.val = M.trans[j].2.1.val then stateVar M M.trans[j].2.2
     else if i.val < 2 then dVar M else bVar M
 
@@ -101,24 +93,20 @@ end Valuation
 
 end Hardness
 
-open Hardness
+open Hardness Directions
 
 /-- The system `χ(M)` whose entailment `x ≤ r` holds exactly when `M` is universal. -/
 def hardnessSystem (n : ℕ) {m : ℕ} (M : BinNFA m) : Constraint n (numVars M) :=
-  [.eqBot (bVar M), .fLe (kids (rVar' M) (bVar M) (bVar M)) (rVar M),
-    .fLe (kids (rVar M) (rVar M) (bVar M)) (rVar' M),
-    .fLe (kids (xVar M) (bVar M) (bVar M)) (zVar M)] ++
+  [.eqBot (bVar M), .fLe (binaryChildren (rVar' M) (bVar M) (bVar M)) (rVar M),
+    .fLe (binaryChildren (rVar M) (rVar M) (bVar M)) (rVar' M),
+    .fLe (binaryChildren (xVar M) (bVar M) (bVar M)) (zVar M)] ++
   ((List.finRange m).filter M.init).map
-    (fun p => .leF (zVar M) (kids (stateVar M p) (bVar M) (bVar M))) ++
+    (fun p => .leF (zVar M) (binaryChildren (stateVar M p) (bVar M) (bVar M))) ++
   ((List.finRange m).filter M.final).map
-    (fun p => .leF (stateVar M p) (kids (dVar M) (bVar M) (bVar M))) ++
+    (fun p => .leF (stateVar M p) (binaryChildren (dVar M) (bVar M) (bVar M))) ++
   (List.finRange M.trans.length).map
-    (fun j => .leF (stateVar M M.trans[j].1) (kids (transVar M j) (dVar M) (bVar M))) ++
-  (List.finRange M.trans.length).map (fun j => .leF (transVar M j) (readKids M j))
-
-/-- The variables are the `m + T + 1` states of the code automaton and five more. -/
-theorem numVars_eq {m : ℕ} (M : BinNFA m) : numVars M = (m + M.trans.length + 1) + 5 := by
-  unfold numVars; omega
+    (fun j => .leF (stateVar M M.trans[j].1) (binaryChildren (transVar M j) (dVar M) (bVar M))) ++
+  (List.finRange M.trans.length).map (fun j => .leF (transVar M j) (readChildren M j))
 
 /-- The system has at most `2 m + 2 T + 4` literals for `m` states and `T` transitions. -/
 theorem hardnessSystem_length_le (n : ℕ) {m : ℕ} (M : BinNFA m) :
@@ -134,37 +122,18 @@ theorem hardnessSystem_length_le (n : ℕ) {m : ℕ} (M : BinNFA m) :
 theorem covSat_hardnessSystem_iff {n m : ℕ} (M : BinNFA m) (ρ : V (numVars M) → Tree n) :
     Covariant.Sat ρ (hardnessSystem n M) ↔
       ρ (bVar M) = Tree.bot ∧
-      Tree.node (ρ ∘ kids (rVar' M) (bVar M) (bVar M)) ≤ ρ (rVar M) ∧
-      Tree.node (ρ ∘ kids (rVar M) (rVar M) (bVar M)) ≤ ρ (rVar' M) ∧
-      Tree.node (ρ ∘ kids (xVar M) (bVar M) (bVar M)) ≤ ρ (zVar M) ∧
+      Tree.node (ρ ∘ binaryChildren (rVar' M) (bVar M) (bVar M)) ≤ ρ (rVar M) ∧
+      Tree.node (ρ ∘ binaryChildren (rVar M) (rVar M) (bVar M)) ≤ ρ (rVar' M) ∧
+      Tree.node (ρ ∘ binaryChildren (xVar M) (bVar M) (bVar M)) ≤ ρ (zVar M) ∧
       (∀ p, M.init p = true →
-        ρ (zVar M) ≤ Tree.node (ρ ∘ kids (stateVar M p) (bVar M) (bVar M))) ∧
+        ρ (zVar M) ≤ Tree.node (ρ ∘ binaryChildren (stateVar M p) (bVar M) (bVar M))) ∧
       (∀ p, M.final p = true →
-        ρ (stateVar M p) ≤ Tree.node (ρ ∘ kids (dVar M) (bVar M) (bVar M))) ∧
+        ρ (stateVar M p) ≤ Tree.node (ρ ∘ binaryChildren (dVar M) (bVar M) (bVar M))) ∧
       (∀ j, ρ (stateVar M M.trans[j].1) ≤
-        Tree.node (ρ ∘ kids (transVar M j) (dVar M) (bVar M))) ∧
-      (∀ j, ρ (transVar M j) ≤ Tree.node (ρ ∘ readKids M j)) := by
-  simp only [Covariant.Sat, hardnessSystem, List.mem_append, List.mem_cons, List.mem_map,
-    List.mem_filter, List.mem_finRange, true_and, List.not_mem_nil, or_false]
-  constructor
-  · intro h
-    exact ⟨h (.eqBot _) (.inl (.inl (.inl (.inl (.inl rfl))))),
-      h (.fLe _ _) (.inl (.inl (.inl (.inl (.inr (.inl rfl)))))),
-      h (.fLe _ _) (.inl (.inl (.inl (.inl (.inr (.inr (.inl rfl))))))),
-      h (.fLe _ _) (.inl (.inl (.inl (.inl (.inr (.inr (.inr rfl))))))),
-      fun p hp => h (.leF _ _) (.inl (.inl (.inl (.inr ⟨p, hp, rfl⟩)))),
-      fun p hp => h (.leF _ _) (.inl (.inl (.inr ⟨p, hp, rfl⟩))),
-      fun j => h (.leF _ _) (.inl (.inr ⟨j, rfl⟩)), fun j => h (.leF _ _) (.inr ⟨j, rfl⟩)⟩
-  · rintro ⟨hb, hr, hr', hz, hinit, hfinal, henter, hread⟩ l hl
-    rcases hl with ((((((rfl | rfl | rfl | rfl) | ⟨p, hp, rfl⟩) | ⟨p, hp, rfl⟩) |
-      ⟨j, rfl⟩) | ⟨j, rfl⟩))
-    · exact hb
-    · exact hr
-    · exact hr'
-    · exact hz
-    · exact hinit p hp
-    · exact hfinal p hp
-    · exact henter j
-    · exact hread j
+        Tree.node (ρ ∘ binaryChildren (transVar M j) (dVar M) (bVar M))) ∧
+      (∀ j, ρ (transVar M j) ≤ Tree.node (ρ ∘ readChildren M j)) := by
+  simp only [hardnessSystem, Covariant.sat_append, Covariant.sat_cons, Covariant.sat_map,
+    Covariant.sat_nil, Covariant.holds, List.mem_filter, List.mem_finRange, true_and,
+    true_implies, and_true, and_assoc]
 
 end DeciNSSE.Complexity

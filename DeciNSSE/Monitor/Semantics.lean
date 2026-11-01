@@ -18,7 +18,7 @@ namespace DeciNSSE.Events
 
 open Spine.Closure
 
-open FiniteVariance
+open SignSelection
 
 variable {n k : ℕ}
 
@@ -76,7 +76,7 @@ theorem sideSystem_signCoherent (θ : Side) : SignCoherent c (sideSystem c ϕ θ
   · exact signCoherent_dual (signed_signCoherent c ϕ)
 
 /-- A satisfiable system has no label clash on either side. -/
-theorem sideSystem_not_labelClash (hs : ∃ ρ, Sat c ρ ϕ) (θ : Side) :
+theorem sideSystem_not_labelClash (hs : Satisfiable c ϕ) (θ : Side) :
     ¬ LabelClash (sideSystem c ϕ θ) := by
   obtain ⟨ρ, hρ⟩ := hs
   have h : Covariant.Sat (normalized c ρ) (signed c ϕ) := (sat_iff_signed c ρ ϕ).mp hρ
@@ -127,7 +127,7 @@ theorem sideUnsafe_iff_not_labelClash (θ : Side) (w : List (Fin n)) :
 
 /-- Under satisfiability, the unsafe words of a side are the words without
 its events. The right side is the left side of the order dual. -/
-theorem sideUnsafe_iff_not_events (hs : ∃ ρ, Sat c ρ ϕ) (θ : Side) (w : List (Fin n)) :
+theorem sideUnsafe_iff_not_events (hs : Satisfiable c ϕ) (θ : Side) (w : List (Fin n)) :
     Unsafe c ϕ x y θ w ↔ ¬ SideOccurs c ϕ x y θ w := by
   rw [sideUnsafe_iff_not_labelClash, labelClash_extension_iff_occurs (sideSystem_flipClosed θ)
     (sideSystem_signCoherent θ) (sideSystem_not_labelClash hs θ)]

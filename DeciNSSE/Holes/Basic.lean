@@ -14,9 +14,16 @@ import Mathlib.Tactic.ByContra
 A hole reaches the target set and has no admitted suffix comparison.
 A comparison uses cuts `s < e ≤ |w|` with `w.drop e` a prefix of `w.drop s`,
 so terminal comparisons are included.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `runPrefix`: the state after the first `i` letters.
+- `WitnessedPair`, `IsReaderHole`: witnessed pairs and holes of a reader
+  `(M, R, T)`.
+- `isReaderHole_iff`: holes in terms of comparisons.
+
+The declarations are in the namespace `DeciNSSE.Holes`.
+-/
 
 namespace DeciNSSE.Holes
 open scoped List

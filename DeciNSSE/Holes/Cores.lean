@@ -4,9 +4,17 @@ import DeciNSSE.Holes.Supports
 
 Prefix decoding follows cores through admissible expansions. Equal nonempty
 supports at two levels force a repeated original reader core.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `expandTo_prefix_iff`: expansion through the tower reflects prefixes.
+- `corePos`, `rho`: the original position of a live core, and the chain word at
+  the last core of a level.
+- `mem_supp_iff_corePos`: the support consists of the original cores of live
+  positions.
+
+The declarations are in the namespace `DeciNSSE.Cores`.
+-/
 
 namespace DeciNSSE.Cores
 open DeciNSSE.CoAlignment DeciNSSE.LetteredHierarchy DeciNSSE.Supports
@@ -28,7 +36,7 @@ theorem expand_prefix_iff {ℓ : Γ} {a b : List (List Γ)}
 
 variable {α : Type u}
 
-/-- Prefix decoding through the entire admissible tower). -/
+/-- Prefix decoding through the entire admissible tower. -/
 theorem expandTo_prefix_iff (ℓ : (i : ℕ) → Alph α i) :
     ∀ (j : ℕ) (a b : List (Alph α j)), Admissible ℓ j a → Admissible ℓ j b →
       (expandTo ℓ j a <+: expandTo ℓ j b ↔ a <+: b)
@@ -47,8 +55,6 @@ theorem admissible_of_subset (ℓ : (i : ℕ) → Alph α i) :
       intro x hx
       obtain ⟨X, hX, hx⟩ := List.mem_flatMap.mp hx
       exact List.mem_flatMap.mpr ⟨X, hab hX, hx⟩
-
-variable [DecidableEq α] [Inhabited α]
 
 end PrefixCode
 

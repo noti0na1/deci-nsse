@@ -1,44 +1,60 @@
 import DeciNSSE.Certificates.Product
-import DeciNSSE.Monitor.Bridge
-import DeciNSSE.Monitor.Decision
+import DeciNSSE.Countermodels
 
 /-! # Certificates for subtype entailment
 
 A refutation supplies a hole on one side of a satisfiable query. Entailment
 supplies either an unsatisfiability check or closed covering products for both
-sides. The conclusions concern arbitrary trees and, by transfer, regular trees.
+sides. The conclusions concern arbitrary trees and, by transfer, regular trees;
+entailment certificates also prove finite-tree entailment. The checkers read the
+label reader `Monitor.sideReader` of each side directly. The executable checkers
+of `Solver.Checked` run the same checks with packed readers.
+
+## Main declarations
+
+- `Certificates.Refutation`, `Certificates.Entailment`: the two certificate types.
+- `Certificates.checkRefutation`: the refutation check, which is `refutesB` by
+  definition (`Certificates.checkRefutation_eq_refutesB`).
+- `Certificates.checkSide`, `Certificates.checkEntailment`: the cover check of one side
+  and the entailment check.
+- `Certificates.checkRefutation_sound`, `Certificates.checkEntailment_sound`: soundness
+  over arbitrary trees, with the variants `checkRefutation_sound_regular`,
+  `checkEntailment_sound_regular` and `checkEntailment_sound_finite`. A refutation does not
+  refute finite entailment, which may hold because the system has no finite solution.
 -/
 
-set_option autoImplicit false
 namespace DeciNSSE.Certificates
-open Monitor Holes Events
+open Monitor Holes
 
 variable {n k : ℕ} (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
 
 /-- A refutation names a side and a word in its hole language. -/
 structure Refutation (n : ℕ) where
+  /-- The side of the query. -/
   side : Side
+  /-- A hole of the reader of that side. -/
   word : List (Fin n)
 
 /-- Entailment is certified by unsatisfiability or by a cover of each side. -/
 inductive Entailment (n : ℕ) where
+  /-- The system is unsatisfiable. -/
   | unsat
+  /-- Covering products for the top-prefix side `left` and the bottom-prefix side
+  `right`. -/
   | cover (left right : Cover (Fin n))
 
-/-- The label reader of one side, as in `sideMonitor`. The checkers use it
-directly: the packaged monitor also carries a `Fintype` instance, and
-evaluating that instance would enumerate every reader state. -/
-abbrev sideReader (θ : Side) :=
-  reader (sideSystem c ϕ θ) (sideQuery x y θ).1 (sideQuery x y θ).2
-
-/-- Check satisfiability and the supplied hole. -/
+/-- Check satisfiability and the supplied hole: the Boolean check `refutesB` on the side
+and the word of the certificate. -/
 def checkRefutation (cert : Refutation n) : Bool :=
-  satB c ϕ && decide (IsReaderHole (sideReader c ϕ x y cert.side) admission
-    (target (sideSystem c ϕ cert.side)) cert.word)
+  refutesB c ϕ x y cert.side cert.word
+
+/-- The refutation check is `refutesB` by definition. -/
+theorem checkRefutation_eq_refutesB (cert : Refutation n) :
+    checkRefutation c ϕ x y cert = refutesB c ϕ x y cert.side cert.word := rfl
 
 /-- Check the finite covering product of one query side. -/
 def checkSide (θ : Side) (cert : Cover (Fin n)) : Bool :=
-  checkCover (sideReader c ϕ x y θ) admission (target (sideSystem c ϕ θ)) cert
+  checkCover (sideReader c ϕ x y θ) admission (sideTarget c ϕ θ) cert
 
 /-- Check an unsatisfiability certificate or both side covers. -/
 def checkEntailment : Entailment n → Bool
@@ -47,13 +63,8 @@ def checkEntailment : Entailment n → Bool
 
 /-- An accepted refutation disproves arbitrary-tree entailment. -/
 theorem checkRefutation_sound (cert : Refutation n)
-    (h : checkRefutation c ϕ x y cert = true) : ¬ Entails c ϕ x y := by
-  simp only [checkRefutation, Bool.and_eq_true, decide_eq_true_eq] at h
-  obtain ⟨hs, hh⟩ := h
-  have hu := (sideMonitor c ϕ x y cert.side).hole_iff_unsafe
-    ((satB_iff c ϕ).mp hs) cert.word |>.mp hh
-  intro he
-  exact (entails_iff_not_sideUnsafe c ϕ x y).mp he cert.side cert.word hu
+    (h : checkRefutation c ϕ x y cert = true) : ¬ Entails c ϕ x y :=
+  refutesB_correct h
 
 /-- An accepted entailment certificate proves arbitrary-tree entailment. -/
 theorem checkEntailment_sound (cert : Entailment n)
@@ -73,6 +84,11 @@ theorem checkEntailment_sound (cert : Entailment n)
 theorem checkEntailment_sound_regular (cert : Entailment n)
     (h : checkEntailment c ϕ x y cert = true) : EntailsReg c ϕ x y :=
   (entailsReg_iff_entails c ϕ x y).mpr (checkEntailment_sound c ϕ x y cert h)
+
+/-- The same entailment certificate proves finite-tree entailment. -/
+theorem checkEntailment_sound_finite (cert : Entailment n)
+    (h : checkEntailment c ϕ x y cert = true) : EntailsFin c ϕ x y :=
+  (entailsFin_iff c ϕ x y).mpr (Or.inr (checkEntailment_sound c ϕ x y cert h))
 
 /-- The same refutation disproves regular-tree entailment. -/
 theorem checkRefutation_sound_regular (cert : Refutation n)

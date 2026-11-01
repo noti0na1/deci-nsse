@@ -1,15 +1,16 @@
 import DeciNSSE.Constraints.Signed
 import DeciNSSE.Satisfiability.LeastShape
 
-/-! # A finite selector for signed solutions
+/-! # Polarity selection for signed solutions
 
 The least-shape solution and its sign dual have the same constructor positions.
 Selecting between their labels according to variable sign and path polarity
-preserves this common finite domain and produces a fixed signed solution.
-Sign coherence makes both sides of each literal select from the same solution.
+preserves their common domain, and therefore preserves finiteness when present.
+The result is a fixed signed solution. Sign coherence makes both sides of each
+literal select from the same solution.
 -/
 
-namespace DeciNSSE.FiniteVariance
+namespace DeciNSSE.SignSelection
 
 variable {n k : ℕ}
 
@@ -236,7 +237,7 @@ theorem signed_signCoherent (c : Fin n → Bool) (ϕ : Constraint n k) :
     | eqBot x => simp [signedLit] at hl
     | eqTop x => simp [signedLit] at hl
 
-/-- The selector `M`: `B` at even signed polarity `p ⊕ pol(π) = 0`, `Signed.dual B` at odd. -/
+/-- The selector: `B` at even signed polarity `p ⊕ pol(π) = 0`, `Signed.dual B` at odd. -/
 def select (c : Fin n → Bool) (B : V (2 * k) → Tree n)
     (h : ∀ z, SameShape (B z) (Signed.dual B z)) (z : V (2 * k)) : Tree n :=
   mix c (sign z) (B z) (Signed.dual B z) (h z)
@@ -246,20 +247,20 @@ theorem select_fn (c : Fin n → Bool) (B : V (2 * k) → Tree n)
     (select c B h z).fn π =
       if Bool.xor (sign z) (polarity c π) then (Signed.dual B z).fn π else (B z).fn π := rfl
 
-/-- `M` has the domain of `B`. -/
+/-- `select c B h` has the domain of `B`. -/
 theorem select_domain (c : Fin n → Bool) (B : V (2 * k) → Tree n)
     (h : ∀ z, SameShape (B z) (Signed.dual B z)) (z : V (2 * k)) (π : List (Fin n)) :
     ((select c B h z).fn π).isSome = ((B z).fn π).isSome :=
   mix_domain _ _ _ _ _ _
 
-/-- `M` is finite (of bounded depth) whenever `B` is. -/
+/-- `select c B h` is finite (of bounded depth) whenever `B` is. -/
 theorem select_depth (c : Fin n → Bool) (B : V (2 * k) → Tree n)
     (h : ∀ z, SameShape (B z) (Signed.dual B z)) {D : ℕ}
     (hB : ∀ z π, ((B z).fn π).isSome → π.length ≤ D) (z : V (2 * k)) (π : List (Fin n))
     (hπ : ((select c B h z).fn π).isSome) : π.length ≤ D :=
   hB z π (by rwa [select_domain] at hπ)
 
-/-- `Signed.dual M = M`, from `Signed.dual B = C` and `Signed.dual C = B`. -/
+/-- The selector is fixed by sign duality: `Signed.dual (select c B h) = select c B h`. -/
 theorem select_fixed (c : Fin n → Bool) (B : V (2 * k) → Tree n)
     (h : ∀ z, SameShape (B z) (Signed.dual B z)) : Signed.dual (select c B h) = select c B h := by
   funext z
@@ -268,9 +269,11 @@ theorem select_fixed (c : Fin n → Bool) (B : V (2 * k) → Tree n)
   simp only [signedDual_sv, dual_fn, select_fn, sign_sv, Bool.not_not]
   cases p <;> cases polarity c π <;> simp [Option.map_map, Function.comp_def]
 
-/-- `M` satisfies every sign-coherent system satisfied by both `B` and `Signed.dual B`. -/
+/-- `select c B h` satisfies every sign-coherent system satisfied by both `B` and
+`Signed.dual B`. -/
 theorem select_sat_of_coherent {c : Fin n → Bool} {ψ : Constraint n (2 * k)}
-    (hψ : SignCoherent c ψ) {B : V (2 * k) → Tree n} (hs : Covariant.Sat B ψ) (hS : Covariant.Sat (Signed.dual B) ψ)
+    (hψ : SignCoherent c ψ) {B : V (2 * k) → Tree n} (hs : Covariant.Sat B ψ)
+    (hS : Covariant.Sat (Signed.dual B) ψ)
     (h : ∀ z, SameShape (B z) (Signed.dual B z)) : Covariant.Sat (select c B h) ψ := by
   intro l hl
   have hb := hs l hl
@@ -344,4 +347,4 @@ theorem select_leastShape_sat_fixed {c : Fin n → Bool} {ψ : Constraint n (2 *
       (sat_signedDual_of_flipClosed hf (leastShape_sat hn)) _,
     select_fixed _ _ _⟩
 
-end DeciNSSE.FiniteVariance
+end DeciNSSE.SignSelection

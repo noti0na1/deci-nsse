@@ -1,4 +1,6 @@
+import DeciNSSE.Complexity.HardnessSolutions
 import DeciNSSE.Complexity.HardnessCountermodel
+import DeciNSSE.Semantics.Characterization
 
 /-! # Entailment decides universality of binary automata
 
@@ -10,18 +12,19 @@ rejected word gives a finite countermodel, hence one in all three domains.
 
 For `m` states and `T` transitions the system has `m + T + 6` variables and at
 most `2 m + 2 T + 4` literals (`hardnessSystem_length_le`), and it is always
-satisfiable. Universality of nondeterministic automata is PSPACE-hard, so
-entailment is PSPACE-hard for every fixed arity at least two, in each domain.
+satisfiable (`satisfiable_hardnessSystem`). Universality of nondeterministic
+automata is PSPACE-hard, so entailment is PSPACE-hard for every fixed arity at
+least two, in each domain.
 
 ## Main declarations
 - `entails_hardnessSystem_iff`, `entailsReg_hardnessSystem_iff`,
   `entailsFin_hardnessSystem_iff`
-- `hardnessSystem_satisfiable`
+- `satisfiable_hardnessSystem`
 -/
 
 namespace DeciNSSE.Complexity
 
-open Hardness Characterisation
+open Hardness Directions Characterization
 
 variable {n m : ℕ}
 
@@ -48,28 +51,28 @@ theorem entails_hardnessSystem_iff (hn : 2 ≤ n) (M : BinNFA m) :
     entails_of_universal hn⟩
 
 /-- The system always has a solution, so no entailment holds vacuously. -/
-theorem hardnessSystem_satisfiable (M : BinNFA m) :
+theorem satisfiable_hardnessSystem (M : BinNFA m) :
     Satisfiable (fun _ => false) (hardnessSystem n M) := by
   refine ⟨valuation M ![Tree.bot, Tree.bot, Tree.bot, Tree.top, Tree.top,
     Tree.node fun _ => Tree.bot] (fun _ => Tree.bot) (fun _ => Tree.bot), ?_⟩
   rw [sat_false, covSat_hardnessSystem_iff]
-  simp [comp_kids, kids, xVar, dVar, bVar, rVar, rVar', zVar]
+  simp [comp_binaryChildren, binaryChildren, xVar, dVar, bVar, rVar, rVar', zVar]
 
-namespace Hardness
+section Examples
 
 /-- The one-state automaton with a loop on each letter, accepting every word. -/
-def allWords : BinNFA 1 := ⟨fun _ => true, fun _ => true, [(0, 0, 0), (0, 1, 0)]⟩
+private def allWords : BinNFA 1 := ⟨fun _ => true, fun _ => true, [(0, 0, 0), (0, 1, 0)]⟩
 
 /-- The one-state automaton without transitions, accepting only the empty word. -/
-def onlyEmpty : BinNFA 1 := ⟨fun _ => true, fun _ => true, []⟩
+private def onlyEmpty : BinNFA 1 := ⟨fun _ => true, fun _ => true, []⟩
 
-theorem allWords_accepts (w : List (Fin 2)) : allWords.Accepts w := by
+private theorem allWords_accepts (w : List (Fin 2)) : allWords.Accepts w := by
   refine ⟨0, rfl, 0, rfl, ?_⟩
   induction w with
   | nil => rfl
   | cons a w ih => exact ⟨0, by fin_cases a <;> simp [allWords], ih⟩
 
-theorem onlyEmpty_rejects : ¬ onlyEmpty.Accepts [0] := by
+private theorem onlyEmpty_rejects : ¬ onlyEmpty.Accepts [0] := by
   rintro ⟨_, -, _, -, _, h, -⟩
   simp [onlyEmpty] at h
 
@@ -82,6 +85,6 @@ example : ¬ EntailsFin (fun _ => false) (hardnessSystem 3 onlyEmpty)
     (xVar onlyEmpty) (rVar onlyEmpty) :=
   fun h => onlyEmpty_rejects ((entailsFin_hardnessSystem_iff (by norm_num) onlyEmpty).mp h [0])
 
-end Hardness
+end Examples
 
 end DeciNSSE.Complexity

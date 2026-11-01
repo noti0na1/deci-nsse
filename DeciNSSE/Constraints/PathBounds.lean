@@ -3,7 +3,7 @@ import DeciNSSE.Constraints.Closure
 /-! # Bounds along constructor paths
 
 Upper and lower path judgements propagate constructor bounds through the
-closure. Their composition, factorisation and cancellation laws connect
+closure. Their composition, factorization and cancellation laws connect
 constraint derivations with labels at finite tree paths.
 -/
 

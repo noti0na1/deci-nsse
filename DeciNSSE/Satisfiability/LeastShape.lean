@@ -200,7 +200,7 @@ theorem leastShape_label_eq {π : List (Fin n)} {x : V k} {a : Sym}
   · exact (Option.some.inj h).symm
   · contradiction
 
-/-- A prescribed bottom is realised by the least-shape solution when there is no label clash. -/
+/-- A prescribed bottom is realized by the least-shape solution when there is no label clash. -/
 theorem leastShape_eq_bot (hn : ¬ LabelClash ϕ) {x : V k}
     (hl : Lit.eqBot x ∈ ϕ) : leastShape ϕ x = Tree.bot := by
   apply (Tree.root_eq_bot_iff _).mp
@@ -211,7 +211,7 @@ theorem leastShape_eq_bot (hn : ¬ LabelClash ϕ) {x : V k}
   exact ⟨fun hf => hn ⟨x, Or.inr (Or.inr ⟨lowerLabel_nil_f.mp hf, hu⟩)⟩,
     Or.inl (upperLabel_nil_bot.mpr hu)⟩
 
-/-- A prescribed top is realised by the least-shape solution when there is no label clash. -/
+/-- A prescribed top is realized by the least-shape solution when there is no label clash. -/
 theorem leastShape_eq_top (hn : ¬ LabelClash ϕ) {x : V k}
     (hl : Lit.eqTop x ∈ ϕ) : leastShape ϕ x = Tree.top := by
   classical

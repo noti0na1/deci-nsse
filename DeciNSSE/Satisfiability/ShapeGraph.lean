@@ -8,7 +8,7 @@ import DeciNSSE.Semantics.Selector
 The least-shape label of a variable at a path depends only on its sets of lower
 and upper bounds at that path, and both sets are updated letter by letter.
 Pairs of such sets are the states of a finite graph whose unfolding is the
-least shape. A polarity bit realises selection and normalisation on graphs.
+least shape. A polarity bit realizes selection and normalization on graphs.
 Hence the selected least shape of a flip-closed, sign-coherent system without
 label clash is a regular solution fixed by sign duality, and decoding a regular
 solution fixed by sign duality gives a regular variance solution.
@@ -57,7 +57,7 @@ def mix (c : Fin n → Bool) (p : Bool) (g₁ g₂ : RGraph n) : RGraph n :=
     (fun s i => (g₁.child s.1 i, g₂.child s.2.1 i, Bool.xor s.2.2 (c i)))
 
 theorem mix_unfold_fn (c : Fin n → Bool) (p : Bool) {g₁ g₂ : RGraph n}
-    (h : FiniteVariance.SameShape g₁.unfold g₂.unfold) (π : List (Fin n)) :
+    (h : SignSelection.SameShape g₁.unfold g₂.unfold) (π : List (Fin n)) :
     (mix c p g₁ g₂).unfold.fn π =
       if Bool.xor p (polarity c π) then (g₂.unfold.fn π).map (Sym.flip true)
       else g₁.unfold.fn π := by
@@ -87,15 +87,15 @@ theorem mix_unfold_fn (c : Fin n → Bool) (p : Bool) {g₁ g₂ : RGraph n}
 /-- The polarity product presents the polarity mix of the first tree with the dual of the
 second. -/
 theorem unfold_mix (c : Fin n → Bool) (p : Bool) {g₁ g₂ : RGraph n} {a b : Tree n}
-    (h : FiniteVariance.SameShape a b) (ha : g₁.unfold = a) (hb : Tree.dual g₂.unfold = b) :
-    (mix c p g₁ g₂).unfold = FiniteVariance.mix c p a b h := by
+    (h : SignSelection.SameShape a b) (ha : g₁.unfold = a) (hb : Tree.dual g₂.unfold = b) :
+    (mix c p g₁ g₂).unfold = SignSelection.mix c p a b h := by
   subst ha hb
   apply Tree.ext
   funext π
   rw [mix_unfold_fn c p (fun π => (h π).trans (normalize_constructor _ _ _ π)),
-    FiniteVariance.mix_fn, dual_fn]
+    SignSelection.mix_fn, dual_fn]
 
-/-- Normalisation reads a graph and its dual according to the polarity bit. -/
+/-- Normalization reads a graph and its dual according to the polarity bit. -/
 def normalize (c : Fin n → Bool) (p : Bool) (g : RGraph n) : RGraph n := mix c p g g
 
 theorem unfold_normalize (c : Fin n → Bool) (p : Bool) (g : RGraph n) :
@@ -290,7 +290,7 @@ theorem unfold_shapeGraph (ϕ : Constraint n k) (z : V k) :
 
 end ShapeGraph
 
-open FiniteVariance
+open SignSelection
 
 /-- Selection on graph families: the polarity product of the graphs at `z` and at its
 sign flip. -/
@@ -313,7 +313,7 @@ theorem unfold_selectGraph_shapeGraph (c : Fin n → Bool) {ψ : Constraint n (2
       select c (leastShape ψ) (leastShape_sameShape_dual hc) :=
   unfold_selectGraph c (funext (unfold_shapeGraph ψ)) _
 
-/-- Decoding on graph families: normalise the graph of the positive coordinate. -/
+/-- Decoding on graph families: normalize the graph of the positive coordinate. -/
 def decodedGraph (c : Fin n → Bool) (g : V (2 * k) → RGraph n) (u : V k) : RGraph n :=
   RGraph.normalize c false (g (sv u false))
 

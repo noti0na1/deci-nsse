@@ -59,12 +59,14 @@ def _root_.DeciNSSE.Constraint.dual (ϕ : Constraint n k) : Constraint n k := ϕ
   | eqBot z => exact dual_eq_top_iff (ρ z)
   | eqTop z => exact dual_eq_bot_iff (ρ z)
 
-/-- Dualising a valuation preserves satisfaction of the dual constraints. -/
-@[simp] theorem sat (ρ : V k → Tree n) : Covariant.Sat (Tree.dual ∘ ρ) (Constraint.dual ϕ) ↔ Covariant.Sat ρ ϕ := by
+/-- Dualizing a valuation preserves satisfaction of the dual constraints. -/
+@[simp] theorem sat (ρ : V k → Tree n) :
+    Covariant.Sat (Tree.dual ∘ ρ) (Constraint.dual ϕ) ↔ Covariant.Sat ρ ϕ := by
   simp only [Covariant.Sat, Constraint.dual, List.forall_mem_map, holds_lit]
 
 /-- A solution of the dual system yields a solution of the original system. -/
-theorem sat_of_dual {ρ : V k → Tree n} (h : Covariant.Sat ρ (Constraint.dual ϕ)) : Covariant.Sat (Tree.dual ∘ ρ) ϕ := by
+theorem sat_of_dual {ρ : V k → Tree n} (h : Covariant.Sat ρ (Constraint.dual ϕ)) :
+    Covariant.Sat (Tree.dual ∘ ρ) ϕ := by
   simpa only [constraint_constraint] using (sat (ϕ := Constraint.dual ϕ) ρ).mpr h
 
 /-- Every satisfiable system has a satisfiable dual system. -/

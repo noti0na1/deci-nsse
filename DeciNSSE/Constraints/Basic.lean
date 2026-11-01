@@ -8,6 +8,13 @@ A constraint system is a finite list of constructor inequalities and equations
 to bottom or top. `Sat c ρ ϕ` means satisfaction by the specified valuation;
 `Satisfiable c ϕ` existentially quantifies it. Entailment quantifies over all
 solutions in the chosen tree domain.
+
+## Main declarations
+- `Lit`, `Constraint`, `Sat`, `Satisfiable`, `SatisfiableFin`
+- `Entails`, `EntailsReg`, `EntailsFin`
+- `Covariant.Sat`, with `sat_false` and the list lemmas `Covariant.sat_cons`,
+  `Covariant.sat_append` and `Covariant.sat_map`
+- `entails_iff_safe`: entailment as preservation of top and bottom prefixes
 -/
 
 namespace DeciNSSE
@@ -16,9 +23,13 @@ abbrev V (k : ℕ) := Fin k
 
 /-- Flat constructor inequalities and equations to bottom or top. -/
 inductive Lit (n k : ℕ) where
+  /-- `leF x a` is the inequality `x ≤ f(a)`. -/
   | leF (x : V k) (children : Fin n → V k)
+  /-- `fLe a x` is the inequality `f(a) ≤ x`. -/
   | fLe (children : Fin n → V k) (x : V k)
+  /-- `eqBot x` is the equation `x = ⊥`. -/
   | eqBot (x : V k)
+  /-- `eqTop x` is the equation `x = ⊤`. -/
   | eqTop (x : V k)
 
 /-- A finite conjunction of flat literals, represented as a list. -/
@@ -74,6 +85,30 @@ def Covariant.holds {n k : ℕ} (ρ : V k → Tree n) : Lit n k → Prop
 /-- An assignment satisfies every literal in the covariant order. -/
 def Covariant.Sat {n k : ℕ} (ρ : V k → Tree n) (ϕ : Constraint n k) : Prop :=
   ∀ l ∈ ϕ, Covariant.holds ρ l
+
+namespace Covariant
+
+variable {n k : ℕ} (ρ : V k → Tree n)
+
+/-- The empty system is satisfied by every valuation. -/
+theorem sat_nil : Covariant.Sat ρ ([] : Constraint n k) := fun _ h => absurd h List.not_mem_nil
+
+/-- A system with a first literal is satisfied when the literal and the rest are. -/
+theorem sat_cons (l : Lit n k) (ϕ : Constraint n k) :
+    Covariant.Sat ρ (l :: ϕ) ↔ Covariant.holds ρ l ∧ Covariant.Sat ρ ϕ :=
+  List.forall_mem_cons
+
+/-- A concatenation is satisfied when both parts are. -/
+theorem sat_append (ϕ ψ : Constraint n k) :
+    Covariant.Sat ρ (ϕ ++ ψ) ↔ Covariant.Sat ρ ϕ ∧ Covariant.Sat ρ ψ :=
+  List.forall_mem_append
+
+/-- A system of the literals `f b` for `b ∈ l` is satisfied when each literal holds. -/
+theorem sat_map {β : Type*} (f : β → Lit n k) (l : List β) :
+    Covariant.Sat ρ (l.map f) ↔ ∀ b ∈ l, Covariant.holds ρ (f b) :=
+  List.forall_mem_map
+
+end Covariant
 
 @[simp] theorem holds_false {n k : ℕ} (ρ : V k → Tree n) (l : Lit n k) :
     Lit.holds (fun _ => false) ρ l ↔ Covariant.holds ρ l := by

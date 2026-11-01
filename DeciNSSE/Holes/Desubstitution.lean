@@ -5,9 +5,18 @@ import DeciNSSE.Holes.Basic
 Marker-terminated blocks form a prefix code. Comparisons of expanded words
 align at markers, allowing a hole to be described by block and endpoint
 conditions in a derived reader.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `MarkerCode`, `MarkerCode.enc`, `MarkerCode.cut`: marker codes, their
+  encodings and cuts.
+- `MarkerCode.enc_prefix_iff`: a marker code is a prefix code.
+- `MarkerCode.alignment`: comparisons of an encoding, by block.
+- `vis`, `rimg`, `isReaderHole_iff_split`: holes split into a target, an
+  endpoint and an interior condition.
+
+The declarations are in the namespace `DeciNSSE.Desubstitution`.
+-/
 
 namespace DeciNSSE.Desubstitution
 open DeciNSSE.Holes
@@ -18,11 +27,13 @@ variable {α γ Q : Type*}
 /-- A marker code `σ(c) = β_c #`: the marker `#` occurs in no body `β_c`, and the
 bodies are pairwise distinct. -/
 structure MarkerCode (α γ : Type*) where
-
+  /-- The marker `#`. -/
   mark : α
-
+  /-- The body `β_c` of each codeword. -/
   body : γ → List α
+  /-- The marker occurs in no body. -/
   mark_not_mem : ∀ c, mark ∉ body c
+  /-- Distinct letters have distinct bodies. -/
   body_injective : Function.Injective body
 
 /-- Words of the form `y # X` with `# ∉ y` compare through their first marker. -/
@@ -57,15 +68,21 @@ def enc (v : List γ) : List α := v.flatMap C.code
 /-- The cut `P_k = |σ(v[:k])|`. -/
 def cut (v : List γ) (k : ℕ) : ℕ := (C.enc (v.take k)).length
 
+/-- `σ` maps the empty word to the empty word. -/
 @[simp] theorem enc_nil : C.enc [] = [] := rfl
+/-- `σ(c v) = σ(c) σ(v)`. -/
 @[simp] theorem enc_cons (c : γ) (v : List γ) : C.enc (c :: v) = C.code c ++ C.enc v := by
   simp [enc]
+/-- `σ` is a word morphism. -/
 @[simp] theorem enc_append (v w : List γ) : C.enc (v ++ w) = C.enc v ++ C.enc w := by
   simp [enc]
+/-- `σ` on a one-letter word is the codeword. -/
 @[simp] theorem enc_singleton (c : γ) : C.enc [c] = C.code c := by simp [enc]
 
+/-- A codeword is one letter longer than its body. -/
 theorem length_code (c : γ) : (C.code c).length = (C.body c).length + 1 := by simp [code]
 
+/-- The marker does not occur in a suffix of a body. -/
 theorem mark_not_mem_of_append {c : γ} {x y : List α} (h : C.body c = x ++ y) :
     C.mark ∉ y := fun hm => C.mark_not_mem c (h ▸ List.mem_append_right x hm)
 
@@ -88,6 +105,7 @@ theorem enc_split (v : List γ) (k : ℕ) (hk : k < v.length) :
   conv_lhs => rw [← List.take_append_drop k v, List.drop_eq_getElem_cons hk]
   rw [enc_append, enc_cons, code, List.append_assoc, List.singleton_append]
 
+/-- `σ(v)` split inside block `k`, where `β_{v[k]} = x y`. -/
 theorem enc_split_xy (v : List γ) (k : ℕ) (hk : k < v.length) (x y : List α)
     (hxy : C.body v[k] = x ++ y) :
     C.enc v = (C.enc (v.take k) ++ x) ++ (y ++ C.mark :: C.enc (v.drop (k + 1))) := by
@@ -101,12 +119,14 @@ theorem drop_at (v : List γ) (k : ℕ) (hk : k < v.length) (x y : List α)
   rw [C.enc_split_xy v k hk x y hxy]
   exact List.drop_left' (by simp [cut])
 
+/-- `P_{k+1} = P_k + |β_{v[k]}| + 1`. -/
 theorem cut_succ (v : List γ) (k : ℕ) (hk : k < v.length) :
     C.cut v (k + 1) = C.cut v k + (C.body v[k]).length + 1 := by
   simp only [cut, List.take_succ_eq_append_getElem hk, enc_append, enc_singleton,
     List.length_append, length_code]
   omega
 
+/-- The cuts are monotone. -/
 theorem cut_mono (v : List γ) {i j : ℕ} (hij : i ≤ j) : C.cut v i ≤ C.cut v j := by
   obtain ⟨t, ht⟩ := List.take_prefix_take_left (l := v) hij
   simp only [cut, ← ht, enc_append, List.length_append]
@@ -171,9 +191,11 @@ variable (C : MarkerCode α γ) (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q
 
 variable {M R}
 
+/-- The empty word visits no state. -/
 @[simp] theorem vis_nil (r : Q) : vis M r [] = ∅ := by
   ext q; simp [vis]
 
+/-- The image of the empty set is empty. -/
 @[simp] theorem rimg_empty : rimg R (∅ : Set Q) = ∅ := by
   ext q; simp [rimg]
 

@@ -11,7 +11,7 @@ separation makes the list of possible new derivations exhaustive.
 
 namespace DeciNSSE.Spine.Closure
 
-open FiniteVariance
+open SignSelection
 
 variable {n K : ℕ}
 
@@ -56,13 +56,13 @@ theorem lAt_trans {k : ℕ} {u v : V K} (hd : Derives ψ u v) (h : LAt ψ w Z k 
 theorem uAt_succ {j : ℕ} (hj : j < w.length) {v : V K} {b : Fin n → V K}
     (h : UAt ψ X w j v) (hb : Lit.leF v b ∈ ψ) : UAt ψ X w (j + 1) (b w[j]) := by
   unfold UAt at h ⊢
-  rw [take_succ_of_lt hj]
+  rw [List.take_succ_eq_append_getElem hj]
   exact UpperAt.comp h (.cons (.refl v) hb (.nil (.refl _)))
 
 theorem lAt_succ {k : ℕ} (hk : k < w.length) {u : V K} {a : Fin n → V K}
     (h : LAt ψ w Z k u) (ha : Lit.fLe a u ∈ ψ) : LAt ψ w Z (k + 1) (a w[k]) := by
   unfold LAt at h ⊢
-  rw [take_succ_of_lt hk]
+  rw [List.take_succ_eq_append_getElem hk]
   exact LowerAt.comp (.cons ha (.refl u) (.nil (.refl _))) h
 
 theorem bridge_base {j k : ℕ} {v : V K} (hu : UAt ψ X w j v) (hl : LAt ψ w Z k v) :
@@ -350,7 +350,7 @@ theorem derives_lv_of_uAt (s : Bool) : ∀ j, j ≤ w.length → ∀ v, UAt ψ (
   | 0, _, v, h => by rw [lv_zero]; exact derives_lift (uAt_zero.mp h)
   | j + 1, hj, v, h => by
     unfold UAt at h
-    rw [take_succ_of_lt (by omega)] at h
+    rw [List.take_succ_eq_append_getElem (by omega)] at h
     obtain ⟨z, hz, hp⟩ := UpperAt.factor h
     cases hp with
     | @cons _ z' b _ _ _ hd hl hp =>

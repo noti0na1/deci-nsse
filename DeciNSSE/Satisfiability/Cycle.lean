@@ -5,6 +5,12 @@ import DeciNSSE.Constraints.PathBounds
 Matching nonempty lower and upper self-paths, joined by closure, force paths
 of unbounded length in every solution. Such a cycle clash excludes finite
 solutions.
+
+## Main declarations
+
+- `CycleClash`: a nonempty lower self-path below a matching upper self-path.
+- `FTree.height`, `FTree.length_le_height`: the height of a finite tree bounds its paths.
+- `CycleClash.no_finite_solution`: a cycle clash excludes finite solutions.
 -/
 
 namespace DeciNSSE
@@ -17,6 +23,7 @@ def CycleClash (ϕ : Constraint n k) : Prop :=
 
 namespace PathBounds
 
+/-- Embedding along a path is monotone. -/
 theorem embed_mono (filler : Tree n) (π : List (Fin n)) {t u : Tree n}
     (h : t ≤ u) : embed filler π t ≤ embed filler π u := by
   induction π with
@@ -28,6 +35,7 @@ theorem embed_mono (filler : Tree n) (π : List (Fin n)) {t u : Tree n}
     · simpa [hj] using ih
     · simp [hj]
 
+/-- Embedding along a concatenation is the composite of the two embeddings. -/
 theorem embed_append (filler t : Tree n) (π τ : List (Fin n)) :
     embed filler (π ++ τ) t = embed filler π (embed filler τ t) := by
   induction π with
@@ -79,18 +87,23 @@ def height : FTree n → ℕ
   | .bot | .top => 0
   | .node a => (Finset.univ.sup fun i => (a i).height) + 1
 
+/-- A leaf has height zero. -/
 @[simp] theorem height_bot : (bot : FTree n).height = 0 := rfl
+/-- A leaf has height zero. -/
 @[simp] theorem height_top : (top : FTree n).height = 0 := rfl
 
+/-- A node is one higher than its highest child. -/
 theorem height_node (a : Fin n → FTree n) :
     (node a).height = (Finset.univ.sup fun i => (a i).height) + 1 := rfl
 
+/-- Every child is strictly lower than its node. -/
 theorem height_child_lt (a : Fin n → FTree n) (i : Fin n) :
     (a i).height < (node a).height := by
   rw [height_node]
   have := Finset.le_sup (f := fun i => (a i).height) (Finset.mem_univ i)
   omega
 
+/-- Every path in the domain of a finite tree is at most its height. -/
 theorem length_le_height {t : FTree n} {π : List (Fin n)}
     (h : (t.toTree.fn π).isSome) : π.length ≤ t.height := by
   induction t generalizing π with

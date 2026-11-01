@@ -5,6 +5,21 @@ import DeciNSSE.Main
 A side and a word determine a regular assignment. Satisfiability and a hole
 check certify that it refutes the query. Under finite satisfiability, bounded
 truncation of the same assignment gives a finite countermodel.
+
+The Boolean check `refutesB` is the semantic entry point for refutations. The
+certificate checker `Certificates.checkRefutation` is `refutesB` by definition, and
+the packed checker `Solver.Checked.checkRefutationPacked` is proved equal to it.
+
+## Main declarations
+
+- `extractRegular`, `extractRegular_of_unsafe`, `extractRegular_spec`: the regular
+  countermodel of an unsafe word, or of a monitor hole.
+- `refutesB`: satisfiability and a hole of the reader of one side.
+- `refutesB_iff_unsafe`, `refutesB_correct`, `not_entails_iff_refutesB`: `refutesB`
+  holds exactly for unsafe words, so it refutes entailment, and every failure of
+  entailment has a word passing it.
+- `extractFinite`, `extractFinite_of_unsafe`, `extractFinite_spec`: the finite
+  countermodel under finite satisfiability.
 -/
 
 namespace DeciNSSE
@@ -40,10 +55,8 @@ theorem extractRegular_spec {c : Fin n → Bool} {ϕ : Constraint n k}
 /-- Check satisfiability and whether the supplied word is a hole of its side. -/
 def refutesB (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (w : List (Fin n)) : Bool :=
-  let ψ := Events.sideSystem c ϕ θ
-  let q := Events.sideQuery x y θ
   Monitor.satB c ϕ && decide (Holes.IsReaderHole
-    (Monitor.reader ψ q.1 q.2) Monitor.admission (Monitor.target ψ) w)
+    (Monitor.sideReader c ϕ x y θ) Monitor.admission (Monitor.sideTarget c ϕ θ) w)
 
 /-- The Boolean certificate holds exactly for unsafe words. -/
 theorem refutesB_iff_unsafe (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
@@ -72,7 +85,7 @@ theorem not_entails_iff_refutesB (c : Fin n → Bool) (ϕ : Constraint n k) (x y
   simp only [refutesB_iff_unsafe, entails_iff_not_sideUnsafe, not_forall, not_not]
 
 private theorem witnessGraph_depth {c : Fin n → Bool} {ψ : Constraint n (2 * k)}
-    {X Y : V (2 * k)} {w : List (Fin n)} (hf : FiniteVariance.FlipClosed ψ)
+    {X Y : V (2 * k)} {w : List (Fin n)} (hf : SignSelection.FlipClosed ψ)
     (hcy : ¬ CycleClash ψ) (z : V (2 * k)) (π : List (Fin n))
     (hπ : ((RegularTransfer.witnessGraph c ψ X Y w z).unfold.fn π).isSome) :
     π.length ≤ (2 * (k + (2 * w.length + 2))) ^ 2 + 1 := by
@@ -85,7 +98,7 @@ private theorem witnessGraph_depth {c : Fin n → Bool} {ψ : Constraint n (2 * 
   change (RegularTransfer.witnessGraph c ψ X Y w z).unfold = _ at he
   rw [he] at hπ
   simpa only [Nat.pow_two] using
-    FiniteVariance.select_depth c _ _ (leastShape_depth hcy') _ π hπ
+    SignSelection.select_depth c _ _ (leastShape_depth hcy') _ π hπ
 
 private theorem extractRegular_depth {c : Fin n → Bool} {ϕ : Constraint n k}
     {x y : V k} {θ : Side} {w : List (Fin n)} (hs : SatisfiableFin c ϕ)

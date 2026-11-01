@@ -1,4 +1,4 @@
-import DeciNSSE.Semantics.Normalisation
+import DeciNSSE.Semantics.Normalization
 
 /-! # The variance order
 
@@ -15,7 +15,7 @@ variable {n : ℕ}
 def Tree.Le (c : Fin n → Bool) (t u : Tree n) : Prop :=
   ∀ π a b, t.fn π = some a → u.fn π = some b → if polarity c π then b ≤ a else a ≤ b
 
-/-- Variance order agrees with covariant order after normalisation. -/
+/-- Variance order agrees with covariant order after normalization. -/
 theorem treeLe_iff_normalize (c : Fin n → Bool) (t u : Tree n) :
     Tree.Le c t u ↔ Tree.normalize c false t ≤ Tree.normalize c false u := by
   constructor
@@ -54,7 +54,8 @@ theorem normalize_le_normalize_iff (c : Fin n → Bool) (p : Bool) (t u : Tree n
   ⟨fun h => treeLe_antisymm (treeLe_top c t) h, fun h => h ▸ treeLe_refl c top⟩
 
 @[simp] theorem node_treeLe_node_iff (c : Fin n → Bool) (a b : Fin n → Tree n) :
-    Tree.Le c (node a) (node b) ↔ ∀ i, if c i then Tree.Le c (b i) (a i) else Tree.Le c (a i) (b i) := by
+    Tree.Le c (node a) (node b) ↔
+      ∀ i, if c i then Tree.Le c (b i) (a i) else Tree.Le c (a i) (b i) := by
   rw [treeLe_iff_normalize]
   simp only [normalize_node, Bool.false_xor, node_le_node_iff, normalize_le_normalize_iff]
 
@@ -64,7 +65,8 @@ theorem treeLe_trans {c : Fin n → Bool} {t u v : Tree n}
   (treeLe_iff_normalize c t v).mpr (_root_.le_trans ((treeLe_iff_normalize c t u).mp htu)
     ((treeLe_iff_normalize c u v).mp huv))
 
-/-- A partial order value, deliberately not an instance. -/
+/-- Part of the API: the variance order as a partial order on trees. It is a value,
+deliberately not an instance. -/
 @[instance_reducible] def variancePartialOrder (c : Fin n → Bool) : PartialOrder (Tree n) where
   le := Tree.Le c
   lt t u := Tree.Le c t u ∧ ¬ Tree.Le c u t

@@ -7,9 +7,16 @@ import DeciNSSE.Transfer.Safety
 A side monitor combines a finite reader, a decidable target and admissions,
 the rejected-path invariant, and a hole/unsafety equivalence for satisfiable
 systems. A family supplies these data for every constraint system and query.
--/
 
-set_option autoImplicit false
+## Main declarations
+
+- `Monitor.satB`, `Monitor.satB_iff`: the satisfiability test for every variance.
+- `Monitor.SideMonitor`: the interface of a side monitor, with its hole language
+  `SideMonitor.Hole` and the bounded hole search `SideMonitor.decideHoles`.
+- `Monitor.SideMonitor.hole_iff_unsafe`, `Monitor.SideMonitor.unsafe_iff_bounded`: holes
+  are unsafe words under satisfiability, and unsafe words have bounded witnesses.
+- `Monitor.Family`: a side monitor for every system, query and side.
+-/
 
 namespace DeciNSSE.Monitor
 
@@ -22,11 +29,12 @@ def satB (c : Fin n → Bool) (ϕ : Constraint n k) : Bool := satInfB (signed c 
 
 /-- The Boolean satisfiability test succeeds exactly when a solution exists. -/
 theorem satB_iff (c : Fin n → Bool) (ϕ : Constraint n k) :
-    satB c ϕ = true ↔ ∃ ρ, Sat c ρ ϕ :=
+    satB c ϕ = true ↔ Satisfiable c ϕ :=
   (satInfB_iff _).trans (sat_iff_signed_sat c ϕ).symm
 
+/-- The Boolean satisfiability test fails exactly when no solution exists. -/
 theorem satB_eq_false_iff (c : Fin n → Bool) (ϕ : Constraint n k) :
-    satB c ϕ = false ↔ ¬ ∃ ρ, Sat c ρ ϕ := by
+    satB c ϕ = false ↔ ¬ Satisfiable c ϕ := by
   rw [← satB_iff, Bool.not_eq_true]
 
 /-- The interface. A finite monitor for the side `θ` of the query
@@ -35,21 +43,26 @@ decidable state space, a decidable relation and target, a rejected-path
 instance, and the semantic side bridge under satisfiability. -/
 structure SideMonitor (n : ℕ) (c : Fin n → Bool) {k : ℕ} (ϕ : Constraint n k) (x y : V k)
     (θ : Side) where
-
+  /-- The reader states. -/
   Q : Type
+  /-- There are finitely many reader states. -/
   [instFintype : Fintype Q]
+  /-- Equality of reader states is decidable. -/
   [instDecEq : DecidableEq Q]
-
+  /-- The reader, over the directions `Fin n`. -/
   M : DFA (Fin n) Q
-
+  /-- The admissions: a hole has no witnessed pair in `R`. -/
   R : Q → Q → Prop
+  /-- Admission is decidable. -/
   [instDecRel : DecidableRel R]
-
+  /-- The target: a hole ends in `T`. -/
   T : Set Q
+  /-- Membership in the target is decidable. -/
   [instDecT : DecidablePred (· ∈ T)]
+  /-- The rejected-path invariant, which the generic hole search needs. -/
   [instRejected : RejectedPath M R T]
-
-  bridge : (∃ ρ, Sat c ρ ϕ) → ∀ w, IsReaderHole M R T w ↔ Unsafe c ϕ x y θ w
+  /-- For a satisfiable system, the holes are exactly the unsafe words of the side `θ`. -/
+  bridge : Satisfiable c ϕ → ∀ w, IsReaderHole M R T w ↔ Unsafe c ϕ x y θ w
 
 attribute [scoped instance] SideMonitor.instFintype SideMonitor.instDecEq
   SideMonitor.instDecRel SideMonitor.instDecT SideMonitor.instRejected
@@ -67,7 +80,7 @@ def Hole (P : SideMonitor n c ϕ x y θ) (w : List (Fin n)) : Prop := IsReaderHo
   DeciNSSE.RejectedTail.decideHole P.M P.R P.T
 
 /-- Under satisfiability, holes are exactly the unsafe words of the side. -/
-theorem hole_iff_unsafe (P : SideMonitor n c ϕ x y θ) (hs : ∃ ρ, Sat c ρ ϕ)
+theorem hole_iff_unsafe (P : SideMonitor n c ϕ x y θ) (hs : Satisfiable c ϕ)
     (w : List (Fin n)) : P.Hole w ↔ Unsafe c ϕ x y θ w :=
   P.bridge hs w
 
@@ -78,7 +91,7 @@ theorem hole_iff_bounded (P : SideMonitor n c ϕ x y θ) :
   RejectedTail.hole_iff_bounded_length P.M P.R P.T
 
 /-- In a satisfiable system, every unsafe side has a bounded witness. -/
-theorem unsafe_iff_bounded (P : SideMonitor n c ϕ x y θ) (hs : ∃ ρ, Sat c ρ ϕ) :
+theorem unsafe_iff_bounded (P : SideMonitor n c ϕ x y θ) (hs : Satisfiable c ϕ) :
     (∃ w, Unsafe c ϕ x y θ w) ↔
       ∃ w, Unsafe c ϕ x y θ w ∧
         w.length ≤ RejectedTail.holeLengthBound (Fintype.card P.Q) := by
@@ -92,7 +105,7 @@ end SideMonitor
 system, query and side. It is data, so deciders parametric in it stay
 computable. -/
 structure Family (n : ℕ) (c : Fin n → Bool) where
-
+  /-- The side monitor of each system, query and side. -/
   monitor : ∀ {k : ℕ} (ϕ : Constraint n k) (x y : V k) (θ : Side),
     SideMonitor n c ϕ x y θ
 
@@ -101,7 +114,7 @@ section Trivial
 variable {ϕ : Constraint n k} {x y : V k} {θ : Side}
 
 /-- An unsatisfiable system has no unsafe word. -/
-theorem not_sideUnsafe_of_unsat (h : ¬ ∃ ρ, Sat c ρ ϕ) (w : List (Fin n)) :
+theorem not_sideUnsafe_of_unsat (h : ¬ Satisfiable c ϕ) (w : List (Fin n)) :
     ¬ Unsafe c ϕ x y θ w := by
   cases θ
   · rintro ⟨ρ, hs, _⟩; exact h ⟨ρ, hs⟩

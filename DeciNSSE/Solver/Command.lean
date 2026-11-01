@@ -37,7 +37,8 @@ def resultJson {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k}
   let common := [("answer", toJson r.answer), ("used_fallback", toJson r.usedFallback)]
   match r.evidence with
   | .entailed cert _ => Json.mkObj (common ++ [("certificate", entailmentJson cert)])
-  | .complete _ => Json.mkObj (common ++ [("certificate", Json.mkObj [("kind", toJson "complete")])])
+  | .complete _ =>
+    Json.mkObj (common ++ [("certificate", Json.mkObj [("kind", toJson "complete")])])
   | .refuted cert _ model => Json.mkObj (common ++ [
       ("certificate", Json.mkObj [("kind", toJson "refutation"),
         ("side", toJson (match cert.side with | .l => "l" | .r => "r")),
@@ -75,7 +76,7 @@ def run (args : List String) : IO UInt32 := do
       let text ← IO.FS.readFile path
       let parsed := do
         let o ← options {} opts
-        let p ← Certificates.Command.parseProblem (← Json.parse text)
+        let p ← Certificates.Json.parseProblem (← Json.parse text)
         return (p, o)
       match parsed with
       | .error e => IO.eprintln e; return 2

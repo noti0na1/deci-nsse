@@ -2,18 +2,18 @@ import DeciNSSE.Semantics.Sym
 
 /-! # Finite and infinite trees
 
-Trees are partial labellings of paths over `Fin n`: the root exists, and exactly
+Trees are partial labelings of paths over `Fin n`: the root exists, and exactly
 constructor nodes have children. The covariant order compares labels at shared
 paths; nullary constructors are included.
 -/
 
 namespace DeciNSSE
 
-/-- A finite or infinite tree represented by a well-formed partial labelling of paths. -/
+/-- A finite or infinite tree represented by a well-formed partial labeling of paths. -/
 structure Tree (n : ℕ) where
   /-- The optional label at each constructor path. -/
   fn : List (Fin n) → Option Sym
-  /-- The root exists, and exactly constructor-labelled paths have children. -/
+  /-- The root exists, and exactly constructor-labeled paths have children. -/
   wf : fn [] ≠ none ∧ ∀ π i, (fn (π ++ [i])).isSome ↔ fn π = some Sym.f
 
 namespace Tree
@@ -42,7 +42,7 @@ theorem domain_append_left (t : Tree n) (π ρ : List (Fin n))
       (t.child_isSome_iff (π ++ ρ) i).mp (by simpa [List.append_assoc] using h)
     exact ih (by simp [hf])
 
-/-- Every proper prefix of a path in the domain is labelled `f`. -/
+/-- Every proper prefix of a path in the domain is labeled `f`. -/
 theorem label_eq_f_of_proper_prefix (t : Tree n) {π ρ : List (Fin n)}
     (hprefix : π.IsPrefix ρ) (hne : π ≠ ρ) (h : (t.fn ρ).isSome) :
     t.fn π = some Sym.f := by

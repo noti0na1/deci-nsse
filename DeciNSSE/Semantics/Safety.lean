@@ -5,6 +5,15 @@ import DeciNSSE.Semantics.Order
 A trace continues an extreme leaf label along every longer path. Order is
 equivalent to preservation of top and bottom prefixes, so every failure has
 a finite path witness.
+
+## Main declarations
+- `Safety.descend`, `Safety.trace`, with `Safety.trace_append`, `Safety.trace_snoc` and
+  `Safety.trace_mono`
+- `Safety.descend_eq_bot_of_le`, `Safety.ne_top_of_le_node`, `Safety.ne_bot_of_node_le`:
+  traces below and above constructors
+- `Safety.not_le_iff_unsafe`: an order failure is a path witness
+- `prefTop`, `prefBot`, `treeLe_iff_safe`, and the covariant forms `prefTop_false_iff`
+  and `prefBot_false_iff`
 -/
 
 section
@@ -46,6 +55,11 @@ theorem trace_append (t : Tree n) (ν μ : List (Fin n)) :
     trace t (ν ++ μ) = trace (trace t ν) μ := by
   induction ν generalizing t <;> simp_all
 
+/-- Extending a path by one direction descends once more. -/
+theorem trace_snoc (t : Tree n) (ν : List (Fin n)) (i : Fin n) :
+    trace t (ν ++ [i]) = descend (trace t ν) i := by
+  rw [trace_append]; rfl
+
 theorem descend_mono {t u : Tree n} (h : t ≤ u) (i : Fin n) :
     descend t i ≤ descend u i := by
   rcases (Tree.le_iff_root_cases _ _).mp h with rfl | rfl |
@@ -59,6 +73,22 @@ theorem trace_mono {t u : Tree n} (h : t ≤ u) (ν : List (Fin n)) :
   induction ν generalizing t u with
   | nil => exact h
   | cons i ν ih => exact ih (descend_mono h i)
+
+/-- Below a node, a direction whose child is bottom leads to bottom. -/
+theorem descend_eq_bot_of_le {t : Tree n} {a : Fin n → Tree n} (h : t ≤ Tree.node a)
+    {i : Fin n} (hi : a i = Tree.bot) : descend t i = Tree.bot := by
+  have := descend_mono h i
+  rwa [descend_node, hi, Tree.le_bot_iff] at this
+
+/-- A tree below a node is not top. -/
+theorem ne_top_of_le_node {t : Tree n} {a : Fin n → Tree n} (h : t ≤ Tree.node a) :
+    t ≠ Tree.top := by
+  rintro rfl; exact Tree.node_ne_top a ((Tree.top_le_iff _).mp h)
+
+/-- A tree above a node is not bottom. -/
+theorem ne_bot_of_node_le {t : Tree n} {a : Fin n → Tree n} (h : Tree.node a ≤ t) :
+    t ≠ Tree.bot := by
+  rintro rfl; exact Tree.node_ne_bot a ((Tree.le_bot_iff _).mp h)
 
 /-- A label occurs at some (possibly equal) prefix. -/
 def HasLabel (t : Tree n) (ν : List (Fin n)) (s : Sym) : Prop :=
@@ -202,11 +232,11 @@ section
 namespace DeciNSSE
 variable {n : ℕ}
 
-/-- A prefix reaches top after variance normalisation. -/
+/-- A prefix reaches top after variance normalization. -/
 def prefTop (c : Fin n → Bool) (π : List (Fin n)) (t : Tree n) : Prop :=
   ∃ ρ, ρ.IsPrefix π ∧ t.fn ρ = some (Sym.flip (polarity c ρ) Sym.top)
 
-/-- A prefix reaches bottom after variance normalisation. -/
+/-- A prefix reaches bottom after variance normalization. -/
 def prefBot (c : Fin n → Bool) (π : List (Fin n)) (t : Tree n) : Prop :=
   ∃ ρ, ρ.IsPrefix π ∧ t.fn ρ = some (Sym.flip (polarity c ρ) Sym.bot)
 
@@ -223,6 +253,18 @@ theorem prefTop_iff_normalize (c : Fin n → Bool) (π : List (Fin n)) (t : Tree
 theorem prefBot_iff_normalize (c : Fin n → Bool) (π : List (Fin n)) (t : Tree n) :
     prefBot c π t ↔ covPrefBot π (Tree.normalize c false t) := by
   simp only [prefBot, covPrefBot, Safety.HasLabel, normalize_label]
+
+/-- Covariant top prefixes are top traces. -/
+theorem prefTop_false_iff (π : List (Fin n)) (t : Tree n) :
+    prefTop (fun _ => false) π t ↔ Safety.trace t π = Tree.top := by
+  rw [Safety.trace_eq_top_iff]
+  simp only [prefTop, polarity_false, Sym.flip_false, Safety.HasLabel]
+
+/-- Covariant bottom prefixes are bottom traces. -/
+theorem prefBot_false_iff (π : List (Fin n)) (t : Tree n) :
+    prefBot (fun _ => false) π t ↔ Safety.trace t π = Tree.bot := by
+  rw [Safety.trace_eq_bot_iff]
+  simp only [prefBot, polarity_false, Sym.flip_false, Safety.HasLabel]
 
 /-- Variance order is equivalent to preservation of extreme prefixes. -/
 theorem treeLe_iff_safe (c : Fin n → Bool) (t u : Tree n) :

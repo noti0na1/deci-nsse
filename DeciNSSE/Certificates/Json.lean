@@ -1,9 +1,9 @@
 import DeciNSSE.Solver.Checked
 import Lean.Data.Json
 
-/-! # JSON certificate checker
+/-! # JSON problems and certificates
 
-Usage: `nsse-check problem.json certificate.json`.
+The parser and verifier behind the command `nsse-check` (`Certificates/Command`).
 The problem has `k`, `variance` (or `arity`), `lits`, `x`, and `y`, as
 described in the README. Certificates are `{"kind":"unsat"}`,
 `{"kind":"refutation","side":"l"|"r","word":[...]}`, or
@@ -12,8 +12,7 @@ described in the README. Certificates are `{"kind":"unsat"}`,
 of words. Letters and variable indices are checked against their bounds.
 -/
 
-set_option autoImplicit false
-namespace DeciNSSE.Certificates.Command
+namespace DeciNSSE.Certificates.Json
 open Lean
 
 /-- A parsed problem retains the bounds in the types of all indices. -/
@@ -96,7 +95,8 @@ private def cover (n : ℕ) (j : Json) : Except String (Cover (Fin n)) := do
 def verify (p : Problem) (j : Json) : Except String Unit := do
   match ← (← field j "kind").getStr? with
   | "unsat" =>
-    if Solver.Checked.checkEntailment p.variance p.constraints p.x p.y .unsat then return ()
+    if Solver.Checked.checkEntailmentPacked p.variance p.constraints p.x p.y .unsat then
+      return ()
     else throw "unsatisfiability check failed"
   | "refutation" =>
     let side ← match ← (← field j "side").getStr? with
@@ -104,14 +104,18 @@ def verify (p : Problem) (j : Json) : Except String Unit := do
       | "r" => pure Side.r
       | _ => throw "side must be l or r"
     let w ← word p.n (← field j "word")
-    if Solver.Checked.checkRefutation p.variance p.constraints p.x p.y ⟨side, w⟩ then return ()
+    if Solver.Checked.checkRefutationPacked p.variance p.constraints p.x p.y ⟨side, w⟩ then
+      return ()
     else throw "refutation check failed: system unsatisfiable or word is not a hole"
   | "entailment" =>
     let left ← cover p.n (← field j "left")
     let right ← cover p.n (← field j "right")
-    if Solver.Checked.checkEntailment p.variance p.constraints p.x p.y (.cover left right) then return ()
-    else throw "cover check failed: invalid ray, missing initial state, uncovered state, or missing successor"
+    if Solver.Checked.checkEntailmentPacked p.variance p.constraints p.x p.y
+        (.cover left right) then
+      return ()
+    else throw ("cover check failed: invalid ray, missing initial state, uncovered state, " ++
+      "or missing successor")
   | kind => throw s!"unknown certificate kind: {kind}"
 
-end DeciNSSE.Certificates.Command
+end DeciNSSE.Certificates.Json
 

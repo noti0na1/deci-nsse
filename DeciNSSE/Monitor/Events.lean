@@ -11,7 +11,7 @@ sign coherence relates these events to the spine clash formulas.
 
 namespace DeciNSSE.Events
 
-open FiniteVariance
+open SignSelection
 
 variable {n K k : ℕ}
 

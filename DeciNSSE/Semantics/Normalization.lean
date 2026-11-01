@@ -1,10 +1,10 @@
 import DeciNSSE.Semantics.Tree
 
-/-! # Normalisation of variance
+/-! # Normalization of variance
 
 Path polarity is the XOR of the variances encountered from the root. A true
 bit reverses comparison by exchanging bottom and top; constructor labels and
-domains stay fixed. Normalisation therefore turns variance order into covariance.
+domains stay fixed. Normalization therefore turns variance order into covariance.
 -/
 
 namespace DeciNSSE
@@ -79,7 +79,8 @@ def Tree.normalize (c : Fin n → Bool) (p : Bool) (t : Tree n) : Tree n where
 @[simp] theorem normalize_domain (c : Fin n → Bool) (p : Bool) (t : Tree n) (π : List (Fin n)) :
     ((Tree.normalize c p t).fn π).isSome = (t.fn π).isSome := by simp
 
-@[simp] theorem normalize_constructor (c : Fin n → Bool) (p : Bool) (t : Tree n) (π : List (Fin n)) :
+@[simp] theorem normalize_constructor (c : Fin n → Bool) (p : Bool) (t : Tree n)
+    (π : List (Fin n)) :
     (Tree.normalize c p t).fn π = some Sym.f ↔ t.fn π = some Sym.f := by
   simp only [normalize_fn, Option.map_eq_some_iff, Sym.flip_eq_f, exists_eq_right]
 
@@ -88,7 +89,8 @@ def Tree.normalize (c : Fin n → Bool) (p : Bool) (t : Tree n) : Tree n where
   apply Tree.ext; funext π
   cases h : t.fn π <;> simp [h]
 
-theorem normalize_injective (c : Fin n → Bool) (p : Bool) : Function.Injective (Tree.normalize c p) :=
+theorem normalize_injective (c : Fin n → Bool) (p : Bool) :
+    Function.Injective (Tree.normalize c p) :=
   Function.LeftInverse.injective (normalize_involutive c p)
 
 @[simp] theorem normalize_bot (c : Fin n → Bool) (p : Bool) :
@@ -102,13 +104,15 @@ theorem normalize_injective (c : Fin n → Bool) (p : Bool) : Function.Injective
   cases p <;> cases π <;> simp [Sym.flip]
 
 @[simp] theorem normalize_node (c : Fin n → Bool) (p : Bool) (a : Fin n → Tree n) :
-    Tree.normalize c p (Tree.node a) = Tree.node (fun i => Tree.normalize c (Bool.xor p (c i)) (a i)) := by
+    Tree.normalize c p (Tree.node a) =
+      Tree.node (fun i => Tree.normalize c (Bool.xor p (c i)) (a i)) := by
   apply Tree.ext; funext w
   cases w with
   | nil => simp
   | cons i w => simp
 
-@[simp] theorem normalize_false_variance (t : Tree n) : Tree.normalize (fun _ => false) false t = t := by
+@[simp] theorem normalize_false_variance (t : Tree n) :
+    Tree.normalize (fun _ => false) false t = t := by
   apply Tree.ext; funext π; cases h : t.fn π <;> simp [h]
 
 /-- Swap bottom and top everywhere in the actual domain. -/
@@ -117,13 +121,15 @@ def Tree.dual : Tree n → Tree n := Tree.normalize (fun _ => false) true
 @[simp] theorem dual_fn (t : Tree n) (π : List (Fin n)) :
     (Tree.dual t).fn π = (t.fn π).map (Sym.flip true) := by simp [Tree.dual]
 
-@[simp] theorem dual_involutive (t : Tree n) : Tree.dual (Tree.dual t) = t := normalize_involutive _ _ _
+@[simp] theorem dual_involutive (t : Tree n) : Tree.dual (Tree.dual t) = t :=
+  normalize_involutive _ _ _
 @[simp] theorem dual_bot : Tree.dual (Tree.bot : Tree n) = Tree.top := by simp [Tree.dual]
 @[simp] theorem dual_top : Tree.dual (Tree.top : Tree n) = Tree.bot := by simp [Tree.dual]
 @[simp] theorem dual_node (a : Fin n → Tree n) :
     Tree.dual (Tree.node a) = Tree.node (fun i => Tree.dual (a i)) := by simp [Tree.dual]
 
-@[simp] theorem normalize_true (c : Fin n → Bool) (t : Tree n) : Tree.normalize c true t = Tree.dual (Tree.normalize c false t) := by
+@[simp] theorem normalize_true (c : Fin n → Bool) (t : Tree n) :
+    Tree.normalize c true t = Tree.dual (Tree.normalize c false t) := by
   apply Tree.ext; funext π
   cases h : t.fn π with
   | none => simp [h]

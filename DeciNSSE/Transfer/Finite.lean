@@ -17,7 +17,7 @@ namespace DeciNSSE
 
 namespace FiniteTransfer
 
-open Spine.Closure Events FiniteVariance
+open Spine.Closure Events SignSelection
 
 variable {n k : ℕ}
 
@@ -75,7 +75,7 @@ theorem finite_countermodel_of_fixed {B : V (2 * k) → FTree n}
   · simpa only [treeLe_iff_normalize, FTree.normalize_toTree, normalize_involutive] using hle
 
 /-- On a finitely satisfiable system, every unsafe word has a finite countermodel.
-On the bottom-prefix side, the finite witness of the order dual is dualised back. -/
+On the bottom-prefix side, the finite witness of the order dual is dualized back. -/
 theorem finite_countermodel_of_unsafe (hs : SatisfiableFin c ϕ) {θ : Side} {w : List (Fin n)}
     (hu : Unsafe c ϕ x y θ w) :
     ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ ∧
@@ -107,7 +107,7 @@ open FiniteTransfer
 system has a finite model, every countermodel can be replaced by a finite one. -/
 theorem finite_countermodel_transfer {n k : ℕ} (c : Fin n → Bool)
     {ϕ : Constraint n k} {x y : V k}
-    (hs : ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ)
+    (hs : SatisfiableFin c ϕ)
     (hn : ¬ Entails c ϕ x y) :
     ∃ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ ∧
       ¬ Tree.Le c (σ x).toTree (σ y).toTree := by

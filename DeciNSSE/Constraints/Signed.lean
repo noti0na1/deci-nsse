@@ -2,7 +2,7 @@ import DeciNSSE.Constraints.Basic
 
 /-! # Signed translation of variance
 
-Each variable has positive and negative coordinates. Normalisation turns
+Each variable has positive and negative coordinates. Normalization turns
 variance constraints into a covariant system on these doubled variables;
 solutions fixed by sign duality decode to solutions of the original system.
 -/
@@ -57,7 +57,8 @@ def Signed.dual (A : V (2 * k) → Tree n) (z : V (2 * k)) : Tree n :=
 @[simp] theorem signedDual_sv (A : V (2 * k) → Tree n) (u : V k) (p : Bool) :
     Signed.dual A (sv u p) = Tree.dual (A (sv u (!p))) := by simp [Signed.dual]
 
-@[simp] theorem signedDual_involutive (A : V (2 * k) → Tree n) : Signed.dual (Signed.dual A) = A := by
+@[simp] theorem signedDual_involutive (A : V (2 * k) → Tree n) :
+    Signed.dual (Signed.dual A) = A := by
   funext z
   obtain ⟨u, p, rfl⟩ := sv_cases z
   simp
@@ -114,7 +115,7 @@ theorem sat_iff_signed (c : Fin n → Bool) (ρ : V k → Tree n) (ϕ : Constrai
     Sat c ρ ϕ ↔ Covariant.Sat (normalized c ρ) (signed c ϕ) := by
   simp only [sat_signed_iff, Sat, holds_iff_signedLit]
 
-/-- Every normalised valuation is fixed by sign duality. -/
+/-- Every normalized valuation is fixed by sign duality. -/
 @[simp] theorem normalized_fixed (c : Fin n → Bool) (ρ : V k → Tree n) :
     Signed.dual (normalized c ρ) = normalized c ρ := by
   funext z
@@ -154,7 +155,7 @@ theorem fixed_solution_correspondence (c : Fin n → Bool) (ϕ : Constraint n k)
 
 /-- Every variance solution gives a covariant solution of the signed translation. -/
 theorem sat_implies_signed_sat (c : Fin n → Bool) (ϕ : Constraint n k)
-    (h : ∃ ρ, Sat c ρ ϕ) : ∃ A, Covariant.Sat A (signed c ϕ) := by
+    (h : Satisfiable c ϕ) : ∃ A, Covariant.Sat A (signed c ϕ) := by
   obtain ⟨ρ, hs⟩ := h
   exact ⟨normalized c ρ, (sat_iff_signed c ρ ϕ).mp hs⟩
 

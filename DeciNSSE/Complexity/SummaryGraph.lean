@@ -20,14 +20,13 @@ configuration by saturation.
 
 ## Main declarations
 
-- `Summary.Config`: configurations, with `Config.init`, `Config.next` and
-  `Config.accepting`.
-- `Summary.Step`, `Summary.mem_next_iff`: the three moves of the search.
+- `Summary.Config`: configurations, with the projections `Config.level`,
+  `Config.letters`, `Config.table` and `Config.derivation`, and `Config.init`,
+  `Config.next` and `Config.accepting`.
+- `Summary.Config.Step`, `Summary.Config.mem_next_iff`: the three moves of the search.
 - `Summary.summarySearch`: the summary search, and
   `Summary.summarySearch_iff_reachable`, its reachability characterization.
 -/
-
-set_option autoImplicit false
 
 namespace DeciNSSE.Complexity.Summary
 open CoAlignment LetteredHierarchy BoundedDepth
@@ -39,22 +38,22 @@ variable (Q : Type u) [Fintype Q] [DecidableEq Q] (n d g : ℕ)
 
 /-- A derivation in progress over `h₀` letters with cores `C`: the marker, the number of
 blocks, the summary of the columns read so far, and the tracks that have started. -/
-abbrev Deriv (C : Type u) (h₀ g : ℕ) : Type u :=
-  Σ _ : Fin h₀, Σ h : Fin (g + 1), Summ C h × (Fin h → Bool)
+abbrev Derivation (C : Type u) (h₀ g : ℕ) : Type u :=
+  Σ _ : Fin h₀, Σ h : Fin (g + 1), ColumnSummary C h × (Fin h → Bool)
 
 /-- Configurations of the summary search: a level `j ≤ d`, a number `h₀ ≤ max n g` of
 letters, the current table over them with the cores of level `j`, and possibly a derivation
 in progress. -/
 abbrev Config : Type u :=
   Σ j : Fin (d + 1), Σ h₀ : Fin (max n g + 1),
-    Table (Fin h₀) (Cores Q j) × Option (Deriv (Cores Q j) h₀ g)
+    Table (Fin h₀) (Cores Q j) × Option (Derivation (Cores Q j) h₀ g)
 
-instance instFintypeDeriv (C : Type u) [Fintype C] [DecidableEq C] (h₀ : ℕ) :
-    Fintype (Deriv C h₀ g) :=
+instance instFintypeDerivation (C : Type u) [Fintype C] [DecidableEq C] (h₀ : ℕ) :
+    Fintype (Derivation C h₀ g) :=
   inferInstance
 
-instance instDecEqDeriv (C : Type u) [Fintype C] [DecidableEq C] (h₀ : ℕ) :
-    DecidableEq (Deriv C h₀ g) :=
+instance instDecEqDerivation (C : Type u) [Fintype C] [DecidableEq C] (h₀ : ℕ) :
+    DecidableEq (Derivation C h₀ g) :=
   inferInstance
 
 instance instFintypeConfig : Fintype (Config Q n d g) :=
@@ -65,6 +64,25 @@ instance instDecEqConfig : DecidableEq (Config Q n d g) :=
 
 end Config
 
+section Projections
+variable {Q : Type u} [Fintype Q] [DecidableEq Q] {n d g : ℕ}
+
+/-- The level of a configuration. -/
+abbrev Config.level (c : Config Q n d g) : Fin (d + 1) := c.1
+
+/-- The number of letters of the current table. -/
+abbrev Config.letters (c : Config Q n d g) : Fin (max n g + 1) := c.2.1
+
+/-- The current table, over the letters `Fin c.letters` with the cores of the level. -/
+abbrev Config.table (c : Config Q n d g) : Table (Fin c.letters) (Cores Q c.level) := c.2.2.1
+
+/-- The derivation in progress, if any. -/
+abbrev Config.derivation (c : Config Q n d g) :
+    Option (Derivation (Cores Q c.level) c.letters g) :=
+  c.2.2.2
+
+end Projections
+
 section Moves
 variable {Q : Type u} [Fintype Q] [DecidableEq Q] {n d g : ℕ}
 
@@ -74,12 +92,14 @@ def Config.init (T₀ : Table (Fin n) Q) : Config Q n d g :=
 
 /-- A column may extend the column word read so far: it avoids the marker and carries a
 letter on every started track. -/
-def ColOK {h₀ h : ℕ} (ℓ : Fin h₀) (st : Fin h → Bool) (col : Fin h → Option (Fin h₀)) : Prop :=
+def ColumnAllowed {h₀ h : ℕ} (ℓ : Fin h₀) (st : Fin h → Bool) (col : Fin h → Option (Fin h₀)) :
+    Prop :=
   ∀ a, col a ≠ some ℓ ∧ (st a = true → (col a).isSome)
 
-instance {h₀ h : ℕ} (ℓ : Fin h₀) (st : Fin h → Bool) : DecidablePred (ColOK ℓ st) :=
+instance {h₀ h : ℕ} (ℓ : Fin h₀) (st : Fin h → Bool) : DecidablePred (ColumnAllowed ℓ st) :=
   fun _ => Fintype.decidableForallFintype
 
+/-- A number of blocks is a possible number of letters of the next table. -/
 theorem lt_max_succ_of_lt_succ (h : Fin (g + 1)) : h.1 < max n g + 1 :=
   Nat.lt_of_lt_of_le h.2 (Nat.succ_le_succ (le_max_right n g))
 
@@ -90,44 +110,48 @@ def Config.next : Config Q n d g → Finset (Config Q n d g)
   | ⟨j, h₀, T, none⟩ =>
       if j.1 < d then
         Finset.univ.image fun p : Fin h₀ × Fin (g + 1) =>
-          ⟨j, h₀, T, some ⟨p.1, p.2, Summ.start T p.1 p.2, fun _ => false⟩⟩
+          ⟨j, h₀, T, some ⟨p.1, p.2, ColumnSummary.start T p.1 p.2, fun _ => false⟩⟩
       else ∅
   | ⟨j, h₀, T, some ⟨ℓ, h, s, st⟩⟩ =>
-      ((Finset.univ.filter (ColOK ℓ st)).image fun col =>
-          ⟨j, h₀, T, some ⟨ℓ, h, Summ.step T ℓ s col, fun a => st a || (col a).isSome⟩⟩) ∪
-      if hj : j.1 < d ∧ ∀ a b, s.2.2.1 a b = true → a = b then
-        {⟨⟨j.1 + 1, Nat.succ_lt_succ hj.1⟩, ⟨h.1, lt_max_succ_of_lt_succ h⟩, derTable T ℓ s, none⟩}
+      ((Finset.univ.filter (ColumnAllowed ℓ st)).image fun col =>
+          ⟨j, h₀, T,
+            some ⟨ℓ, h, ColumnSummary.step T ℓ s col, fun a => st a || (col a).isSome⟩⟩) ∪
+      if hj : j.1 < d ∧ ∀ a b, s.equalTracks a b = true → a = b then
+        {⟨⟨j.1 + 1, Nat.succ_lt_succ hj.1⟩, ⟨h.1, lt_max_succ_of_lt_succ h⟩, derivedTable T ℓ s,
+          none⟩}
       else ∅
 
 variable (Q n d g) in
 /-- The moves of the summary search. -/
-inductive Step : Config Q n d g → Config Q n d g → Prop
+inductive Config.Step : Config Q n d g → Config Q n d g → Prop
   /-- Start a derivation with marker `ℓ` and `h` blocks. -/
   | start {j : Fin (d + 1)} {h₀ : Fin (max n g + 1)} {T : Table (Fin h₀) (Cores Q j)}
       (ℓ : Fin h₀) (h : Fin (g + 1)) (hj : j.1 < d) :
-      Step ⟨j, h₀, T, none⟩ ⟨j, h₀, T, some ⟨ℓ, h, Summ.start T ℓ h, fun _ => false⟩⟩
+      Step ⟨j, h₀, T, none⟩ ⟨j, h₀, T, some ⟨ℓ, h, ColumnSummary.start T ℓ h, fun _ => false⟩⟩
   /-- Read one more column. -/
   | column {j : Fin (d + 1)} {h₀ : Fin (max n g + 1)} {T : Table (Fin h₀) (Cores Q j)}
-      {ℓ : Fin h₀} {h : Fin (g + 1)} {s : Summ (Cores Q j) h} {st : Fin h → Bool}
-      (col : Fin h → Option (Fin h₀)) (hc : ColOK ℓ st col) :
+      {ℓ : Fin h₀} {h : Fin (g + 1)} {s : ColumnSummary (Cores Q j) h} {st : Fin h → Bool}
+      (col : Fin h → Option (Fin h₀)) (hc : ColumnAllowed ℓ st col) :
       Step ⟨j, h₀, T, some ⟨ℓ, h, s, st⟩⟩
-        ⟨j, h₀, T, some ⟨ℓ, h, Summ.step T ℓ s col, fun a => st a || (col a).isSome⟩⟩
+        ⟨j, h₀, T, some ⟨ℓ, h, ColumnSummary.step T ℓ s col, fun a => st a || (col a).isSome⟩⟩
   /-- Finish the derivation: the derived table on the blocks at the next level. -/
   | finish {j : Fin (d + 1)} {h₀ : Fin (max n g + 1)} {T : Table (Fin h₀) (Cores Q j)}
-      {ℓ : Fin h₀} {h : Fin (g + 1)} {s : Summ (Cores Q j) h} {st : Fin h → Bool}
-      (hj : j.1 < d) (hd : ∀ a b, s.2.2.1 a b = true → a = b) :
+      {ℓ : Fin h₀} {h : Fin (g + 1)} {s : ColumnSummary (Cores Q j) h} {st : Fin h → Bool}
+      (hj : j.1 < d) (hd : ∀ a b, s.equalTracks a b = true → a = b) :
       Step ⟨j, h₀, T, some ⟨ℓ, h, s, st⟩⟩
-        ⟨⟨j.1 + 1, Nat.succ_lt_succ hj⟩, ⟨h.1, lt_max_succ_of_lt_succ h⟩, derTable T ℓ s, none⟩
+        ⟨⟨j.1 + 1, Nat.succ_lt_succ hj⟩, ⟨h.1, lt_max_succ_of_lt_succ h⟩, derivedTable T ℓ s,
+          none⟩
 
 /-- The successors are exactly the moves. -/
-theorem mem_next_iff {c c' : Config Q n d g} : c' ∈ c.next ↔ Step Q n d g c c' := by
+theorem Config.mem_next_iff {c c' : Config Q n d g} :
+    c' ∈ c.next ↔ Config.Step Q n d g c c' := by
   rcases c with ⟨j, h₀, T, _ | ⟨ℓ, h, s, st⟩⟩
   · constructor
     · intro hc
       simp only [Config.next] at hc
       split_ifs at hc with hj
       · obtain ⟨⟨ℓ, h⟩, -, rfl⟩ := Finset.mem_image.mp hc
-        exact Step.start ℓ h hj
+        exact Config.Step.start ℓ h hj
       · simp at hc
     · rintro ⟨ℓ, h, hj⟩
       simp only [Config.next, hj, ↓reduceIte]
@@ -137,10 +161,10 @@ theorem mem_next_iff {c c' : Config Q n d g} : c' ∈ c.next ↔ Step Q n d g c 
       simp only [Config.next] at hc
       rcases Finset.mem_union.mp hc with hc | hc
       · obtain ⟨col, hcol, rfl⟩ := Finset.mem_image.mp hc
-        exact Step.column col (Finset.mem_filter.mp hcol).2
+        exact Config.Step.column col (Finset.mem_filter.mp hcol).2
       · split_ifs at hc with hj
         · rw [Finset.mem_singleton.mp hc]
-          exact Step.finish hj.1 hj.2
+          exact Config.Step.finish hj.1 hj.2
         · simp at hc
     · rintro (_ | ⟨col, hcol⟩ | ⟨hj, hd⟩)
       · simp only [Config.next]
@@ -156,8 +180,8 @@ def Config.accepting : Config Q n d g → Bool
       T.holeB (List.replicate (m.1 + 1) z) = true)
 
 omit [DecidableEq Q] in
-theorem accepting_iff {j : Fin (d + 1)} {h₀ : Fin (max n g + 1)}
-    {T : Table (Fin h₀) (Cores Q j)} {o : Option (Deriv (Cores Q j) h₀ g)} :
+theorem Config.accepting_iff {j : Fin (d + 1)} {h₀ : Fin (max n g + 1)}
+    {T : Table (Fin h₀) (Cores Q j)} {o : Option (Derivation (Cores Q j) h₀ g)} :
     Config.accepting (⟨j, h₀, T, o⟩ : Config Q n d g) = true ↔
       ∃ (z : Fin h₀) (m : ℕ), 1 ≤ m ∧ m ≤ Fintype.card Q + j.1 ∧
         T.toLettered.IsHole (List.replicate m z) := by

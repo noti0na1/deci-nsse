@@ -1,4 +1,4 @@
-import Mathlib.Data.List.Basic
+import DeciNSSE.Complexity.BinNFA
 import Mathlib.Tactic.Ring
 
 /-! # A small automaton for the words that do not extend a binary counter
@@ -21,46 +21,29 @@ states are
   checks that `#` follows only blocks that are not all ones and that `$` follows
   the all-ones block.
 
-A branch reaches `E` when it finds a deviation from `H`, and dies where it
-confirms its part of `H`. Each component has a closed form on a word cut
+A run of the step function `next` is a `Runs` run (module `Complexity.BinNFA`); all
+states are final, so a branch survives as long as it has a transition. A branch
+reaches `E` when it finds a deviation from `H`, and dies where it confirms its part
+of `H`. Each component has a closed form on a word cut
 into blocks (`runs_carry_block_iff`, `runs_ones_record_cons`, …). When all four
 initial branches die, the format branch cuts the word into blocks
 (`exists_record_of_not_runs_fmt`), and the counting step
 (`not_runs_carry_ones_iff`) forces the blocks to be the counts `0, …, 2^k - 1`.
 
 ## Main declarations
-- `Counter.Tok`, `Counter.St`, `Counter.next`, `Counter.Runs`, `Counter.initial`
-- `Counter.toBits`, `Counter.record`, `Counter.counter`
+- `Counter.Token`, `Counter.State`, `Counter.next`, `Counter.initial`
+- `Counter.toBits`, `Counter.record`, `Counter.counterRecord`
 - `Counter.exists_runs_iff`: some initial state has a run on `w` iff `w` does
-  not begin with `counter k`
-- `Counter.length_counter`: `(counter k).length = (k + 1) * 2 ^ k`
+  not begin with `counterRecord k`
+- `Counter.length_counterRecord`: `(counterRecord k).length = (k + 1) * 2 ^ k`
 -/
-
-set_option autoImplicit false
 
 namespace DeciNSSE.Complexity
 
 namespace Counter
 
-/-- Some run of the step function `next` from the given state reads the whole word.
-All states are final, so the run may end anywhere. -/
-def Runs {S α : Type*} (next : S → α → List S) : S → List α → Prop
-  | _, [] => True
-  | p, a :: w => ∃ q ∈ next p a, Runs next q w
-
-section Runs
-
-variable {S α : Type*} (next : S → α → List S)
-
-@[simp] theorem runs_nil (p : S) : Runs next p [] := trivial
-
-@[simp] theorem runs_cons (p : S) (a : α) (w : List α) :
-    Runs next p (a :: w) ↔ ∃ q ∈ next p a, Runs next q w := Iff.rfl
-
-end Runs
-
 /-- The tokens: a bit, the block separator `#` and the end marker `$`. -/
-inductive Tok
+inductive Token
   /-- A bit of a block. -/
   | bit (b : Bool)
   /-- The separator `#` between blocks. -/
@@ -69,12 +52,12 @@ inductive Tok
   | stop
   deriving DecidableEq
 
-open Tok
+open Token
 
 variable {k : ℕ}
 
 /-- The states of the counter automaton. -/
-inductive St (k : ℕ)
+inductive State (k : ℕ)
   /-- `E`: a deviation was found. -/
   | done
   /-- `F p`: the format checker, `p` bits into the current block. -/
@@ -89,7 +72,7 @@ inductive St (k : ℕ)
   | ones (o : Bool)
   deriving DecidableEq
 
-open St
+open State
 
 /-- One step down in `Fin (k + 1)`, stopping at zero. -/
 def down (j : Fin (k + 1)) : Fin (k + 1) := ⟨(j : ℕ) - 1, by omega⟩
@@ -97,7 +80,7 @@ def down (j : Fin (k + 1)) : Fin (k + 1) := ⟨(j : ℕ) - 1, by omega⟩
 @[simp] theorem val_down (j : Fin (k + 1)) : (down j : ℕ) = j - 1 := rfl
 
 /-- The transitions of the counter automaton; a missing transition kills the branch. -/
-def next (k : ℕ) : St k → Tok → List (St k)
+def next (k : ℕ) : State k → Token → List (State k)
   | done, _ => [done]
   | fmt p, bit _ => if h : p.val < k then [fmt ⟨p.val + 1, by omega⟩] else [done]
   | fmt p, sep => if p.val = k then [fmt 0] else [done]
@@ -116,7 +99,7 @@ def next (k : ℕ) : St k → Tok → List (St k)
   | ones o, stop => if o then [] else [done]
 
 /-- The initial states `F 0`, `I`, `C 1` and `O 1`. -/
-def initial (k : ℕ) : List (St k) := [fmt 0, zero, carry true, ones true]
+def initial (k : ℕ) : List (State k) := [fmt 0, zero, carry true, ones true]
 
 /-! ### Blocks and the counter -/
 
@@ -132,11 +115,11 @@ def addCarry : Bool → List Bool → List Bool
   | c, b :: B => (b ^^ c) :: addCarry (c && b) B
 
 /-- The record `B # B₁ # ⋯ # Bₘ $` of the blocks `B, B₁, …, Bₘ`. -/
-def record (B : List Bool) (Bs : List (List Bool)) : List Tok :=
+def record (B : List Bool) (Bs : List (List Bool)) : List Token :=
   B.map bit ++ Bs.flatMap (fun B' => sep :: B'.map bit) ++ [stop]
 
 /-- The record `H = C₀ # C₁ # ⋯ # C_{2^k-1} $` of a `k`-bit binary counter. -/
-def counter (k : ℕ) : List Tok :=
+def counterRecord (k : ℕ) : List Token :=
   record (toBits k 0) ((List.range' 1 (2 ^ k - 1)).map (toBits k))
 
 @[simp] theorem length_toBits (k j : ℕ) : (toBits k j).length = k := by
@@ -206,22 +189,22 @@ theorem length_of_mem_map_toBits {l : List ℕ} {B : List Bool} (hB : B ∈ l.ma
   obtain ⟨j, -, rfl⟩ := List.mem_map.1 hB
   exact length_toBits k j
 
-/-- The counter has `2^k` blocks of `k + 1` tokens. -/
-theorem length_counter (k : ℕ) : (counter k).length = (k + 1) * 2 ^ k := by
-  rw [counter, length_record (length_toBits k 0) fun _ => length_of_mem_map_toBits]
+/-- The counter record has `2^k` blocks of `k + 1` tokens. -/
+theorem length_counterRecord (k : ℕ) : (counterRecord k).length = (k + 1) * 2 ^ k := by
+  rw [counterRecord, length_record (length_toBits k 0) fun _ => length_of_mem_map_toBits]
   simp only [List.length_map, List.length_range']
   rw [Nat.sub_add_cancel Nat.one_le_two_pow, mul_comm]
 
 /-! ### The components in closed form -/
 
 /-- The state `E` runs on every word. -/
-@[simp] theorem runs_done (w : List Tok) : Runs (next k) done w := by
+@[simp] theorem runs_done (w : List Token) : Runs (next k) done w := by
   induction w with
   | nil => trivial
   | cons a w ih => exact ⟨done, by simp [next], ih⟩
 
 /-- A checker `W b j` with `j > 0` reads a token other than `$` one step down. -/
-theorem next_wait_of_ne {b : Bool} {j : Fin (k + 1)} (hj : (j : ℕ) ≠ 0) {a : Tok}
+theorem next_wait_of_ne {b : Bool} {j : Fin (k + 1)} (hj : (j : ℕ) ≠ 0) {a : Token}
     (ha : a ≠ stop) : next k (wait b j) a = [wait b (down j)] := by
   cases a with
   | bit => simp [next, hj]
@@ -230,8 +213,8 @@ theorem next_wait_of_ne {b : Bool} {j : Fin (k + 1)} (hj : (j : ℕ) ≠ 0) {a :
 
 /-- A checker `W b j` survives `j` tokens other than `$` followed by `t` iff `t` is the
 bit other than the expected `b`. -/
-theorem runs_wait_iff {b : Bool} {u : List Tok} (hu : stop ∉ u) {j : Fin (k + 1)}
-    (hj : (j : ℕ) = u.length) (t : Tok) (v : List Tok) :
+theorem runs_wait_iff {b : Bool} {u : List Token} (hu : stop ∉ u) {j : Fin (k + 1)}
+    (hj : (j : ℕ) = u.length) (t : Token) (v : List Token) :
     Runs (next k) (wait b j) (u ++ t :: v) ↔ t = bit (!b) := by
   induction u generalizing j with
   | nil =>
@@ -248,8 +231,8 @@ theorem runs_wait_iff {b : Bool} {u : List Tok} (hu : stop ∉ u) {j : Fin (k + 
     exact ih hu.2 (by simp; omega)
 
 /-- A checker dies at a `$` that comes before the expected bit. -/
-theorem not_runs_wait_stop {b : Bool} {u : List Tok} (hu : stop ∉ u) {j : Fin (k + 1)}
-    (hj : u.length < j) (v : List Tok) : ¬ Runs (next k) (wait b j) (u ++ stop :: v) := by
+theorem not_runs_wait_stop {b : Bool} {u : List Token} (hu : stop ∉ u) {j : Fin (k + 1)}
+    (hj : u.length < j) (v : List Token) : ¬ Runs (next k) (wait b j) (u ++ stop :: v) := by
   induction u generalizing j with
   | nil => simp [next]
   | cons a u ih =>
@@ -264,7 +247,7 @@ theorem not_runs_wait_stop {b : Bool} {u : List Tok} (hu : stop ∉ u) {j : Fin 
 some branch survives iff `R` is not `B` plus `c`, or the checker survives from the next
 block on. -/
 theorem runs_carry_block_iff {B Q R : List Bool} (c : Bool) (hk : B.length + Q.length = k)
-    (hR : R.length = B.length) (u : List Tok) :
+    (hR : R.length = B.length) (u : List Token) :
     Runs (next k) (carry c) (B.map bit ++ sep :: (Q ++ R).map bit ++ u) ↔
       addCarry c B ≠ R ∨ Runs (next k) (carry true) ((Q ++ R).map bit ++ u) := by
   induction B generalizing c Q R with
@@ -289,7 +272,7 @@ theorem runs_carry_block_iff {B Q R : List Bool} (c : Bool) (hk : B.length + Q.l
     cases r <;> cases b <;> cases c <;> simp
 
 /-- The increment checker dies on the last block. -/
-theorem not_runs_carry_stop {B : List Bool} (c : Bool) (hB : B.length ≤ k) (v : List Tok) :
+theorem not_runs_carry_stop {B : List Bool} (c : Bool) (hB : B.length ≤ k) (v : List Token) :
     ¬ Runs (next k) (carry c) (B.map bit ++ stop :: v) := by
   induction B generalizing c with
   | nil => simp [next]
@@ -300,14 +283,14 @@ theorem not_runs_carry_stop {B : List Bool} (c : Bool) (hB : B.length ≤ k) (v 
     exact ⟨ih _ (by omega), not_runs_wait_stop (by simp) (by simp; omega) v⟩
 
 /-- The increment checker dies on a record of one block. -/
-theorem not_runs_carry_record_nil {B : List Bool} (hB : B.length ≤ k) (v : List Tok) :
+theorem not_runs_carry_record_nil {B : List Bool} (hB : B.length ≤ k) (v : List Token) :
     ¬ Runs (next k) (carry true) (record B [] ++ v) := by
   simpa [record_nil] using not_runs_carry_stop true hB v
 
 /-- On two blocks of length `k`, the increment checker survives iff the second block is
 not the first plus one, or it survives on the rest. -/
 theorem runs_carry_record_cons {B B' : List Bool} (hB : B.length = k) (hB' : B'.length = k)
-    (Bs : List (List Bool)) (v : List Tok) :
+    (Bs : List (List Bool)) (v : List Token) :
     Runs (next k) (carry true) (record B (B' :: Bs) ++ v) ↔
       addCarry true B ≠ B' ∨ Runs (next k) (carry true) (record B' Bs ++ v) := by
   have h := runs_carry_block_iff (k := k) (Q := []) (R := B') true (by simpa using hB)
@@ -316,28 +299,28 @@ theorem runs_carry_record_cons {B B' : List Bool} (hB : B.length = k) (hB' : B'.
   simpa [record, List.append_assoc] using h
 
 /-- The all-ones checker reads a block of bits. -/
-theorem runs_ones_bits (o : Bool) (B : List Bool) (u : List Tok) :
+theorem runs_ones_bits (o : Bool) (B : List Bool) (u : List Token) :
     Runs (next k) (ones o) (B.map bit ++ u) ↔ Runs (next k) (ones (o && B.all id)) u := by
   induction B generalizing o with
   | nil => simp
   | cons b B ih => simp [next, ih, Bool.and_assoc]
 
 /-- On the last block, the all-ones checker survives iff the block is not all ones. -/
-theorem runs_ones_record_nil (B : List Bool) (v : List Tok) :
+theorem runs_ones_record_nil (B : List Bool) (v : List Token) :
     Runs (next k) (ones true) (record B [] ++ v) ↔ B.all id = false := by
   rw [record_nil, List.append_assoc, runs_ones_bits]
   cases B.all id <;> simp [next]
 
 /-- Before `#`, the all-ones checker survives iff the block is all ones, or it survives on
 the rest. -/
-theorem runs_ones_record_cons (B B' : List Bool) (Bs : List (List Bool)) (v : List Tok) :
+theorem runs_ones_record_cons (B B' : List Bool) (Bs : List (List Bool)) (v : List Token) :
     Runs (next k) (ones true) (record B (B' :: Bs) ++ v) ↔
       B.all id = true ∨ Runs (next k) (ones true) (record B' Bs ++ v) := by
   rw [record_cons, List.append_assoc, runs_ones_bits]
   cases B.all id <;> simp [next]
 
 /-- The zero checker survives iff the first block contains a one. -/
-theorem runs_zero_record_iff (B : List Bool) (Bs : List (List Bool)) (v : List Tok) :
+theorem runs_zero_record_iff (B : List Bool) (Bs : List (List Bool)) (v : List Token) :
     Runs (next k) zero (record B Bs ++ v) ↔ true ∈ B := by
   obtain ⟨t, w, ht, hw⟩ :
       ∃ t w, (t = sep ∨ t = stop) ∧ record B Bs ++ v = B.map bit ++ t :: w := by
@@ -352,7 +335,7 @@ theorem runs_zero_record_iff (B : List Bool) (Bs : List (List Bool)) (v : List T
 
 /-- The format checker reads a partial block of bits. -/
 theorem runs_fmt_bits {P : List Bool} {p : Fin (k + 1)} (hP : (p : ℕ) + P.length = k)
-    (u : List Tok) :
+    (u : List Token) :
     Runs (next k) (fmt p) (P.map bit ++ u) ↔ Runs (next k) (fmt (Fin.last k)) u := by
   induction P generalizing p with
   | nil =>
@@ -369,7 +352,7 @@ theorem runs_fmt_bits {P : List Bool} {p : Fin (k + 1)} (hP : (p : ℕ) + P.leng
 
 /-- The format checker dies on every record of blocks of length `k`. -/
 theorem not_runs_fmt_record {B : List Bool} {Bs : List (List Bool)} (hB : B.length = k)
-    (hBs : ∀ B' ∈ Bs, B'.length = k) (v : List Tok) :
+    (hBs : ∀ B' ∈ Bs, B'.length = k) (v : List Token) :
     ¬ Runs (next k) (fmt 0) (record B Bs ++ v) := by
   induction Bs generalizing B with
   | nil =>
@@ -382,7 +365,7 @@ theorem not_runs_fmt_record {B : List Bool} {Bs : List (List Bool)} (hB : B.leng
 
 /-- Where the format checker dies, it has read the rest of a block and then `$`, or `#`
 followed by a word on which it dies again. -/
-theorem not_runs_fmt_cases {p : Fin (k + 1)} {w : List Tok} (h : ¬ Runs (next k) (fmt p) w) :
+theorem not_runs_fmt_cases {p : Fin (k + 1)} {w : List Token} (h : ¬ Runs (next k) (fmt p) w) :
     ∃ P : List Bool, (p : ℕ) + P.length = k ∧ ((∃ v, w = P.map bit ++ stop :: v) ∨
       ∃ w', w = P.map bit ++ sep :: w' ∧ ¬ Runs (next k) (fmt 0) w') := by
   induction w generalizing p with
@@ -409,7 +392,7 @@ theorem not_runs_fmt_cases {p : Fin (k + 1)} {w : List Tok} (h : ¬ Runs (next k
       · exact ⟨[], by simp; omega, Or.inl ⟨w, rfl⟩⟩
 
 /-- A word on which the format checker dies begins with a record of blocks of length `k`. -/
-theorem exists_record_of_not_runs_fmt {w : List Tok} (h : ¬ Runs (next k) (fmt 0) w) :
+theorem exists_record_of_not_runs_fmt {w : List Token} (h : ¬ Runs (next k) (fmt 0) w) :
     ∃ B Bs v, B.length = k ∧ (∀ B' ∈ Bs, B'.length = k) ∧ w = record B Bs ++ v := by
   induction hn : w.length using Nat.strong_induction_on generalizing w with
   | _ n ih =>
@@ -424,7 +407,7 @@ theorem exists_record_of_not_runs_fmt {w : List Tok} (h : ¬ Runs (next k) (fmt 
 /-- The counting step: from the expansion of `j`, the increment and all-ones checkers
 both die exactly on the record of the counts `j, j + 1, …, 2^k - 1`. -/
 theorem not_runs_carry_ones_iff {j : ℕ} (hj : j < 2 ^ k) {Bs : List (List Bool)}
-    (hBs : ∀ B ∈ Bs, B.length = k) (v : List Tok) :
+    (hBs : ∀ B ∈ Bs, B.length = k) (v : List Token) :
     (¬ Runs (next k) (carry true) (record (toBits k j) Bs ++ v) ∧
         ¬ Runs (next k) (ones true) (record (toBits k j) Bs ++ v)) ↔
       Bs = (List.range' (j + 1) (2 ^ k - 1 - j)).map (toBits k) := by
@@ -456,8 +439,8 @@ theorem not_runs_carry_ones_iff {j : ℕ} (hj : j < 2 ^ k) {Bs : List (List Bool
 
 /-- **The counter automaton.** Some initial state has a run on `w` exactly when `w` does
 not begin with the counter record `H`. -/
-theorem exists_runs_iff (w : List Tok) :
-    (∃ q ∈ initial k, Runs (next k) q w) ↔ ¬ counter k <+: w := by
+theorem exists_runs_iff (w : List Token) :
+    (∃ q ∈ initial k, Runs (next k) q w) ↔ ¬ counterRecord k <+: w := by
   rw [← not_iff_not, not_not]
   simp only [initial, List.mem_cons, List.not_mem_nil, or_false, exists_eq_or_imp,
     exists_eq_left, not_or]
@@ -471,13 +454,13 @@ theorem exists_runs_iff (w : List Tok) :
     subst hB0
     have hcount := (not_runs_carry_ones_iff (Nat.two_pow_pos k) hBs v).1 ⟨hC, hO⟩
     rw [Nat.sub_zero, zero_add] at hcount
-    exact ⟨v, by rw [counter, hcount]⟩
+    exact ⟨v, by rw [counterRecord, hcount]⟩
   · rintro ⟨v, rfl⟩
     have hBs : ∀ B ∈ (List.range' 1 (2 ^ k - 1)).map (toBits k), B.length = k :=
       fun _ => length_of_mem_map_toBits
     have hcount := (not_runs_carry_ones_iff (j := 0) (Nat.two_pow_pos k) hBs v).2 (by simp)
     refine ⟨not_runs_fmt_record (length_toBits k 0) hBs v, ?_, hcount⟩
-    rw [counter, runs_zero_record_iff, toBits_zero]
+    rw [counterRecord, runs_zero_record_iff, toBits_zero]
     simp
 
 end Counter

@@ -92,8 +92,8 @@ coordinate carries the compared variables, exchanged if that coordinate is
 contravariant; all other coordinates use a common filler. At arity zero, no
 flat system with existential auxiliaries defines order between distinct
 variables. Both assertions are proved in
-[Semantics/Characterisation.lean](DeciNSSE/Semantics/Characterisation.lean), as
-`Characterisation.le_definable_iff` and `Characterisation.nullary_not_definable`.
+[Semantics/Characterization.lean](DeciNSSE/Semantics/Characterization.lean), as
+`Characterization.le_definable_iff` and `Characterization.nullary_not_definable`.
 The decision interface accepts the queried inequality directly at every arity.
 
 ### Which trees are allowed as solutions?
@@ -104,9 +104,9 @@ The decision interface accepts the queried inequality directly at every arity.
 | Regular trees | Trees with finitely many distinct rooted subtrees | Unfoldings of `RGraph n` |
 | Finite trees | Trees with finitely many nodes | Images of `FTree n` |
 
-The representation claims are proved by `Characterisation.unfold_range_iff`
-and `Characterisation.toTree_range_iff`. The order characterization is
-`Characterisation.treeLe_eq_gfp`; `Characterisation.lfp_ne_treeLe` shows that
+The representation claims are proved by `Characterization.unfold_range_iff`
+and `Characterization.toTree_range_iff`. The order characterization is
+`Characterization.treeLe_eq_gfp`; `Characterization.lfp_ne_treeLe` shows that
 the least fixed point differs whenever there is at least one child position.
 
 A regular tree can be infinite. With a binary covariant constructor, the two
@@ -184,6 +184,40 @@ For binary products use `productVariance`; for arrows use `arrowVariance`,
 whose domain is contravariant and codomain covariant. Both use the same three
 procedures.
 
+### API map
+
+`import DeciNSSE` makes all of the following available; `import DeciNSSE.Main`
+suffices for the three original procedures. Names are in namespace `DeciNSSE`.
+Each decider of the first three rows returns a `Decidable` instance and has a
+correctness theorem named by appending `_correct`, of the form of
+`decideEntails_correct` and without premises. The packed decider has no
+separate correctness theorem, since its type `Decidable (Entails c ϕ x y)`
+already determines its value; the solver is correct by `solve_correct`.
+
+| Interface | Declarations | Scope | Defined in |
+| --- | --- | --- | --- |
+| Original deciders | `decideEntails`, `decideEntailsReg`, `decideEntailsFin` | Every arity and variance; arbitrary, regular and finite trees. Hole search by enumeration up to `RejectedTail.holeLengthBound`. | [Main](DeciNSSE/Main.lean) |
+| Summary deciders | `decideEntailsSummary`, `decideEntailsRegSummary`, `decideEntailsFinSummary` | Every arity and variance; the three domains. Hole search by the summary search (see [Complexity](#complexity-and-scope-of-the-algorithm)). | [Complexity/SummaryDecision](DeciNSSE/Complexity/SummaryDecision.lean) |
+| Unary deciders | `decideEntailsUnary`, `decideEntailsRegUnary`, `decideEntailsFinUnary` | Arity one only (`c : Fin 1 → Bool`); the three domains. Hole search below the reader state count. | [Complexity/Unary](DeciNSSE/Complexity/Unary.lean) |
+| Certifying solver | `solve`, `solveWithFuel`, with `solve_correct` and `solveWithFuel_correct` | Every arity and variance; arbitrary trees, hence regular trees by `entailsReg_iff_entails`. Returns checked evidence and a countermodel. | [Solver](DeciNSSE/Solver.lean) |
+| Packed decider | `Solver.decideEntailsPacked` | Every arity and variance; arbitrary trees. | [Solver/Complete](DeciNSSE/Solver/Complete.lean) |
+
+All nine deciders of the first three rows are instances of
+`Monitor.decideEntailsOfMonitors`, `Monitor.decideEntailsRegOfMonitors` and
+`Monitor.decideEntailsFinOfMonitors` in
+[Monitor/Decision.lean](DeciNSSE/Monitor/Decision.lean), which take the two side
+monitors and a side-hole decider. They are `@[instance_reducible] def`s rather
+than instances, because several of them decide the same proposition; install one
+with `letI` or pass it to `@decide`.
+
+Only `decideEntails` is redirected by the compiler. The `@[csimp]` lemma
+`Solver.decideEntails_eq_decideEntailsPacked` makes compiled code of
+`decideEntails` run `Solver.decideEntailsPacked` in every module that imports
+`DeciNSSE.Solver`, and so under `import DeciNSSE`. The decision value is the
+same. The packed decider computes the reader state count from its formula and
+enumerates only words. The other eight deciders evaluate the packaged side
+monitors, whose `Fintype` instance enumerates every reader state.
+
 ## Proof overview
 
 The proof reduces a countermodel to a finite word called a *hole* in one of
@@ -259,7 +293,8 @@ See [Monitor/Clash.lean](DeciNSSE/Monitor/Clash.lean),
 A state contains upper and lower label sets and a Boolean latch for earlier
 readiness. Current readiness and the child condition complete the acceptance
 test. For `m` variables there are `2 * 4^m` states; the signed input thus uses
-`N = 2 * 4^(2*k)` states (`Monitor.card_state`). One reader serves both sides:
+`N = 2 * 4^(2*k)` states (`Monitor.card_state`, `Monitor.card_sideMonitor`).
+One reader serves both sides:
 the bottom-prefix monitor is the reader of the order dual with the query
 reversed.
 
@@ -326,6 +361,13 @@ K(M,g) = M^((M+1)*g) * 2^(M*(M+1)*g + (1+(M+1)^2)*g^2),
 L(N,d) = (N+d+1) * K(N+d+1,G(N,d))^d.
 ```
 
+In Lean, `C`, `A`, `G` and `L` are `NormalForm.normalTypeBound`,
+`NormalForm.normalAllowance`, `ElementaryBound.dictionaryBound` and
+`ElementaryBound.lengthBound`. `K(M,g)` is `BoundedDepth.colBound M g`, the
+state count of the column automaton, and `BoundedDepth.descentFactor N d g` is
+`K(N+d+1,g)`. The depth `d` is `RejectedTail.holeDepthBound N`, and
+`B = 4*N - 2` is the bound of `RejectedTail.boundedRejectedTail_of_rejectedPath`.
+
 Every positive-level dictionary through the unary top can be bounded by `G`.
 There is no bound required on the level-zero alphabet. At the unary level,
 a hole `x^m` can be chosen with `m` at most the number of cores of that level.
@@ -336,18 +378,26 @@ within the original bounded dictionaries.
 `ElementaryBound.exists_short_hole` proves the length bound `L(N,d)` for any
 finite-core lettered monitor with a hole of depth at most `d`. It needs no
 rejected-path hypothesis. The backend uses
-`RejectedTail.holeLengthBound N = L(N,holeDepthBound N)` and proves
+`RejectedTail.holeLengthBound N = L(N, RejectedTail.holeDepthBound N)` and
+proves (`RejectedTail.holeLengthBound_le`)
 
 ```text
 holeLengthBound N ≤ 2^(2^(1280 * (N+1)^5)).
 ```
 
-This bounds the length of a chosen witness. The empty word and empty alphabet
-are covered by `RejectedTail.hole_iff_bounded_length`; `hole_iff_search` reduces
+Here `G(N,d) ≤ 2^E` and `L(N,d) ≤ 2^(2^(5*E+3))` for the exponent
+`E = ElementaryBound.dictionaryExponent N d`
+(`ElementaryBound.dictionaryBound_le`, `ElementaryBound.lengthBound_le`). At the
+depth bound, `d ≤ 8*N^2` (`RejectedTail.holeDepthBound_le`) and
+`E < 256*(N+1)^5` (`RejectedTail.dictionaryExponent_hole_lt`), whence the
+constant `1280 = 5 * 256`. This bounds the length of a chosen witness. The
+empty word and empty alphabet are covered by
+`RejectedTail.hole_iff_bounded_length`; `RejectedTail.hole_iff_search` reduces
 hole existence to enumeration up to this bound.
 See [RejectedTail/Decision.lean](DeciNSSE/RejectedTail/Decision.lean),
-[Holes/ElementaryBound.lean](DeciNSSE/Holes/ElementaryBound.lean), and
-[Holes/BoundedDepth.lean](DeciNSSE/Holes/BoundedDepth.lean).
+[Holes/ElementaryBound.lean](DeciNSSE/Holes/ElementaryBound.lean),
+[Holes/BoundedDepth.lean](DeciNSSE/Holes/BoundedDepth.lean) and
+[Holes/Columns.lean](DeciNSSE/Holes/Columns.lean).
 
 ### 7. Transfer to regular and finite trees
 
@@ -387,7 +437,8 @@ count. Substituting the reader size gives the explicit path-length
 allowance `2^(2^(1280 * (2 * 4^(2*k) + 1)^5))`. This bounds the unsafe path
 used to construct a countermodel, not the number of nodes in an expanded tree.
 
-The exhaustive hole searches enumerate words up to `holeLengthBound N`.
+The exhaustive hole searches of the original deciders enumerate words up to
+`RejectedTail.holeLengthBound N`.
 These universal searches remain unsuitable for practical type inference; the
 [Lean solver](#lean-solver) uses them only as a fallback.
 
@@ -397,26 +448,37 @@ machines and Savitch's theorem, are not formalized.
 
 * **Summary search.** A search over level summaries of the block hierarchy
   decides holes of bounded depth without storing the word. It is sound and
-  complete (`summarySearch_sound`, `summarySearch_complete`), and for the label
-  readers its configurations number at most
-  `2^((n+1)^2 * 2^(2^(20*k+20)))` (`card_config_label_le`). Since one
-  configuration fits in doubly exponential space, this is the content of the
-  2-EXPSPACE bound. `decideEntailsSummary`, `decideEntailsRegSummary` and
-  `decideEntailsFinSummary` decide entailment through this search.
+  complete (`Complexity.Summary.summarySearch_sound`,
+  `Complexity.Summary.summarySearch_complete`), and for the label readers its
+  configurations number at most `2^((n+1)^2 * 2^(2^(20*k+20)))`
+  (`Complexity.Summary.card_config_label_le`), so one configuration fits in
+  doubly exponential space. These configuration bounds support the usual
+  space-bounded reachability argument for the 2-EXPSPACE bound. The executable
+  implementation `Complexity.Summary.summarySearch` computes the set of
+  reachable configurations by saturation (`Complexity.reachSet`) and is not
+  proved to meet that space bound. `decideEntailsSummary`,
+  `decideEntailsRegSummary` and `decideEntailsFinSummary` decide entailment
+  through this search.
 * **Arity one.** A reader over a one-letter alphabet with a hole has one of
-  length at most `N - 1` (`Unary.exists_hole_length_le`), and
-  `decideEntailsUnary` and its regular and finite versions search only that far.
+  length at most `N - 1` (`Complexity.Unary.exists_hole_length_le`).
+  `decideEntailsUnary` and its regular and finite versions follow the run to
+  the first rejected cut, which lies below `N`, and test that one word
+  (`Complexity.Unary.hole_iff_firstRejectedCut`).
 * **Hardness.** For every arity `n ≥ 2` and the covariant constructor,
-  `hardnessSystem n M` has linearly many literals and entails `x ≤ r` exactly
-  when the binary automaton `M` accepts every word, over arbitrary, regular and
-  finite trees (`entails_hardnessSystem_iff` and its two variants). Universality
-  of nondeterministic automata is PSPACE-hard, so entailment is PSPACE-hard for
-  every fixed arity at least two.
-* **Long witnesses.** For every `n ≥ 2` and `k`, the system `expSystem n k` has
-  `9k + 31` variables, a finite solution and no entailment in any domain, and
-  its shortest counterexample word has length exactly `2(k+1)2^k`
-  (`expSystem_shortest`). Every answer of the Lean solver on it is a refutation
-  at least that long (`expSystem_result`).
+  `Complexity.hardnessSystem n M` has linearly many literals
+  (`Complexity.hardnessSystem_length_le`) and entails `x ≤ r` exactly when the
+  binary automaton `M` accepts every word, over arbitrary, regular and finite
+  trees (`Complexity.entails_hardnessSystem_iff` and its two variants).
+  Universality of nondeterministic automata is PSPACE-hard, so entailment is
+  PSPACE-hard for every fixed arity at least two.
+* **Long witnesses.** For every `n ≥ 2` and `k`, the system
+  `Complexity.expSystem n k` has `9k + 31` variables, a finite solution and no
+  entailment in any domain, and its shortest counterexample word has length
+  exactly `2(k+1)2^k`, both among the holes of the side monitors
+  (`Complexity.expSystem_shortest_hole`) and among the words accepted by
+  `refutesB` (`Complexity.expSystem_shortest_refutesB`). Every answer of the
+  Lean solver on it is a refutation at least that long
+  (`Complexity.expSystem_result`).
 
 The theorem covers one constructor with any finite arity and any variance
 map. It does not cover arbitrary signatures with multiple constructors. The
@@ -521,16 +583,19 @@ comparisons. The search uses arrays, bit masks and hash sets and needs no
 correctness proof: only a certificate accepted by the checkers yields an
 answer. If the search exhausts its fuel or a candidate is rejected,
 `decideEntails` supplies the answer and `used_fallback` is `true`; this
-fallback uses the proved length bound and can be impractically slow. Fuel
-bounds the search, not the total running time.
+fallback uses the proved length bound and can be impractically slow. In
+compiled code it runs `Solver.decideEntailsPacked`, by the `@[csimp]` lemma
+`Solver.decideEntails_eq_decideEntailsPacked`; only `decideEntails` is
+redirected in this way (see the [API map](#api-map)). Fuel bounds the search,
+not the total running time.
 
 The checkers use packed closure rows, shared reader transition tables and
 cached prefix states. Refinement lemmas connect them to the finite-set closure
 and reader of the proof; neither checking nor countermodel validation
 enumerates the reader's state space. The countermodel is the reachable part
 of `extractRegular` from [Countermodels.lean](DeciNSSE/Countermodels.lean)
-with the same unfolding (`extractReachable_unfold`), so it is part of the
-verified result.
+with the same unfolding (`Solver.extractReachable_unfold`), so it is part of
+the verified result.
 
 ### Checking certificates
 
@@ -560,17 +625,26 @@ that every listed state is covered, and that all its letter successors are
 listed. A covered state accepts, holds a terminal residual, or has a mature
 ray position, and each of these excludes a hole, so finite closure covers all
 words. A refutation also checks that the system is satisfiable, and an
-`unsat` certificate that it is not. `checkEntailment_sound` and
-`checkRefutation_sound` in [Certificates.lean](DeciNSSE/Certificates.lean)
-prove `Entails` or its negation; the regular-tree statements follow from
-`entailsReg_iff_entails`.
+`unsat` certificate that it is not. `Certificates.checkEntailment_sound` and
+`Certificates.checkRefutation_sound` in
+[Certificates.lean](DeciNSSE/Certificates.lean) prove `Entails` or its
+negation for the specification checkers;
+`Certificates.checkEntailment_sound_regular`,
+`Certificates.checkEntailment_sound_finite` and
+`Certificates.checkRefutation_sound_regular` give the regular- and finite-tree
+statements. A refutation need not refute finite entailment, which can hold
+vacuously. `nsse` and `nsse-check` run the packed checkers of
+[Solver/Checked.lean](DeciNSSE/Solver/Checked.lean):
+`Solver.Checked.checkEntailmentPacked_sound` proves `Entails` for an accepted
+entailment certificate, and `Solver.Checked.checkRefutationPacked_eq_refutesB`
+identifies the packed refutation check with `refutesB`.
 
 ### What is trusted
 
 The Lean kernel checks the proofs. Running the executables also trusts the
 compiled code, including the compiler, the runtime, and JSON parsing and
 serialization. `solve_correct`, `solveWithFuel_correct` and
-`extractReachable_unfold` use only `propext`, `Classical.choice` and
+`Solver.extractReachable_unfold` use only `propext`, `Classical.choice` and
 `Quot.sound` (see [Building and checking](#building-and-checking)).
 
 ## Relation to previous work
@@ -652,9 +726,6 @@ completeness proof. The direct route is also better in its own right:
   elements for `s` states, so the rejected-tail bound drops from `2^O(k^4)` to
   `2^O(k)`. The return-gap bound now holds for every reader, and compression
   is needed only at a unary level.
-- **Generality did not increase the size.** The development has 57 modules and
-  about 11,800 lines of Lean, against 58 modules and about 12,200 lines for the
-  binary one.
 
 The cost is a longer semantic reduction, with four signed spines and their
 bookkeeping. The combinatorial core (rejected tail, depth and compression)
@@ -687,12 +758,15 @@ import DeciNSSE
 #print axioms DeciNSSE.decideEntailsReg_correct
 #print axioms DeciNSSE.decideEntailsFin_correct
 #print axioms DeciNSSE.solve_correct
+#print axioms DeciNSSE.solveWithFuel_correct
+#print axioms DeciNSSE.Solver.extractReachable_unfold
 #print axioms DeciNSSE.RejectedTail.holeLengthBound_le
 #print axioms DeciNSSE.decideEntailsSummary_correct
 #print axioms DeciNSSE.Complexity.Summary.card_config_label_le
-#print axioms DeciNSSE.Unary.exists_hole_length_le
+#print axioms DeciNSSE.decideEntailsUnary_correct
+#print axioms DeciNSSE.Complexity.Unary.exists_hole_length_le
 #print axioms DeciNSSE.Complexity.entailsFin_hardnessSystem_iff
-#print axioms DeciNSSE.Complexity.expSystem_shortest
+#print axioms DeciNSSE.Complexity.expSystem_shortest_refutesB
 ```
 
 These declarations use only the usual `propext`, `Classical.choice` and
@@ -701,26 +775,57 @@ procedures also relies on the compiler.
 
 ## Repository layout
 
-| Module | Purpose |
-| --- | --- |
-| [Words](DeciNSSE/Words.lean) | Finite-alphabet paths, powers and periods |
-| [Semantics](DeciNSSE/Semantics) | Trees, variance order, normalization and polarity selection |
-| [Characterisation](DeciNSSE/Semantics/Characterisation.lean) | Fixed points, representation domains and flat expressiveness |
-| [Constraints](DeciNSSE/Constraints) | Flat syntax, satisfaction, entailment and signed closure |
-| [Satisfiability](DeciNSSE/Satisfiability) | Least shapes, their finite graphs, label clashes and cycle clashes |
-| [Transfer](DeciNSSE/Transfer) | Ranked extensions, cycle preservation and countermodel transfer |
-| [Monitor](DeciNSSE/Monitor) | Exact clash analysis, label readers and semantic bridge |
-| [Holes](DeciNSSE/Holes) | Desubstitution, supports, isolated-letter normal form and finite compression |
-| [RejectedTail](DeciNSSE/RejectedTail) | Tail bounds, return gaps and finite search |
-| [Instances](DeciNSSE/Instances.lean) | Product and arrow variance maps |
-| [Main](DeciNSSE/Main.lean) | The three public decision procedures |
-| [Countermodels](DeciNSSE/Countermodels.lean) | Computable regular and finite countermodels |
-| [Certificates](DeciNSSE/Certificates.lean) | Certificate checkers, their soundness, and `nsse-check` |
-| [Solver](DeciNSSE/Solver.lean) | The verified solver `nsse`, packed checks and reachable countermodels |
-| [Complexity](DeciNSSE/Complexity.lean) | Summary search, arity one, PSPACE-hardness and exponential witnesses |
+The library has 112 Lean files under `DeciNSSE/`, with 21,223 lines including
+the root module `DeciNSSE.lean`; the counts include comments, docstrings and the
+three executable front-end modules. Namespaces are relative to `DeciNSSE`;
+"top level" means `DeciNSSE` itself, and dotted names such as `Tree.Le` live
+in the namespace of their prefix.
 
-Every module is reachable from `import DeciNSSE`. The folder
-[examples](examples) holds the solver examples and `check.sh`.
+| Module | Namespace | Purpose |
+| --- | --- | --- |
+| [Words](DeciNSSE/Words.lean) | `Words` | Finite-alphabet paths, powers and periods |
+| [Semantics](DeciNSSE/Semantics): Sym, Tree, Finite, Regular, Order, Normalization, Safety | top level, `Sym`, `Tree`, `FTree`, `RGraph`, `Safety` | Labels, trees, finite terms, regular graphs, the variance order, normalization and finite witnesses to order failure |
+| [Semantics/Selector](DeciNSSE/Semantics/Selector.lean) | `SignSelection` | Polarity selection for signed solutions |
+| [Semantics/Characterization](DeciNSSE/Semantics/Characterization.lean) | `Characterization` | Fixed points, representation domains and flat expressiveness |
+| [Constraints](DeciNSSE/Constraints) | top level, `Covariant`, `Closure`, `ConstraintDual`, `PathBounds`, `Signs` | Flat syntax, satisfaction, entailment, closure, duals, path bounds and the signed translation |
+| [Satisfiability](DeciNSSE/Satisfiability) | top level, `PathDecision`, `FiniteSat`, `FiniteVariance`, `RGraph` | Least shapes, their finite graphs, label clashes, cycle clashes and finite satisfiability |
+| [Transfer/Safety](DeciNSSE/Transfer/Safety.lean) | top level | The query sides `Side`, unsafe words `Unsafe`, and `entails_iff_not_sideUnsafe` |
+| [Transfer](DeciNSSE/Transfer): RankedExtension, Cycle | `Ranked` | Ranked source and sink extensions, cycle clashes under extension |
+| [Transfer](DeciNSSE/Transfer): Regular, Finite | `RegularTransfer`, `FiniteTransfer` | Countermodel transfer to regular and finite trees |
+| [Monitor](DeciNSSE/Monitor): Spine, Closure, Clash | `Spine.Closure` | The four-spine extension, its closure and its clashes |
+| [Monitor](DeciNSSE/Monitor): Events, Semantics | `Events` | Clash events and their semantics |
+| [Monitor](DeciNSSE/Monitor): Reader, Bridge, Interface, Decision | `Monitor` | Label readers, side readers and monitors, the semantic bridge and the monitor deciders |
+| [Holes/Basic](DeciNSSE/Holes/Basic.lean) | `Holes` | Readers, comparisons and holes |
+| [Holes/Hierarchy](DeciNSSE/Holes/Hierarchy.lean) and [Holes/Hierarchy/](DeciNSSE/Holes/Hierarchy): Expansion, Derived, Canonical, Starts, Unary, Reader | `LetteredHierarchy` | The canonical hierarchy: expansion, derived monitors, canonical decomposition, start cores, unary levels and readers as lettered monitors |
+| [Holes/Depth](DeciNSSE/Holes/Depth.lean) | `HierarchyDepth` | Canonical depth |
+| [Holes](DeciNSSE/Holes): Cores, StartCores, CoreOccurrences, Supports | `Cores`, `StartCores`, `CoreOccurrences`, `Supports` | Cores, start cores and supports of hierarchy levels |
+| [Holes](DeciNSSE/Holes): Packets, Desubstitution | `Packets`, `Desubstitution` | Tuples of blocks, marker codes and desubstitution |
+| [Holes](DeciNSSE/Holes): CoAlignment, Exchange | `CoAlignment`, `CoAlignment.Lettered`, `Exchange` | Lettered monitors, comparison alignment and exchange types |
+| [Holes](DeciNSSE/Holes): LevelMaps, NormalForm, BoundaryPairs | `LevelMaps`, `NormalForm`, `BoundaryPairs` | Level maps, the isolated-letter normal form and boundary-pair propagation |
+| [Holes](DeciNSSE/Holes): Agree, Columns, BoundedDepth | `BoundedDepth` | Agreement on a support, the column automaton and compression at bounded depth |
+| [Holes/ElementaryBound](DeciNSSE/Holes/ElementaryBound.lean) | `ElementaryBound` | Dictionary and length bounds for holes of bounded depth |
+| [RejectedTail](DeciNSSE/RejectedTail) | `RejectedTail` | Rejected-path property, tail bound, return gap, depth and finite search |
+| [Instances](DeciNSSE/Instances.lean) | top level | Product and arrow variance maps |
+| [Main](DeciNSSE/Main.lean) | top level | The three original decision procedures |
+| [Countermodels](DeciNSSE/Countermodels.lean) | top level | `refutesB` and computable regular and finite countermodels |
+| [Certificates](DeciNSSE/Certificates.lean) and [Certificates/Product](DeciNSSE/Certificates/Product.lean) | `Certificates` | Certificate formats, covering products, specification checkers and their soundness |
+| [Certificates/Json](DeciNSSE/Certificates/Json.lean) | `Certificates.Json` | JSON problems and certificate verification with the packed checkers |
+| [Certificates/Command](DeciNSSE/Certificates/Command.lean) | none (`main`) | The executable `nsse-check` |
+| [Solver](DeciNSSE/Solver.lean) and [Solver/](DeciNSSE/Solver) | top level, `Solver`, `Solver.Checked`, `Solver.Graph`, `Solver.Mask`, `Solver.Search` | The certifying solver: packed readers and checks, the packed decider, the search and reachable countermodels |
+| [Solver/Command](DeciNSSE/Solver/Command.lean) | `Solver.Command` (and `main`) | The executable `nsse` |
+| [Complexity](DeciNSSE/Complexity.lean) | none | Overview and imports of the complexity modules |
+| [Complexity](DeciNSSE/Complexity): Reach, SummaryTables, SummaryColumns, SummaryGraph, SummarySound, SummaryComplete, SummaryBounds, SummaryDecision | `Complexity`, `Complexity.Summary`; deciders top level | Reachable sets, the summary search, its correctness and configuration bounds, and the summary deciders |
+| [Complexity](DeciNSSE/Complexity): Unary, UnaryExamples | `Complexity.Unary`; deciders top level | Holes over one letter and the arity-one deciders, with kernel-checked examples |
+| [Complexity](DeciNSSE/Complexity): BinNFA, Directions, FiniteTrees | `Complexity`, `Complexity.BinNFA`, `Complexity.Directions`, `Complexity.FiniteTrees` | Binary automata, child layouts and finite trees shared by the lower bounds |
+| [Complexity](DeciNSSE/Complexity): HardnessCode, HardnessSystem, HardnessSolutions, HardnessCountermodel, Hardness | `Complexity`, `Complexity.Hardness` | The PSPACE-hardness reduction from universality of binary automata |
+| [Complexity](DeciNSSE/Complexity): Counter, CounterBinary | `Complexity.Counter` | The counter automaton and its binary coding |
+| [Complexity](DeciNSSE/Complexity): RejectionSystem, RejectionSolutions, RejectionCountermodel, RejectionCertificates, RejectionExamples, ExpWitness | `Complexity`, `Complexity.Rejection` | Rejection systems and exponentially long holes |
+
+The root module `DeciNSSE.lean` imports the proof library and the solver. Every
+module is reachable from `import DeciNSSE` except the executable front ends
+`Certificates/Command` and `Solver/Command` and their JSON parser
+`Certificates/Json`, which Lake's executable targets `nsse-check` and `nsse`
+build. The folder [examples](examples) holds the solver examples and `check.sh`.
 
 ## License
 
