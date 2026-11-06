@@ -1,0 +1,33 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=10mm,y=8mm,>=Stealth,
+    every node/.style={font=\small,inner sep=2pt}]
+  \node (x) at (0,0) {$f$};
+  \node (x0) at (-1,-1.2) {$\Bot$};
+  \node (x1) at (1,-1.2) {$\Top$};
+  \node[above=2mm of x] {$\sigma(x)$};
+  \draw (x) -- node[left,font=\scriptsize] {$0\;(-)$} (x0);
+  \draw (x) -- node[right,font=\scriptsize] {$1\;(+)$} (x1);
+  \node at (2.6,-0.5) {$\not\le_c$};
+  \node (y) at (5.2,0) {$f$};
+  \node (y0) at (4.2,-1.2) {$\Top$};
+  \node (y1) at (6.2,-1.2) {$\Bot$};
+  \node[above=2mm of y] {$\sigma(y)$};
+  \draw (y) -- node[left,font=\scriptsize] {$0\;(-)$} (y0);
+  \draw (y) -- node[right,font=\scriptsize] {$1\;(+)$} (y1);
+  \draw[->] (0,-1.8) -- (0,-2.5) node[midway,right] {$H_0$};
+  \draw[->] (5.2,-1.8) -- (5.2,-2.5) node[midway,right] {$H_0$};
+  \node at (0,-2.9) {$f(\Top,\Top)$};
+  \node at (2.6,-2.9) {$\not\le$};
+  \node at (5.2,-2.9) {$f(\Bot,\Bot)$};
+\end{tikzpicture}
+\caption{The countermodel of \cref{ex:running-arrow}. The argument edge $0$ (the arrow's domain)
+reverses the order: $x\le_c y$ would require $\Top\le_c\Bot$ there.
+Normalization flips that edge's leaf labels, exposing the top-prefix and
+bottom-prefix failures at the same word $0$.}
+\Description{Two binary constructor trees. The x tree has bottom on child zero
+and top on child one; the y tree has top on child zero and bottom on child one.
+Child zero is contravariant and child one covariant. Arrows below show
+normalization to two top leaves for x and two bottom leaves for y.}
+\label{fig:arrow-witness}
+\end{figure}

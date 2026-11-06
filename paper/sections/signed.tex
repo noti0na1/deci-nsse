@@ -1,0 +1,122 @@
+\section{Signed Constraints and Fixed Witnesses}
+\label{sec:variance}
+
+We remove variance by giving each variable two signed copies. The copies
+must denote dual trees; the assignment involution expresses this condition.
+We then express each side of a failed query by a \emph{fixed witness}: a
+solution of the signed system that is fixed by the assignment involution and
+exhibits the failure along a given word. The four-spine construction of
+\cref{sec:spines} will enforce such witnesses.
+
+\subsection{The Signed System}\label{sec:signed}
+Write $V^{\pm}=V\times\{0,1\}$, $v^+=v^0$, $v^-=v^1$, and define the
+\emph{variable flip} $\flip(v^q)=v^{1-q}$. Translate $\phi$ to a covariant constraint system
+$\psi=\phi^{\pm}$ as follows:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Original literal & \multicolumn{2}{c}{Signed literals}\\
+\midrule
+$z\le f(a_i)_i$ & $z^+\le f(a_i^{c(i)})_i$ & $f(a_i^{1\oplus c(i)})_i\le z^-$\\
+$f(a_i)_i\le z$ & $f(a_i^{c(i)})_i\le z^+$ & $z^-\le f(a_i^{1\oplus c(i)})_i$\\
+$z=\bot$ & $z^+=\bot$ & $z^-=\top$\\
+$z=\top$ & $z^+=\top$ & $z^-=\bot$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lemma}[Signed correspondence]\label{lem:signed}
+For an assignment $\sigma$ on signed variables define
+$(S\sigma)(v)=\mathfrak d(\sigma(\flip v))$. The map $S$, called the
+\emph{assignment involution}, is an involution and preserves solutions of $\psi$.
+Moreover,
+
+\begin{equation}\label{eq:g14}
+\sigma\longmapsto \sigma^{\pm},\qquad \sigma^{\pm}(v^q)=H_q(\sigma v)
+\end{equation}
+
+is a bijection between solutions of $\phi$ and $S$-fixed solutions of
+$\psi$.
+\end{lemma}
+
+\begin{proof} Tree duality $\mathfrak d$ reverses inequalities and commutes with
+$f$. Applying it and $\flip$ exchanges the two literals in each row of
+the table. This proves preservation by $S$; applying both involutions twice gives
+$S^2=\mathrm{id}$. By \eqref{eq:g9}--\eqref{eq:g10},
+\eqref{eq:g14} satisfies each translated pair and is fixed by $S$. Conversely, for
+an $S$-fixed solution define $\sigma_0(v)=H_0(\sigma(v^+))$. The fixed-point
+identity gives $\sigma(v^-)=\mathfrak d(\sigma(v^+))$, so \eqref{eq:g9} reconstructs \eqref{eq:g14}. Applying \eqref{eq:g10}
+to the positive literal of each pair proves $\sigma_0\models_c\phi$.
+The reconstruction also proves both inverse identities. \end{proof}
+
+
+\subsection{Fixed Witnesses}\label{sec:fixed-witness}
+For a covariant system $\chi$, its \emph{order dual} $\chi^{\mathfrak d}$ reverses every
+inequality and exchanges bottom and top, leaving variable names unchanged.
+Pointwise tree duality maps its solutions bijectively to those of $\chi$.
+Write $\theta\in\{\mathsf l,\mathsf r\}$ for the left and right sides;
+$\mathsf l$-unsafe means left unsafe, and similarly on the right. Put
+\[
+ (\psi_{\mathsf l},X_{\mathsf l},Y_{\mathsf l})=(\psi,x^+,y^+),\qquad
+ (\psi_{\mathsf r},X_{\mathsf r},Y_{\mathsf r})=(\psi^{\mathfrak d},y^+,x^+).
+\]
+
+We call a covariant solution $\sigma\models\psi_\theta$ a \emph{fixed
+witness} for $w$ on side $\theta$ if $S\sigma=\sigma$ and
+\begin{equation}\label{eq:fixed-witness}
+ \widehat{\sigma(X_\theta)}(w)=\top,\qquad
+ \widehat{\sigma(Y_\theta)}(w)\ne\top.
+\end{equation}
+Here \emph{fixed} means fixed by the assignment involution $S$, not that
+the word $w$ is held fixed.
+
+\begin{lemma}[Fixed-witness criterion]\label{lem:fixed-witness}
+For either side $\theta$, a word $w$ is $\theta$-unsafe iff it has a fixed
+witness on side $\theta$.
+\end{lemma}
+\begin{proof}
+For the left side this is exactly signed correspondence and the definition
+of unsafe words after normalization. For the right side, normalize a
+variance solution and dualize every resulting tree. A bottom prefix at
+$y^+$ becomes a top prefix, and absence of a bottom prefix at $x^+$ becomes
+absence of a top prefix. Pointwise tree duality commutes with $S$, so fixedness
+is preserved. Conversely, dualize back and decode by \cref{lem:signed}.
+These operations are inverse and prove both directions, including paths
+that terminate before the end of $w$.
+\end{proof}
+
+\begin{example}[The signed running witness]\label{ex:running-signed}
+For \cref{ex:running-arrow}, the six signed literals can be grouped as
+\[
+ \begin{gathered}
+ x^+\le f(a^-,b^+),\qquad f(a^-,b^+)\le x^+,
+ \qquad y^+\le f(a^-,b^+),\\
+ f(a^+,b^-)\le x^-,\qquad x^-\le f(a^+,b^-),
+ \qquad f(a^+,b^-)\le y^-.
+ \end{gathered}
+\]
+The contravariant child uses the opposite sign; passing to the negative
+root also reverses the inequality. The assignment of
+\cref{ex:running-arrow} translates to
+\[
+\begin{array}{c|cccc}
+ v&x&y&a&b\\\hline
+ \sigma^{\pm}(v^+)&f(\Top,\Top)&f(\Bot,\Bot)&\Bot&\Top\\
+ \sigma^{\pm}(v^-)&f(\Bot,\Bot)&f(\Top,\Top)&\Top&\Bot
+\end{array}
+\]
+and each column consists of dual trees, so $S\sigma^{\pm}=\sigma^{\pm}$.
+At $w=0$, the positive $x,y$ labels are $\Top,\Bot$, giving the left
+fixed witness. Dualizing this assignment and exchanging the query roots
+gives the right fixed witness for the same word.
+\end{example}
+
+A covariant solution need not itself be fixed. \Cref{sec:spines} constructs
+a fixed solution from the least shape (\cref{sec:least}) of any consistent
+system that is flip-closed and sign coherent (\cref{sec:closure}). Flip
+closure means closure under reversing inequalities, flipping variables, and
+exchanging constants. Sign coherence means that each constructor child has
+the sign of its root, toggled by the variance of its position. Applying that
+construction to an extension encoding \eqref{eq:fixed-witness} will preserve
+the witness conditions as well as satisfaction.

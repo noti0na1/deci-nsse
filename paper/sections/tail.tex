@@ -1,0 +1,237 @@
+\section{Bounded Rejected Tails}
+\label{sec:tail}
+
+The first bound selects a hole whose rejected tail is short. Throughout,
+$(\mathcal M,\Adm,\Rej)$ is an $N$-state reader over a finite alphabet
+$\Gamma$, with initial state $q_0$ and transition function $\delta$,
+that has the rejected-path property (\cref{sec:interface}). By
+\cref{lem:extension}, every rejected extension of a hole is a hole.
+
+\begin{theorem}[Bounded rejected tail]\label{thm:brt}
+Let $(\mathcal{M},\Adm,\Rej)$ be a reader over a finite alphabet with $N$ states that satisfies
+betweenness and the admission cone. If it has a hole, then it has a hole $w$ whose rejected tail
+satisfies $r(w) \le 4N - 2$.
+\end{theorem}
+
+The theorem \emph{selects} a hole. It bounds neither the tail of every
+hole nor a continuation of each fixed first rejected prefix. The proof
+may replace the prefix before the rejected tail.
+
+\paragraph{The Rejected Graph}
+Call a letter $i$ \emph{safe} at a state $q \in \Rej$ if $\delta(q,i) \in \Rej$. The
+\emph{rejected graph} $G$ has as vertices the reachable states in $\Rej$ and an edge
+$q \xrightarrow{i} \delta(q,i)$ for every safe letter. We count edges by letters, so a state
+whose distinct letters lead to the same successor has separate outgoing edges. A vertex is
+\emph{cyclic} if it lies on a cycle of~$G$. If the initial state is rejected, the empty
+word is a hole with tail~$0$; we assume from now on that $q_0 \notin \Rej$. The proof
+distinguishes whether some cyclic vertex has two safe letters.
+
+\subsection{Branching Cycles}
+
+Repeating a cycle sufficiently often and then choosing a different next
+letter destroys every comparison whose right endpoint lies in the preceding
+prefix.
+
+\begin{lemma}[Rotation]\label{lem:rotation}
+Let $v, \kappa \in \Gamma^*$ with $\len{v} = a$ and $\len{\kappa} = \nu \ge 1$, let the exponent
+$\mu$ satisfy $\mu\nu \ge a + \nu$, and let $b \ne \kappa[0]$ be a letter. Then the word
+$w = v\,\kappa^\mu\,b$ has no comparison $(s,e)$ with $e \le a$.
+\end{lemma}
+
+\begin{proof}
+Let $(s,e)$ be a comparison with $e \le a$ and period $\varpi = e - s \le a$, so
+$w[k] = w[k-\varpi]$ for $e \le k < \len{w}$. For the $\nu$ positions $k = a+\varpi, \dots, a+\varpi+\nu-1$,
+both $k$ and $k-\varpi$ lie in the block $\kappa^\mu$, because $\varpi + \nu \le \mu\nu$. Writing
+$i = (k-\varpi-a) \bmod \nu$, which ranges over all residues, we obtain $\kappa[(i+\varpi) \bmod \nu] = \kappa[i]$
+for all $i$: the cyclic word $\kappa$ is invariant under rotation by $\varpi$. The last position
+$k = a + \mu\nu$ also satisfies $k \ge e$ and $k - \varpi \ge a$, so
+$w[k-\varpi] = \kappa[(\mu\nu-\varpi) \bmod \nu] = \kappa[(-\varpi) \bmod \nu]$, which equals $\kappa[0]$ by the rotation
+invariance with $i = (-\varpi) \bmod \nu$. But $w[k] = b \ne \kappa[0]$.
+\end{proof}
+
+\begin{lemma}[Branching cycle]\label{lem:branching}
+If some cyclic vertex of $G$ has two safe letters, the reader has a hole with tail at most
+$4N - 2$.
+\end{lemma}
+
+\begin{proof}
+Let $q$ be such a vertex, $v$ a shortest word with $\delta(q_0,v) = q$, so $a = \len{v} \le
+N - 1$, and $\kappa$ the label of a simple cycle of $G$ through $q$, so $1 \le \nu = \len{\kappa}
+\le N$. Let $b \ne \kappa[0]$ be another safe letter at $q$ and
+$\mu = \lceil (a+\nu)/\nu \rceil$. The word $w = v\,\kappa^\mu\,b$ (\cref{fig:branching}) is rejected:
+after $v$ it stays in $G$. Its first rejected cut satisfies $J \le a$, so by the admission cone every
+admitted comparison has $e \le a$, and by \cref{lem:rotation} there is none. Thus $w$ is a
+hole. Since $\mu\nu < a + 2\nu$, its tail is at most $\len{w} = a + \mu\nu + 1 \le 2a + 2\nu \le
+4N - 2$.
+\end{proof}
+
+The lemma does not assume that a hole exists. For a satisfiable $\phi$, a reachable rejected cycle of its
+label reader with a second safe letter therefore already refutes entailment.
+For a fixed finite alphabet, reachability and cycle detection give a
+sufficient test polynomial in the reader graph size, applicable to either
+side at any variance.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=5mm,y=5mm,>=Stealth]
+  \draw[thick] (0,0) -- (21,0);
+  \foreach \x in {0,5,9,13,17,20,21} { \draw (\x,-0.15) -- (\x,0.15); }
+  \node[font=\small] at (2.5,0.55) {$v$};
+  \node[font=\small] at (7,0.55) {$\kappa$};
+  \node[font=\small] at (11,0.55) {$\kappa$};
+  \node[font=\small] at (15,0.55) {$\cdots$};
+  \node[font=\small] at (18.5,0.55) {$\kappa$};
+  \node[font=\small] at (20.5,0.55) {$b$};
+  \node[below,font=\footnotesize] at (0,-0.2) {$0$};
+  \node[below,font=\footnotesize] at (5,-0.2) {$a \ge J$};
+  \draw[->] (1,-1.2) to[bend right=30] node[below,font=\footnotesize] {period $\varpi \le a$} (4,-1.2);
+  \draw[decorate,decoration={brace,amplitude=4pt}] (5,1.1) -- (20,1.1)
+    node[midway,above=3pt,font=\footnotesize] {$\kappa^\mu$, $\mu\nu \ge a+\nu$};
+  \node[font=\footnotesize,align=left,anchor=west] at (21.4,0) {$b \ne \kappa[0]$};
+\end{tikzpicture}
+\caption{The branching case (\cref{lem:branching}). A period $\varpi \le a$ that survives the
+block $\kappa^\mu$ makes $\kappa$ invariant under rotation by $\varpi$ and then predicts the letter $\kappa[0]$ at
+the end, where the word has $b \ne \kappa[0]$.}
+\Description{A word v followed by mu copies of a cycle word kappa and a final letter b different from the first letter of kappa.}
+\label{fig:branching}
+\end{figure}
+
+\subsection{Forced Cycles}
+
+In the remaining case, every cyclic vertex of $G$ has exactly one safe letter: at least one,
+the next edge of its cycle, but not two. Then the path of $G$ from a cyclic
+vertex is \emph{forced}: it follows the unique safe letter and returns to its start. We now
+use the existence of a hole.
+
+Let $w_0$ be a hole with first rejected cut $J_0$ and length $m_0$. If its tail is shorter
+than $N$, we are done. Otherwise, the run of $w_0$ from cut $J_0$ to cut $m_0$ stays in
+$G$ by betweenness and visits more than $N$ cuts, so it repeats a state; from
+that point it is on a forced cycle, and so is its last state $q_{m_0}$. Extending $w_0$
+along the forced cycle forever gives an infinite word $\Omega = w_0\,\kappa^\omega$, where $\kappa$ spells
+the cycle from $q_{m_0}$. Every finite prefix of $\Omega$ of length at least $m_0$ is a
+rejected extension of $w_0$, hence a hole. Write $\Omega[s{:}]$ for the infinite suffix from cut
+$s$, and call a pair of cuts $s < e$ an \emph{equal-suffix pair} if $\Omega[s{:}] = \Omega[e{:}]$.
+
+\begin{lemma}[No admitted equal-suffix pair]\label{lem:no-infinite}
+$\Omega$ has no equal-suffix pair $(s,e)$ with $\Adm(q_s,q_e)$.
+\end{lemma}
+
+\begin{proof}
+Such a pair is a comparison of every prefix of $\Omega$ of length at least $\max(m_0,e)$, with
+the same cut states, and these prefixes are holes.
+\end{proof}
+
+Let $\nu \le N$ be the least period of $\kappa^\omega$, and let $A$ be the \emph{earliest
+periodic onset}, the least cut from which $\Omega$ is $\nu$-periodic: $\Omega[k] = \Omega[k+\nu]$ for all
+$k \ge A$. Then $A \le m_0$, and if $A > 0$, minimality gives
+\begin{equation}\label{eq:onset}
+  \Omega[A-1] \ne \Omega[A-1+\nu].
+\end{equation}
+
+\begin{lemma}[Earliest onset]\label{lem:onset}
+Every equal-suffix pair $(s,e)$ of $\Omega$ has $s \ge A$.
+\end{lemma}
+
+\begin{proof}
+Let $\varpi = e - s$. The equality $\Omega[s{:}] = \Omega[e{:}]$ gives $\Omega[k] = \Omega[k + j\varpi]$ for all
+$k \ge s$ and $j \ge 0$. For $k \ge s$ and $j$ large enough that $k + j\varpi \ge A$, we get
+$\Omega[k+\nu] = \Omega[k+\nu+j\varpi] = \Omega[k+j\varpi] = \Omega[k]$. So $\Omega$ is $\nu$-periodic from $s$, and $s \ge A$ by
+minimality of~$A$.
+\end{proof}
+
+\paragraph{Compressing the Prefix}
+The word $\Omega$ can be long before its periodic part; we replace that prefix by a shorter one. If
+$A = 0$, let $u = \eps$. Otherwise, let $u = v'\,\Omega[A-1]$, where $v'$ is a shortest word with
+$\delta(q_0,v') = q_{A-1}$; then $\len{u} \le N$ and $\delta(q_0,u) = q_A$. Let
+$\Omega' = u\,\Omega[A{:}]$ (\cref{fig:forced}). The suffix of $\Omega'$ after cut $\len{u}$ is the suffix
+of $\Omega$ after cut $A$, read from the same state, so cuts $\len{u}+k$ of $\Omega'$ and $A+k$ of
+$\Omega$ carry the same states and the same suffixes. The letter before the onset is preserved,
+so by \eqref{eq:onset} the earliest periodic onset of $\Omega'$ is exactly $\len{u}$.
+
+\begin{lemma}[No admitted pair after compression]\label{lem:no-infinite-prime}
+$\Omega'$ has no equal-suffix pair $(s,e)$ with $\Adm(q'_s,q'_e)$, where $q'_i$ are the cut
+states of~$\Omega'$.
+\end{lemma}
+
+\begin{proof}
+By \cref{lem:onset} applied to $\Omega'$, such a pair has $s \ge \len{u}$. It corresponds to the
+pair $(s - \len{u} + A,\ e - \len{u} + A)$ of $\Omega$, with the same states and suffixes,
+contradicting \cref{lem:no-infinite}.
+\end{proof}
+
+\paragraph{Rejection After the First Rejected Cut}
+Cut $\len{u}+k$ of $\Omega'$ carries the state of cut $A+k$ of $\Omega$. Every cut of $\Omega$
+from $m_0 \ge A$ on is rejected, so every cut of $\Omega'$ from $\len{u} + m_0 - A$ on is
+rejected. Let $J'$ be the first rejected cut of $\Omega'$. Every later cut lies between $J'$
+and a rejected cut further on, so by betweenness every cut of $\Omega'$ from $J'$ on is
+rejected. The truncation therefore need not wait until $\Omega'$ returns to the original
+state and phase of the cycle.
+
+\begin{lemma}[Periodic truncation]\label{lem:truncation}
+Let $J'$ be the first rejected cut of $\Omega'$ and $L = \len{u} + J' + \nu$. Then the prefix
+$w' = \Omega'[{:}L]$ of length $L$ is a hole.
+\end{lemma}
+
+\begin{proof}
+Since $L \ge J'$, the word $w'$ is rejected, and its first rejected cut is $J'$. Suppose
+$(s,e)$ is an admitted comparison of $w'$. By the admission cone, $e \le J'$, so its period
+satisfies $\varpi = e - s \le J'$, and $\Omega'[k] = \Omega'[k-\varpi]$ for $e \le k < L$. Put
+$h = \max(e, \len{u}+\varpi)$. Since $e \le J'$ and $\varpi \le J'$, we have $h + \nu \le L$, so the
+equality holds at the $\nu$ consecutive positions $k = h, \dots, h+\nu-1$. These satisfy
+$k - \varpi \ge \len{u}$, so both $k$ and $k-\varpi$ lie in the $\nu$-periodic part of $\Omega'$.
+Equality on $\nu$ consecutive positions of a $\nu$-periodic word propagates to all later
+positions, so $\Omega'[k] = \Omega'[k-\varpi]$ for all $k \ge e$; that is, $(s,e)$ is an
+equal-suffix pair of $\Omega'$ with $\Adm(q'_s,q'_e)$. This contradicts
+\cref{lem:no-infinite-prime}.
+\end{proof}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=4.6mm,y=5mm,>=Stealth]
+  % original infinite word \Omega
+  \node[anchor=east,font=\small] at (-0.4,0) {$\Omega$};
+  \draw[thick] (0,0) -- (24,0);
+  \draw[thick,dotted] (24,0) -- (26,0);
+  \fill[black!15] (13,-0.12) rectangle (24,0.12);
+  \foreach \x in {0,13,17} { \draw[thick] (\x,-0.22) -- (\x,0.22); }
+  \node[below,font=\footnotesize] at (13,-0.2) {$A$};
+  \node[below,font=\footnotesize] at (17,-0.2) {$m_0$};
+  \node[above,font=\footnotesize] at (6.5,0.15) {long prefix};
+  \node[above,font=\footnotesize] at (19,0.15) {$\nu$-periodic};
+  % compressed word \Omega'
+  \node[anchor=east,font=\small] at (-0.4,-2.6) {$\Omega'$};
+  \draw[thick] (0,-2.6) -- (16,-2.6);
+  \draw[thick,dotted] (16,-2.6) -- (18,-2.6);
+  \foreach \x in {0,4,13} { \draw (\x,-2.75) -- (\x,-2.45); }
+  \fill[black!15] (4,-2.72) rectangle (16,-2.48);
+  \node[above,font=\footnotesize] at (2,-2.45) {$u$};
+  \node[below,font=\footnotesize] at (4,-2.8) {$\len{u}$};
+  \node[below,font=\footnotesize] at (13,-2.8) {$L{=}\len{u}{+}J'{+}\nu$};
+  \draw[->,dashed] (13,-0.35) -- (4,-2.3);
+  \node[font=\footnotesize,align=center] at (21.5,-1.45) {same states and\\letters from the onset};
+\end{tikzpicture}
+\caption{The forced case. The prefix of $\Omega$ before the earliest periodic onset $A$ is
+replaced, for $A>0$, by a shortest path to $q_{A-1}$ followed by the
+original letter $\Omega[A-1]$; for $A=0$, the replacement prefix is empty.
+Every cut of the resulting word $\Omega'$ from its first rejected cut $J'$ on is rejected,
+and its prefix of length $L=\len{u}+J'+\nu$ is a hole.}
+\Description{The infinite word Omega with a long prefix before the periodic onset A, and the compressed word Omega-prime with a short prefix u and the truncation cut L.}
+\label{fig:forced}
+\end{figure}
+
+\begin{proof}[Proof of \cref{thm:brt}]
+If the initial state is rejected, the empty word is a hole. If a cyclic vertex of $G$ has
+two safe letters, \cref{lem:branching} gives a hole with tail at most $4N - 2$.
+Otherwise, starting from any hole, either its tail is less than $N$, or
+\cref{lem:truncation} gives a hole with tail $L - J' = \len{u} + \nu \le 2N$. Since $N \ge 1$,
+all these bounds are at most $4N - 2$.
+\end{proof}
+
+
+
+The essential choice is the \emph{earliest}
+periodic onset: preserving its preceding letter excludes equal-suffix
+pairs starting in the replacement prefix. The admission cone reduces the
+rest to the finite window of \cref{lem:truncation}, and betweenness lets
+that window start right after the replacement prefix. If the alphabet is
+empty, the only word is $\eps$.

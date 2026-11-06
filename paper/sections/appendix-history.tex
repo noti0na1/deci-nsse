@@ -1,0 +1,35 @@
+\section{Distinctions Used in the Proof}
+\label{app:history}
+
+The following distinctions organize the arguments compared in
+\cref{sec:experience}. Each row names a tempting simplification that fails,
+its consequence for the proof, and where the proof handles it.
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{.31\linewidth}>{\raggedright\arraybackslash}p{.40\linewidth}>{\raggedright\arraybackslash}p{.21\linewidth}@{}}
+\toprule
+Distinction & Consequence & Where\\
+\midrule
+Preserving the final reader state does not preserve the absence of
+admitted comparisons. &
+Compression shortens all blocks of a level simultaneously and records
+admissions and block equalities as well as transitions. &
+\cref{ex:loop-deletion}; \cref{sec:search}\\
+\addlinespace
+Betweenness does not make every continuation of a rejected word rejected. &
+The tail proof works inside the graph of reachable rejected states. &
+\cref{sec:tail}\\
+\addlinespace
+Shortening an arbitrary prefix of a forced tail can create an admitted pair
+of equal suffixes. &
+The proof replaces the prefix before the earliest periodic onset and keeps
+the letter just before that onset. &
+\cref{lem:onset,lem:no-infinite-prime}\\
+\addlinespace
+A finite solution need not refute the query. &
+It serves only to exclude a cycle clash in the base system; the four-spine
+extension supplies the finite countermodel. &
+\cref{thm:finite-transfer}\\
+\bottomrule
+\end{tabular}
+\end{center}

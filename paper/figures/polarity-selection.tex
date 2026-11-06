@@ -1,0 +1,31 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=10mm,y=8mm,
+    every node/.style={font=\small,inner sep=2pt}]
+  \foreach \name/\pos/\leftlab/\rightlab in
+    {h/0/\Top/\Top,d/3.7/\Bot/\Bot,s/7.4/\Bot/\Top} {
+    \node (\name) at (\pos,0) {$f$};
+    \node (\name0) at (\pos-0.8,-1.1) {$\leftlab$};
+    \node (\name1) at (\pos+0.8,-1.1) {$\rightlab$};
+    \draw (\name) -- (\name0);
+    \draw (\name) -- (\name1);
+  }
+  \node[above=2mm of h] {$\sigma_{\mathrm{sh}}(x^+)$};
+  \node[above=2mm of d] {$(S\sigma_{\mathrm{sh}})(x^+)$};
+  \node[above=2mm of s] {$\sigma_{\mathrm{sel}}(x^+)$};
+  \node at (1.85,-0.6) {and};
+  \node at (5.55,-0.6) {$\longmapsto$};
+  \node[below=1mm of s0,font=\scriptsize,align=center]
+    {bit $1$\\from $S\sigma_{\mathrm{sh}}$};
+  \node[below=1mm of s1,font=\scriptsize,align=center]
+    {bit $0$\\from $\sigma_{\mathrm{sh}}$};
+\end{tikzpicture}
+\caption{Selection in \cref{ex:running-selection}. All three trees have the
+same shape. At the positive root the choice bit is $0$; at children $0,1$
+it is respectively $1,0$, yielding $f(\Bot,\Top)$.}
+\Description{Three trees with a constructor root and two leaves. The least
+shape has two top leaves, its image under the assignment involution has two bottom leaves, and the selected
+tree takes the left bottom leaf from the dual and the right top leaf from the
+least shape. The choice bits are one at the left child and zero at the right.}
+\label{fig:polarity-selection}
+\end{figure}

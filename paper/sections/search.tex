@@ -1,0 +1,482 @@
+\section{Bounded Depth Implies Bounded Length}
+\label{sec:search}
+
+The last bound turns a bound on the depth into a bound on the length. Like the depth bound,
+it holds for every reader: it uses neither the admission cone nor any property of
+non-structural subtype entailment.
+
+\begin{theorem}[Bounded-depth search]\label{thm:search}
+Let $(\mathcal{M},\Adm,\Rej)$ be any reader with $N$ states over a finite alphabet. If it has a
+nonempty hole of depth at most $d$, then it has a nonempty hole of length at most
+$\holeBound(N,d)$, where $\holeBound$ is the elementary function given in
+\eqref{eq:holebound} below. The replacement can be chosen of depth at most $d$.
+The same statement holds for any lettered monitor with $N$ states
+(defined in \cref{sec:lettered}), even over an infinite alphabet.
+\end{theorem}
+
+The proof first bounds the number of distinct letters at every positive
+level, then shortens a hole level by level along its hierarchy. Shortening each block of a
+level independently fails, because comparisons relate \emph{different} blocks through equal
+suffixes. We therefore shorten all blocks of a level \emph{simultaneously}, preserving a
+finite summary of the whole tuple. As \cref{ex:loop-deletion} shows,
+preserving the final reader state alone does not preserve holes.
+
+\subsection{Lettered Monitors and Their Derivatives}\label{sec:lettered}
+
+To describe each level of the hierarchy as a hole problem in its own right, we generalize
+readers to \emph{lettered monitors}. A lettered monitor $\mathcal{M}$ over an alphabet
+$\Gamma$, which may be infinite, consists of a finite set $\mathcal Q$ of states with a start state $\zeta_0$, a transition
+function $\delta : \mathcal Q \times \Gamma \to \mathcal Q$, a \emph{final target} predicate
+$\Tfin \subseteq \mathcal Q \times \Gamma$, and two admission relations $\Lambda$ and $\Lfin$ on
+\emph{labels}, the second for comparisons that end at the final cut. Reading a word $v$
+assigns the state $\zeta_{i+1} = \delta(\zeta_i, v[i])$ to cut $i+1$. The label of cut $0$ is a
+symbol $\triangleright$, and the label of cut $i > 0$ is the pair $(\zeta_{i-1}, v[i-1])$ of the
+state at cut $i-1$ and the letter read from it. A nonempty word $v$ is a \emph{hole} of
+$\mathcal{M}$ if its last label $(\zeta,a)$ satisfies $\Tfin(\zeta,a)$, no terminal comparison
+$(s,\len{v})$ satisfies $\Lfin$, and no other comparison $(s,e)$ satisfies $\Lambda$, each
+relation being applied to the labels of the two cuts. A reader $(\mathcal{M},\Adm,\Rej)$ determines the
+lettered monitor with states $Q$, the same transition $\delta$, $\Tfin(\zeta,a)$ iff $\delta(\zeta,a) \in \Rej$,
+and $\Lambda = \Lfin$ given by $\Adm$ on the states that the labels denote: $\triangleright$
+denotes $q_0$ and $(\zeta,a)$ denotes $\delta(\zeta,a)$. The reader and this lettered monitor have the same nonempty holes.
+As with rejection, the final target only marks a candidate: a word whose last label
+satisfies $\Tfin$ is a hole only if no comparison is admitted.
+The predicate $\Tfin$ and the relations take labels, and not only the states
+they denote, because the monitors of higher levels must evaluate them at positions
+\emph{inside} blocks, which requires the letters. Block alphabets $(\Gamma\setminus\{\ell\})^*$
+are generally infinite, even for finite $\Gamma$, so lettered monitors allow infinite
+alphabets. The compression argument never uses finiteness of an alphabet: it works with
+the finitely many letters that one hole uses and with finitely many summary values.
+
+Fix a marker $\ell \in \Gamma$, a block $X \in (\Gamma \setminus \{\ell\})^*$, and a state
+$\zeta \in \mathcal Q \sqcup \{\star\}$. The \emph{shifted block} of $X$ read from $\zeta \in \mathcal Q$ is the word
+$\ell X$ read from $\zeta$; from the new symbol $\star$, it is $X$ read from $\zeta_0$. It has a label
+$\mathit{lab}_p(\zeta,X)$ at each position $p = 0, \dots, \len{X}$: for $\zeta \in \mathcal Q$, the label of the
+cut after $\ell\,\wpre{X}{p}$, so that position $0$ carries the \emph{marker label}
+$(\zeta,\ell)$; for $\zeta = \star$, the label $\triangleright$ at position $0$ and the label of the cut
+after $\wpre{X}{p}$ at positions $p \ge 1$. The \emph{exit state} $\delta_\ell(\zeta,X)$ is the
+state reached at the end of the shifted block.
+
+The derivative $\mathcal M_\ell$ defined next reads the block word. Each of its
+letters represents an entire block, so the label of a derivative cut keeps both
+the block and its entry state, the state from which the shifted block is read;
+this lets the derivative recover every original label inside the block. With
+these labels, $\mathcal M_\ell$ checks three kinds of obligations of the expanded
+word. Its admission $\Lambda_\ell$ compares two positions in different blocks
+that lie at the same distance from the ends of their blocks, with equal letters
+after them. The second clause of its terminal admission $\Lfin_\ell$ compares a
+position anywhere in an earlier block with the final cut, which carries the label
+of the closing marker. Its target $\Tfin_\ell$ checks the original target together
+with all terminal comparisons that start in the last block.
+
+\begin{definition}[Derivative]\label{def:derivative}
+Let $\mathcal{M}$ be a lettered monitor over $\Gamma$ with states $\mathcal Q$, and $\ell \in \Gamma$.
+The \emph{derivative} $\mathcal{M}_\ell$ is the lettered monitor over the block alphabet
+$(\Gamma\setminus\{\ell\})^*$ with states $\mathcal Q \sqcup \{\star\}$, start state $\star$, transition
+function $\delta_\ell$, and the following relations on labels $(\zeta,X)$ and $(\zeta',X')$:
+\begin{itemize}[leftmargin=*]
+\item $\Lambda_\ell((\zeta,X),(\zeta',X'))$ holds if
+  $\Lambda\bigl(\mathit{lab}_{p}(\zeta,X),\, \mathit{lab}_{p'}(\zeta',X')\bigr)$ for some
+  positions $p\le\len{X}$ and $p'\le\len{X'}$ from which the two blocks have a common
+  suffix, $\wsuf{X}{p}=\wsuf{X'}{p'}$;
+\item $\Lfin_\ell((\zeta,X),(\zeta',X'))$ holds if $\Lambda_\ell((\zeta,X),(\zeta',X'))$ holds, or if
+  $\Lfin\bigl(\mathit{lab}_p(\zeta,X), (\delta_\ell(\zeta',X'),\ell)\bigr)$ for some
+  $p \le \len{X}$;
+\item $\Tfin_\ell(\zeta,X)$ holds if $\Tfin(\delta_\ell(\zeta,X),\ell)$ holds and
+  $\Lfin\bigl(\mathit{lab}_p(\zeta,X), (\delta_\ell(\zeta,X),\ell)\bigr)$ fails for every
+  $p \le \len{X}$.
+\end{itemize}
+Every relation involving the label $\triangleright$ of $\mathcal{M}_\ell$ is false.
+\end{definition}
+
+The derivative's cut zero is an artificial boundary. Original comparisons
+beginning at cut zero are represented inside the first shifted block,
+whose entry state is $\star$; they are still tested through the label
+$(\star,X_0)$. Setting relations at the derivative's new start label to
+false therefore discards no original comparison.
+
+For a concrete instance, use the reader of \cref{ex:loop-deletion}
+on $0101$ and marker $1$. Its block word is $[0][0]$. The derivative
+starts at $\star$ and reads $[0]$ to state $a$; from $a$, the shifted
+block $10$ ends at $c$. The table shows which derivative label represents
+each original cut.
+\begin{center}
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+original cut & $0$ & $1$ & $2$ & $3$ & $4$\\
+state & $q$ & $a$ & $b$ & $c$ & $r$\\
+original label & $\triangleright$ & $(q,0)$ & $(a,1)$ & $(b,0)$ & $(c,1)$\\
+\midrule
+derivative label & \multicolumn{2}{c}{$(\star,[0])$} & \multicolumn{2}{c}{$(a,[0])$} & final\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+position $p$ in its block & $0$ & $1$ & $0$ & $1$ & \\
+\bottomrule
+\end{tabular}
+\end{center}
+The two derivative labels sit at the derivative cuts $1$ and $2$, and each
+represents the original cuts of one shifted block: the first block is read from
+the start, and the second begins with the marker label $(a,1)$. The final original
+cut carries the label $(c,1)$ of the closing marker, read from the final derivative
+state $c$. For the two derivative labels, the common suffix $0$ selects position
+zero in both blocks. Their original labels denote $q$ and $\delta(a,1)=b$, so
+$\Lambda_1$ holds. The derivative comparison $(1,2)$ is terminal and its $\Lfin_1$
+relation therefore holds as well. It detects the original nonterminal comparison
+$(0,2)$, including its start at the original cut zero.
+
+\begin{lemma}[Holes under desubstitution]\label{lem:der-holes}
+Let $v$ be a nonempty word of blocks that avoid $\ell$, and let $u$ be its expansion. Then
+$u$ is a hole of $\mathcal{M}$ iff $v$ is a hole of $\mathcal{M}_\ell$. Consequently, if
+$\mathcal{M}_0$ is a reader with $N$ states and $\mathcal{M}_{j+1} = (\mathcal{M}_j)_{\ell_j}$
+along the canonical hierarchy of $w$, then $w$ is a hole of $\mathcal{M}_0$ iff $u_j$ is a
+hole of $\mathcal{M}_j$, and $\mathcal{M}_j$ has $N + j$ states.
+\end{lemma}
+
+\begin{proof}
+Write $v=[X_0]\cdots[X_{h-1}]$, so
+$u=X_0\ell X_1\ell\cdots X_{h-1}\ell$, and let
+$\zeta'_0=\star,\zeta'_1,\ldots,\zeta'_h$ be the derivative run.
+Let $a_i$ be the cut where $X_i$ begins and $b_i=a_i+|X_i|$ the
+position of its closing marker. Partition all nonfinal cuts of $u$ into
+the intervals $[a_i,b_i]$. Induction on $i$ gives the label
+$\mathit{lab}_p(\zeta'_i,X_i)$ at cut $a_i+p$, for $0\le p\le|X_i|$;
+the final cut has label $(\zeta'_h,\ell)$. The label of cut $i+1$ of $v$
+is $(\zeta'_i,X_i)$, so it determines every label in this block.
+
+Suppose first that $u$ is a hole. Its final target holds, and none of
+its terminal comparisons starting in the last block is admitted. These
+are exactly the two requirements of $\Tfin_\ell(\zeta'_{h-1},X_{h-1})$.
+Consider a comparison $(s',e')$ of $v$. If $s'=0$, its relations are false
+by definition. Otherwise, $1\le s'<e'\le h$. If $\Lambda_\ell$ held at its
+labels, it would supply positions $p$ in $X_{s'-1}$ and $p'$ in $X_{e'-1}$
+with $\wsuf{X_{s'-1}}{p}=\wsuf{X_{e'-1}}{p'}$.
+The cuts $s=a_{s'-1}+p$ and $e=a_{e'-1}+p'$ have this common
+suffix before their markers. By \cref{lem:alignment}, $(s,e)$ is
+a comparison of $u$; it is nonterminal even when $e'=h$, since
+$e\le b_{h-1}<|u|$. Its labels would satisfy $\Lambda$, a contradiction.
+This excludes $\Lambda_\ell$ both at nonterminal comparisons of $v$
+and as the first disjunct of $\Lfin_\ell$ at terminal ones.
+The second disjunct, possible only for $e'=h$, gives an admitted terminal
+comparison $(a_{s'-1}+p,|u|)$ of $u$ for some position $p$, also a
+contradiction. Thus $v$ is a hole.
+
+Conversely, suppose $v$ is a hole. Its target implies the final target
+of $u$ and excludes every admitted terminal comparison starting in the
+last block. Let $(s,e)$ be any other comparison of $u$. If $e<|u|$,
+\cref{lem:alignment} locates $s,e$ in blocks $s'-1,e'-1$ with $s'<e'$,
+a common suffix after them, and a comparison $(s',e')$ of $v$.
+Admission by $\Lambda$ would therefore give $\Lambda_\ell$ at its labels.
+For $e'<h$ this contradicts the nonterminal hole condition of $v$;
+for $e'=h$ it contradicts the first disjunct of its terminal relation
+$\Lfin_\ell$. If $e=|u|$, its start is in an earlier block $s'-1$
+with $s'<h$. Then $(s',h)$ is a terminal comparison of $v$, and admission
+by $\Lfin$ would give the second disjunct of $\Lfin_\ell$.
+Again this is impossible. All comparisons of $u$ are therefore unadmitted,
+so $u$ is a hole. Iterating this equivalence proves the hierarchy assertion;
+each derivative adds exactly one fresh state.
+\end{proof}
+
+
+
+\subsection{Isolated Exchange and Bounded Dictionaries}
+\label{sec:dictionary}
+
+Shortening (\cref{sec:shortening}) compresses all distinct blocks of a level at
+once, and its length bound grows quickly with the number of these blocks. We
+therefore need a bound on the number of different blocks at each positive level,
+not just on their lengths. We obtain it by merging letters that have the same
+effect on the derived monitor. Such a merge must preserve the comparisons of the
+level word as well as its transitions, targets, and admissions. We therefore
+protect the marker and the letters at symbolic start positions, and merge only
+letters whose unequal comparison partners are all protected. The behavior of such
+a letter can then be recorded in finite tables, its exchange type, whose size does
+not depend on the dictionary. The other letters are counted through the boundary
+pairs defined below, and these counts propagate from one level to the next.
+
+Fix a nonempty hole $w$ of depth $\Delta\le d$, its hierarchy $u_i$, and
+its derived monitors $\mathcal M_i$. For a word $v$, let
+$\operatorname{alph}(v)$ be its set of letters. Write
+$\mathcal A_i=\operatorname{alph}(u_i)$ for the level-$i$
+\emph{dictionary}, and
+$g_i=|\mathcal A_i|$. These are letter dictionaries, distinct from the
+state supports $\Supp_i$ of \cref{sec:depth}. A comparison at level $i$
+is a comparison of $u_i$ in the sense of \cref{def:comparison}.
+It is \emph{left maximal} if $1\le s<e\le |u_i|$ and its predecessor
+letters $u_i[s-1]$ and $u_i[e-1]$ differ, so that it cannot be extended one
+letter to the left. Comparisons that begin at cut zero are excluded: they
+have no predecessor letter, and their admissions involve the start label,
+which the exchange types below record separately. The \emph{boundary pairs}
+of level $i$ are the ordered letter pairs
+\[
+ \operatorname{BP}_i=\{(u_i[s-1],u_i[e-1]):
+       (s,e)\text{ is left maximal},\ e<|u_i|\},
+\]
+counted once regardless of how many comparisons produce them; put
+$b_i=|\operatorname{BP}_i|$. A left-maximal comparison that ends at the
+final cut has the marker $\ell_i$ as its second predecessor letter, since
+$u_i$ ends with $\ell_i$. Its pair, an endpoint pair, is needed only in the
+proofs (\cref{app:search}).
+
+The positions of $u_i$ with start cores form a prefix, and their number
+$s_i\le i$ is the \emph{start count} of level $i$ (\cref{lem:cores}). In the
+derived monitor, ordinary positions are read from the embedded copy of the
+original state set $Q$, and start positions from symbolic states. Let $Z_i$
+be the union of that copy of $Q$ and the symbolic states used at start
+positions; then $|Z_i|\le N+s_i$. The \emph{protected letters} of level $i$ are
+\[
+ \Pi_i=\{\ell_i\}\cup\operatorname{alph}(u_i[:s_i]),
+ \qquad |\Pi_i|\le s_i+1.
+\]
+A letter $a\in\mathcal A_i\setminus\Pi_i$ is \emph{isolated} if no
+boundary pair has $a$ as one component and a letter outside $\Pi_i$ as the
+other. All unequal comparison partners of an isolated letter are therefore
+protected, including its partner in terminal comparisons, the marker.
+
+\begin{example}[Protected and isolated letters]\label{ex:isolated}
+At level $1$ of \cref{ex:hierarchy}, the word $u_1=\alpha_1\beta_1\gamma_1\alpha_1$
+has cores $\star_1,1,4,5$ and marker $\ell_1=\alpha_1$. Its start count is
+$s_1=1$ and its start prefix is $\alpha_1$, so $\Pi_1=\{\alpha_1\}$. The only
+comparison of $u_1$ that ends before the final cut is $(0,3)$, which begins at
+cut zero. Hence $\operatorname{BP}_1=\varnothing$, and $\beta_1$ and $\gamma_1$
+are isolated. Their only unequal comparison partner is the marker, through the
+terminal comparisons $(2,4)$ and $(3,4)$. Merging $\beta_1$ and $\gamma_1$ would
+therefore preserve the comparisons of $u_1$; it would also require equal exchange
+types, defined next, which depend on the monitor.
+\end{example}
+
+For an isolated letter $a$, its \emph{exchange type relative to $\Pi_i$}
+records the following finite tables in $\mathcal M_i$:
+\begin{itemize}[leftmargin=*]
+\item the transition $q\mapsto\delta_i(q,a)$ and target
+  $\Tfin_i(q,a)$ for every ordinary state $q\in Q$;
+\item for each $R\in\{\Lambda_i,\Lfin_i\}$, the self table
+  $R((q,a),(q',a))$ for $q,q'\in Q$;
+\item for each such $R$, both $R((q,a),(\zeta,\pi))$ and
+  $R((\zeta,\pi),(q,a))$ for $q\in Q$, $\zeta\in Z_i$, $\pi\in\Pi_i$;
+\item the two initial-label rows $R(\triangleright,(q,a))$ for $q\in Q$.
+\end{itemize}
+At positive levels the last rows are false. Original cut-zero obligations
+are still recorded in the protected rows at symbolic entry states
+(rows $R((q,a),(\zeta,\pi))$ and their reverse orientations, with $\zeta$ symbolic
+and $\pi$ in the start prefix).
+Ordinary states transition to ordinary states, so the transition table has
+$N^N$ possibilities, rather than $(N+i)^N$.
+
+Put
+\begin{equation}\label{eq:dictionary-constants}
+\begin{aligned}
+ \TyBound(N,d)&=N^N\,2^{2N^2+4N(N+d)(d+1)+3N},\\
+ \AlBound(N,d)&=d+1+\TyBound(N,d),&
+ \DictBound(N,d)&=2+\AlBound(N,d)3^d.
+\end{aligned}
+\end{equation}
+Here $\TyBound$ bounds the number of exchange types, $\AlBound$ adds the
+protected letters, and $\DictBound$ will bound every positive dictionary.
+Shortening a tuple of $h$ blocks produces blocks shorter than
+$\mathit{col}(M,h)$, the column count of \eqref{eq:col} for a monitor with $M$
+states, which for fixed $M$ is exponential in $h^2$. Bounding every positive
+dictionary by $\DictBound(N,d)$ in advance makes each of at most $d$ expansion
+steps multiply lengths by at most the fixed factor
+$K=\mathit{col}(N+d+1,\DictBound(N,d))$. The exchange argument achieves such a bound
+by merging only isolated letters: their types need rows only against the
+at most $d+1$ protected letters, so $\TyBound(N,d)$ is independent of dictionary
+sizes. Extending this rule to non-isolated letters would require protecting
+their unequal comparison partners as well; their number would enter the
+type-count exponent and could compound from level to level.
+
+\begin{lemma}[Exchange types]\label{lem:exchange-types}
+At every positive level $i<\Delta\le d$, there are at most $\TyBound(N,d)$
+exchange types relative to $\Pi_i$.
+\end{lemma}
+
+\begin{lemma}[Isolated exchange]\label{lem:isolated-exchange}
+Let $1\le i<\Delta$, and let distinct isolated letters $a,a'$ of $u_i$
+have the same exchange type. Replace every $a$ by $a'$ at that level
+and expand using the markers of the original hierarchy below level $i$. The
+result is a hole of the same canonical depth, with every start count unchanged
+and no dictionary larger. Its level-$i$ dictionary is strictly smaller. Choosing
+the direction toward the letter with shorter level-zero expansion also makes the
+word no longer.
+\end{lemma}
+
+Call a hole \emph{dictionary-normal} if, at every $1\le i<\Delta$, distinct isolated
+letters have distinct exchange types, computed in that hole's own hierarchy.
+\begin{lemma}[Dictionary normal form]\label{lem:dictionary-normal-form}
+Every nonempty hole has a dictionary-normal hole of the same depth, no greater
+length, the same start counts, and no larger dictionary at any level.
+\end{lemma}
+\begin{lemma}[Dictionary counting and propagation]\label{lem:dictionary-count}
+For a dictionary-normal hole of depth $\Delta\le d$, and $1\le i<\Delta$,
+$g_i\le \AlBound(N,d)+2b_i$.
+For every nonempty word and every level $i$,
+\begin{equation}\label{eq:boundary-propagation}
+ b_i\le b_{i+1}+g_{i+1}-1.
+\end{equation}
+\end{lemma}
+\begin{lemma}[Bounded dictionaries]\label{lem:dictionary-bound}
+For a dictionary-normal hole of depth $\Delta\le d$, at $1\le i<\Delta$,
+\begin{equation}\label{eq:dictionary-recurrence}
+ 2b_i\le(\AlBound(N,d)-1)(3^{\Delta-1-i}-1),\qquad
+ g_i\le1+(\AlBound(N,d)-1)3^{\Delta-1-i}.
+\end{equation}
+Consequently every nonempty hole of depth at most $d$ has a hole of the
+same depth and no greater length with $g_i\le \DictBound(N,d)$ for every
+$1\le i\le \Delta$. No bound on $g_0$ is required.
+\end{lemma}
+
+Full proofs, including preservation of start counts under the induced
+level maps, appear in \cref{app:search}. The counting idea is simple:
+dictionary normality bounds isolated letters by their types, while each remaining
+unprotected letter is a component of a boundary pair. This adds at most
+$2b_i$ letters. Those letters need not enter the protected set
+inside the type-count exponent: an isolated letter never compares with
+an unprotected unequal partner. Propagation therefore gives a linear
+recurrence with factor three, while the type bound remains fixed.
+
+\subsection{Shortening}\label{sec:shortening}
+
+Fix the dictionary-normal hole and its dictionaries $\mathcal A_j$. Throughout
+shortening, the original hierarchy means the hierarchy of this hole, which stays
+unchanged. Put $g=\DictBound(N,d)$ and
+$K=\mathit{col}(N+d+1,g)$, using the column count of \eqref{eq:col}.
+We shorten top-down.
+First the top level is shortened; then the blocks that form its
+letters; then the blocks that form the letters of those blocks; and so on down to level~$0$.
+
+\paragraph{The Top Level}
+At the first unary level $\Delta\le d$, write $u_\Delta = z^L$. Every pair of its cuts is a
+comparison, and its states follow the orbit of $\delta(\cdot,z)$. Deleting the letters between
+two nonfinal cuts with equal states creates no new kind of label pair, so a unary hole of
+$\mathcal{M}_\Delta$ can be shortened to at most $N + \Delta$ letters, the number of states
+(details in \cref{app:search}).
+
+\input{figures/unary-compression}
+
+\paragraph{The Block Levels}
+At level $j+1$, select distinct original blocks $X_1,\dots,X_h$ from
+$\mathcal A_{j+1}$. They are words over $\mathcal A_j$ avoiding the
+original marker $\ell_j$. The \emph{summary} of the tuple
+$(X_1,\dots,X_h)$ with respect to $\mathcal{M}_j$ and $\ell_j$ records:
+\begin{itemize}[leftmargin=*]
+\item for each block and each state $\zeta \in \mathcal Q \sqcup \{\star\}$, the exit state of its shifted
+  block read from~$\zeta$;
+\item for each block, each such $\zeta$, and each state $\zeta''\in\mathcal Q$, whether some label of the shifted
+  block read from $\zeta$ is related by $\Lfin$ to the final label $(\zeta'',\ell_j)$;
+\item which blocks are equal;
+\item for each ordered pair of blocks and each pair of states $\zeta, \zeta'$, whether
+  $\Lambda_{\ell_j}$ relates the two labels.
+\end{itemize}
+The summary determines every value of $\mathcal{M}_{j+1}$ on the letters $X_1,\dots,X_h$,
+together with their equalities. Storing all equality bits preserves
+disequality as well: distinct old letters get distinct replacements, so
+the replacement is injective. It can be computed by a deterministic finite automaton
+reading the tuple as a single word of \emph{columns}: align the blocks at their right ends,
+pad them on the left, and read the $h$-tuples of optional letters from left to right
+(\cref{fig:columns}). Right alignment is what makes this possible: $\Lambda_{\ell_j}$
+compares positions at equal distance from the ends of two blocks with equal letters after
+them, so appending a column either relates the two new last positions, or extends the
+common suffix of a pair related earlier by an equal letter. A column word is
+\emph{valid} if each of its tracks consists of absent entries followed by letters, as
+padding on the left requires. If the column word has at least as many columns as there
+are summary values, two cuts have the same summary. Deleting the columns between them
+preserves the summary. It also preserves validity without any extra state in the
+automaton: deleting columns keeps every track of the form ``absent entries, then
+letters'', and each column itself records which tracks are present. Repeating this, we
+obtain blocks $\widetilde X_1,\dots,\widetilde X_h$ of length less than the number
+$\mathit{col}(N+j,h)$ of summary values, with the same summary. Substituting
+$\widetilde X_i$ for $X_i$ yields a word that is again a hole of $\mathcal{M}_{j+1}$.
+
+\begin{figure}[tbp]
+\centering
+\begin{tikzpicture}[x=9mm,y=7mm,>=Stealth,
+    cell/.style={draw, minimum width=8mm, minimum height=6mm, inner sep=1pt, font=\small}]
+  \node[anchor=east,font=\small] at (-0.7,0) {$X_1$};
+  \node[anchor=east,font=\small] at (-0.7,-1) {$X_2$};
+  \node[cell] at (0,0) {$0$};
+  \node[cell] at (1,0) {$1$};
+  \node[cell] at (2,0) {$0$};
+  \node[cell] at (3,0) {$2$};
+  \node[cell,fill=black!10] at (0,-1) {};
+  \node[cell,fill=black!10] at (1,-1) {};
+  \node[cell] at (2,-1) {$1$};
+  \node[cell] at (3,-1) {$2$};
+  \draw[thick,rounded corners=2pt] (1.52,0.5) rectangle (2.48,-1.5);
+  \draw[->] (-0.45,-2.0) -- (3.45,-2.0) node[right,font=\footnotesize] {columns read left to right};
+  \node[font=\footnotesize,align=left,anchor=west] at (4.2,-0.5)
+    {the boxed positions have the same\\distance from their block ends\\and the same remaining suffix;\\$\Lambda_\ell$ tests their labels};
+\end{tikzpicture}
+\caption{The column encoding of a tuple of blocks, here $X_1 = 0102$ and $X_2 = 12$. The
+blocks are aligned at their right ends and padded on the left (shaded cells). A deterministic
+automaton reads the columns from left to right and maintains the summary of the tuple: the
+exit states of the shifted blocks, their tests against the final label, the equalities between blocks, and the
+bits of $\Lambda_\ell$. Deleting the columns between two equal summaries shortens all blocks
+at once and preserves the summary (\cref{app:search}).}
+\Description{Two blocks aligned at their right ends, the shorter one padded on the left, with one column highlighted.}
+\label{fig:columns}
+\end{figure}
+
+The recursion keeps a set $\mathcal E_{j+1}\subseteq\mathcal A_{j+1}$ of distinct
+original letters, its \emph{letter support}. After shortening its blocks to
+subsequences $\tau(X)$, form the lower letter support
+\begin{equation}\label{eq:descent-support}
+ \mathcal E_j=\{\ell_j\}\cup\bigcup_{X\in\mathcal E_{j+1}}\operatorname{alph}(\tau(X))
+ \ \subseteq\ \mathcal A_j.
+\end{equation}
+The inclusion holds because every letter of an original upper block
+belongs to the original lower dictionary, and shortening only deletes
+letters. Thus each column shortening involves at most $g$ blocks (tracks).
+At level zero no column shortening is needed, so its support need not have
+size at most $g$.
+
+Compression proceeds top-down and renames letters as it goes. Shortening the
+level-$(j+1)$ blocks changes which level-$j$ letters occur; those letters are
+shortened in turn, so the level-$j$ marker and every lower derived monitor change
+as well. We therefore never compare the compressed word with the original
+hierarchy directly. Instead we keep, at each level $j$, an injective renaming
+$\rho_j$ of the letter support $\mathcal E_j$ under which the new derived monitor
+\emph{agrees} with the original one: it has the same transitions, targets, and both
+admission relations on the renamed letters, at every state, including the symbolic
+states and the start label \eqref{eq:monitor-agreement}. Agreement up to an injective
+renaming suffices because a monitor sees letters only through these values and
+through equality of letters, and an injective renaming preserves both equality and
+inequality. Hence agreement preserves comparisons, runs, and holes. Since the support
+contains the marker, injectivity also preserves marker avoidance.
+\Cref{lem:simultaneous-compression} composes the agreement given by the column
+summaries with agreement at the level below. Each level multiplies expansion lengths
+by at most $K$, so a renamed level-$j$ letter expands to at most $K^j$ letters. The
+original hierarchy and dictionaries stay unchanged throughout this induction;
+intermediate compressed words need not be dictionary-normal.
+
+\paragraph{The Bound}
+For a lettered monitor with $N$ states and a tuple of $h$ blocks, put
+\begin{equation}\label{eq:col}
+  \mathit{col}(N,h) = N^{(N+1)h}\cdot 2^{N(N+1)h}\cdot 2^{h^2}\cdot 2^{(N+1)^2h^2}.
+\end{equation}
+This product counts all assignments to the summary fields and therefore
+bounds the number of reachable summary states.
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Factor & Summary field\\
+\midrule
+$N^{(N+1)h}$ & Exit states: $h$ blocks, $N+1$ entry states\\
+$2^{N(N+1)h}$ & Terminal-comparison bits: also $N$ final-marker states\\
+$2^{h^2}$ & Equality bits for ordered pairs of blocks\\
+$2^{(N+1)^2h^2}$ & Derived-admission bits for block and entry-state pairs\\
+\bottomrule
+\end{tabular}
+\end{center}
+Each shortened block has fewer than $\mathit{col}(N+j,g)\le K$
+letters, so with its closing marker it has at most $K$ letters. Expanding down
+one level therefore multiplies lengths by at most $K$. The unary top has at most
+$N+\Delta$ letters, and there are $\Delta\le d$ expansions. Define the single length bound
+\begin{equation}\label{eq:holebound}
+ \holeBound(N,d)=(N+d+1)\,
+       \mathit{col}\bigl(N+d+1,\DictBound(N,d)\bigr)^d.
+\end{equation}
+The resulting nonempty hole has depth at most $d$ and length at most
+$(N+\Delta)K^\Delta\le\holeBound(N,d)$, proving \cref{thm:search}.
+The alphabet size does not enter the bound. \Cref{sec:complexity}
+gives a closed-form estimate and distinguishes hole length from
+exhaustive enumeration cost.
+
+\FloatBarrier

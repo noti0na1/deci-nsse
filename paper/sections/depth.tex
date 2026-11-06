@@ -1,0 +1,206 @@
+\section{From Short Tails to Bounded Depth}
+\label{sec:depth}
+
+A hole with a short rejected tail can still be arbitrarily long. The second bound
+measures its complexity by the depth of a canonical hierarchy of block decompositions, and
+shows that this depth is bounded in terms of the tail. The hierarchy is the device that
+makes comparisons tractable: each of its levels collects the starting points of the
+comparisons that end at one particular cut.
+
+\subsection{The Canonical Desubstitution Hierarchy}
+
+Let $\Gamma$ be an alphabet and $u \in \Gamma^+$ a nonempty word with last letter $\ell$,
+the \emph{marker}. Then $u$ factors uniquely as
+\[
+  u = X_0\,\ell\,X_1\,\ell \cdots X_{h-1}\,\ell \qquad\text{with } X_i \in (\Gamma\setminus\{\ell\})^*.
+\]
+The \emph{desubstitution} of $u$ is the word $[X_0][X_1]\cdots[X_{h-1}]$ of length $h$
+over the alphabet of \emph{blocks} $(\Gamma\setminus\{\ell\})^*$: each block $[X_i]$, a word
+over $\Gamma$, is a single letter of the new word. Expanding every block $[X]$ to $X\ell$
+recovers~$u$. The
+name follows the use of desubstitution and derived sequences in symbolic dynamics
+\citep{Durand98}.
+
+\begin{definition}[Hierarchy and depth]\label{def:hierarchy}
+The \emph{canonical hierarchy} of a nonempty word $w$ is the sequence $u_0 = w$ and
+$u_{j+1} = $ the desubstitution of $u_j$, with marker $\ell_j$, the last letter of $u_j$. A
+word is \emph{unary} if all its letters are equal; this notion concerns words and is
+unrelated to the arity of $f$. The \emph{depth} of $w$ is the least $j$
+such that $u_j$ is unary.
+\end{definition}
+
+If $u_j$ is not unary, then $\len{u_{j+1}} < \len{u_j}$, because some letter of $u_j$ differs
+from the marker. Hence the depth is well defined and $\depth(w) \le \len{w} - 1$.
+
+\begin{example}[A hierarchy of depth three]\label{ex:hierarchy}
+Let $w = 01001101$. Its marker is $1$, and $w = (0)\,1\,(00)\,1\,(\eps)\,1\,(0)\,1$, so
+$u_1 = \alpha_1\,\beta_1\,\gamma_1\,\alpha_1$ with the letters $\alpha_1 = [0]$, $\beta_1 = [00]$, and $\gamma_1 = [\eps]$. The marker of
+$u_1$ is $\alpha_1$, and $u_1 = (\eps)\,\alpha_1\,(\beta_1\gamma_1)\,\alpha_1$, so $u_2 = \alpha_2\,\beta_2$ with $\alpha_2 = [\eps]$ and $\beta_2 = [\beta_1\gamma_1]$.
+Finally, $u_2 = (\alpha_2)\,\beta_2$ gives $u_3 = \alpha_3$ with $\alpha_3 = [\alpha_2]$, which is unary. Thus
+$\depth(w) = 3$, with lengths $8,4,2,1$.
+\end{example}
+
+The hierarchy is compatible with comparisons: a comparison that does not end at the last
+cut of a word is a comparison of the next level, refined by a common suffix of two blocks.
+
+\begin{lemma}[Alignment]\label{lem:alignment}
+Let $u$ be the expansion of a nonempty block word $v = [X_0]\cdots[X_{h-1}]$ with marker
+$\ell$, and let $s < e < \len{u}$. Then $(s,e)$ is a comparison of $u$ iff $s$ and $e$ lie in
+the expansions $X_{i_s}\ell$ and $X_{i_e}\ell$ of two blocks with $i_s < i_e$, at the same
+distance from the markers that end these blocks, the block suffixes beginning at these cuts
+are equal, and $(i_s+1, i_e+1)$ is a comparison of~$v$.
+\end{lemma}
+
+\begin{proof}
+Let $e'$ be the first marker position at or after $e$; it exists because $u$ ends with
+$\ell$. If $(s,e)$ is a comparison, then $u[s+i] = u[e+i]$ for $0 \le i \le e'-e$, and since no
+block contains $\ell$, $s' = s + (e'-e)$ is the first marker position at or after $s$. So $s$
+and $e$ lie at the same distance from the markers ending their blocks, the letters between
+agree, and $i_s < i_e$ because $s' < e'$. The remaining suffixes $\wsuf{u}{s'+1}$ and
+$\wsuf{u}{e'+1}$ are the expansions of $[X_{i_s+1}]\cdots$ and $[X_{i_e+1}]\cdots$, and the
+second is a prefix of the first. An expansion determines its block word, since the markers
+delimit the blocks, so the block word after $i_e$ is a prefix of the block word after $i_s$:
+$(i_s+1,i_e+1)$ is a comparison of $v$. The converse reverses these steps.
+\end{proof}
+
+\subsection{Cores and Supports}
+
+We now relate the levels of the hierarchy to the cuts of the original word. Every position
+of $u_j$ carries a \emph{core}, which is either an original cut of $w$ (an \emph{ordinary}
+core) or a symbolic \emph{start core}. At level $0$, position $i$ has core $i$. At level
+$j+1$, the first position has a new start core $\star_{j+1}$, and position $i \ge 1$ inherits
+the core of the $(i-1)$-st occurrence of the marker $\ell_j$ in $u_j$, counting occurrences
+from~$0$. For a level $j$, let $\Cores_j$ be the set of ordinary cores of $u_j$.
+
+The core of a block is thus the core of the marker that precedes it, and the block
+is read from that marker. A block $[X]$ therefore has two expansions. Its
+\emph{ordinary expansion} $X\ell$ places the marker after the block and
+reconstructs the word. Its \emph{shifted expansion} $\ell X$ places the preceding
+marker before the block: it is the factor of $w$ that starts at the core of the
+block, read from the reader state at that core. The first block has no preceding
+marker, which is why it receives a symbolic start core. Iterating the shifted
+expansion down to level zero gives a map $\xi_j$ from level-$j$ letters to words:
+$\xi_0(a) = a$, and $\xi_{j+1}([X])$ is $\xi_j(\ell_j)$ followed by the images
+under $\xi_j$ of the letters of~$X$.
+
+\begin{lemma}[Cores]\label{lem:cores}
+Let $w$ be nonempty.
+\begin{enumerate}[leftmargin=*]
+\item $\Cores_{j+1} \subseteq \Cores_j$. The start cores of $u_j$ occupy an initial segment
+  of its positions, are pairwise distinct, and number at most $j$; the ordinary cores
+  increase from left to right.
+\item If $\Cores_j \ne \emptyset$ and $t_j = \max \Cores_j$, then
+  \[
+    \Cores_{j+1} = \{\, s \mid s < t_j \text{ and } \wsuf{w}{t_j} \pre \wsuf{w}{s} \,\}.
+  \]
+  In particular, $(s,t_j)$ is a comparison of $w$ for every $s \in \Cores_{j+1}$. If
+  $\Cores_j = \emptyset$, then $\Cores_{j+1} = \emptyset$.
+\end{enumerate}
+\end{lemma}
+
+The cut $t_j$ is the core of the last position of $u_j$, the \emph{terminal core}, and we
+call $\wsuf{w}{t_j}$ the \emph{terminal core word} of level $j$. Part~2 says that the next
+level retains exactly the earlier occurrences of the terminal core word. Hence each level of the hierarchy
+collects the left endpoints of the comparisons whose right endpoint is the terminal core of
+the previous level.
+
+The first two levels of \cref{ex:hierarchy} are aligned below. The upper rows
+list the cuts of $w$ and the letter after each cut; the markers $\ell_0=1$ are in
+bold. The lower rows place each letter of $u_1$ under its shifted expansion,
+which starts at its core.
+\begin{center}
+\small
+\begin{tabular}{@{}l*{9}{c}@{}}
+\toprule
+cut of $w$ & $0$ & $1$ & $2$ & $3$ & $4$ & $5$ & $6$ & $7$ & $8$\\
+letter after the cut & $0$ & $\mathbf 1$ & $0$ & $0$ & $\mathbf 1$ & $\mathbf 1$ & $0$ & $\mathbf 1$ & \\
+\midrule
+letter of $u_1$ & $\alpha_1$ & \multicolumn{3}{c}{$\beta_1$} & $\gamma_1$
+  & \multicolumn{2}{c}{$\alpha_1$} & last $\ell_0$ & \\
+\cmidrule(lr){2-2}\cmidrule(lr){3-5}\cmidrule(lr){6-6}\cmidrule(lr){7-8}\cmidrule(lr){9-9}
+core & $\star_1$ & $1$ & & & $4$ & $5$ & & $t_0=7$ & \\
+\bottomrule
+\end{tabular}
+\end{center}
+The markers at the cuts $1,4,5$ are the occurrences $0,1,2$ of $\ell_0$, so they
+become the cores of the positions $1,2,3$ of $u_1$; the first position receives
+$\star_1$. Thus $\Cores_0=\{0,\dots,7\}$ and $\Cores_1=\{1,4,5\}$. The shifted
+expansions are $\xi_1([X])=1X$, and indeed $\wsub{w}{1}{4}=100=\xi_1(\beta_1)$
+and $\wsub{w}{4}{5}=1=\xi_1(\gamma_1)$, whereas the ordinary expansion of
+$\beta_1=[00]$ is $001$. The first letter has no preceding marker and covers only
+$\wsub{w}{0}{1}=0$. The last marker is not inherited: its cut is the terminal core
+$t_0=7$. The terminal core is the original cut attached to the last letter of a
+level; at level zero it is $7$, whereas the terminal cut of $w$ is $8$. The terminal
+core word $\wsuf{w}{7}=1$ occurs exactly at the earlier cuts $1,4,5$, as Part~2
+predicts. At level $1$, the terminal core is $t_1=5$, and
+$\wsuf{w}{5}=101=\xi_1(\alpha_1)\,\wsuf{w}{t_0}$ occurs nowhere earlier. Accordingly,
+$u_2=\alpha_2\beta_2$ has cores $\star_2,\star_1$: its second position inherits
+$\star_1$ from the first occurrence of $\alpha_1$, so $\Cores_2=\emptyset$.
+
+The proof of \cref{lem:cores} is by induction on $j$ and is given in \cref{app:cores}. Its
+main invariant states that $\xi_j$ is injective and that the factor of $w$ from an
+ordinary core of level $j$ to the next core is the image under $\xi_j$ of the letter at
+that core. For the last core, set $t_{-1}=|w|$, so that $w[t_{-1}:]=\eps$; then
+$\wsuf{w}{t_j} = \xi_j(\ell_j)\,\wsuf{w}{t_{j-1}}$. The injectivity of $\xi_j$
+together with \cref{lem:alignment} identifies the earlier occurrences of the terminal core
+word with the cores of the next level.
+
+\subsection{The Return Gap}
+Let $(\mathcal M,\Adm,\Rej)$ be any $N$-state reader. For a rejected
+word $w$, let $J$ be its first rejected cut and $r=|w|-J$.
+Its level-$j$ \emph{state support} is $\Supp_j=\{q_i:i\in\Cores_j\}$, the set of
+original reader states at the ordinary cores. These supports decrease by \cref{lem:cores}.
+
+\begin{lemma}[Return gap]\label{lem:return-gap}
+If $(s,e)$ is a comparison of a rejected word $w$ and $q_s=q_e$, then
+$e-s\le r$.
+\end{lemma}
+\begin{proof}
+Put $m=|w|$ and $\varpi=e-s$. The comparison implies
+$w[:s]w[e:]=w[:m-\varpi]$. Deleting the equal-state loop therefore gives
+$q_{m-\varpi}=q_m\in\Rej$. By minimality of $J$, $m-\varpi\ge J$,
+so $\varpi\le m-J=r$.
+\end{proof}
+This holds for every reader, without the rejected-path property and without
+assuming that $w$ is a hole. In particular, tail zero excludes equal-state comparisons.
+\Cref{fig:return-gap} shows the loop deletion and the resulting rejected prefix.
+\input{figures/return-gap}
+
+\subsection{The Depth Bound}
+
+\begin{lemma}[Equal-support width]\label{lem:width}
+Let $w$ be a nonempty rejected word with tail $r$, and let $j \le j'$ be levels with
+$\Supp_j = \Supp_{j'} \ne \emptyset$. Then $j' - j + 1 \le r+1$.
+\end{lemma}
+
+\begin{proof}
+For $j=j'$, the bound is immediate. Assume $j < j'$. Since $\Supp_{j'} \neq \emptyset$, all of $\Cores_j, \dots, \Cores_{j'}$ are nonempty.
+By \cref{lem:cores}, $t_{i+1} < t_i$ for $j \le i < j'$, so $j' - j \le t_j - t_{j'}$. The state
+$q_{t_j}$ lies in $\Supp_j = \Supp_{j'}$, so $q_s = q_{t_j}$ for some $s \in \Cores_{j'}$.
+As $\Cores_{j'} \subseteq \Cores_{j+1}$, \cref{lem:cores} shows that $(s,t_j)$ is a comparison,
+and \cref{lem:return-gap} gives $t_j - s \le r$. Since $s \le t_{j'}$, we obtain
+$j' - j \le t_j - t_{j'} \le t_j - s \le r$.
+\end{proof}
+
+\begin{theorem}[Depth from tail]\label{thm:depth}
+For every $N$-state reader, each nonempty rejected word with tail $r$ has
+$\depth(w) \le 2N(r+1)-1$.
+\end{theorem}
+
+\begin{proof}
+Let $d_w = \depth(w)$ and $R = r+1$. The supports $\Supp_0 \supseteq \Supp_1 \supseteq
+\cdots \supseteq \Supp_{d_w}$ are nested, so the distinct nonempty ones form a strictly
+decreasing chain of nonempty subsets of an $N$-element set, and there are at most $N$
+of them. By \cref{lem:width}, each of them is the support of at most $R$ levels. Hence at
+most $N R$ levels have nonempty support. If every level up to $d_w$ does, then
+$d_w + 1 \le N R$. Otherwise, let $j_0$ be the first level with $\Supp_{j_0} = \emptyset$;
+then $1 \le j_0 \le N R$, since $\Cores_0$ contains the cuts $0,\dots,\len{w}-1$. All cores
+of $u_{j_0}$ are start cores, so $\len{u_{j_0}} \le j_0$ by \cref{lem:cores}. Each further
+level up to $d_w$ strictly decreases the length, so $d_w - j_0 \le \len{u_{j_0}} - 1 \le j_0 - 1$,
+and $d_w \le 2j_0 - 1 \le 2N R - 1$.
+\end{proof}
+
+
+
+\Cref{thm:depth} holds for every nonempty rejected word, hole or not; combined with
+\cref{thm:brt}, it bounds the depth of some hole by $2N(4N-1)-1$.

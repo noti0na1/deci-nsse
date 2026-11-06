@@ -1,0 +1,222 @@
+\section{Proofs of the Domain Transfers}
+\label{app:domains}
+
+\subsection{Regular Solutions and Countermodels}\label{sec:regular}
+For a covariant system $\chi$ on a variable set $E$ of size $k_\chi$,
+use graph states $(U,L)\in\mathcal P(E)^2$, with root state
+$(D_\chi\mathord\uparrow z,D_\chi\mathord\downarrow z)$ for $z$.
+Put
+\begin{equation}\label{eq:g54}
+ L_{z,\eta}=\{v:\Lo(\eta,v,z)\},\qquad
+ U_{z,\eta}=\{v:\Up(\eta,z,v)\}.
+\end{equation}
+On letter $i$, replace $L$ by $\{v:\exists u\in L\ \Lo(i,v,u)\}$
+and $U$ by $\{v:\exists u\in U\ \Up(i,u,v)\}$.
+Let $F_-$ and $F_+$ be the roots of lower and upper constructor literals,
+and $B_+$ the bottom-literal roots. Output
+\[
+ g(U,L)=\begin{cases}
+ f,&L\cap F_-\ne\varnothing\land U\cap F_+\ne\varnothing,\\
+ \bot,&L\cap F_-=\varnothing\land U\cap(B_+\cup F_+)\ne\varnothing,\\
+ \top,&\text{otherwise}.
+ \end{cases}
+\]
+Only constructor-labeled vertices have outgoing edges in the unfolding.
+
+\begin{theorem}[Least-shape graph]\label{thm:shape-graph}
+This finite graph unfolds at each root $z$ to $\sigma_{\mathrm{sh}}(z)$.
+It is computable and has at most $2^{2k_\chi}$ states, with no consistency
+hypothesis needed for the equality of trees.
+\end{theorem}
+\begin{proof}
+The path rules (\cref{lem:path-rules}) at $\eta\mid i$ show
+that the transition takes $(U_{z,\eta},L_{z,\eta})$ to
+$(U_{z,\eta i},L_{z,\eta i})$. For the lower coordinate a lower
+$\eta$-path from $u$ to $z$ composes with a lower $i$-path from $v$ to $u$;
+for the upper coordinate paths compose in forward endpoint order.
+The converse follows by factoring those judgments. The initial sets
+retain full closure, so induction also covers the empty path.
+Intersecting these sets with the three literal-root sets gives exactly
+$\ell_f,u_f,u_\bot$ in \eqref{eq:g27}. Thus the output agrees with $h$.
+A path exists in the unfolding iff all its proper-prefix outputs are $f$,
+exactly the pruning predicate of the least shape. Hence labels and absent
+paths both agree. Closure, transitions, and output tests are finite
+computations on the $2^{2k_\chi}$ set pairs.
+\end{proof}
+
+\begin{theorem}[Regular countermodel transfer]\label{thm:regular-transfer}
+Every unsafe word has a regular countermodel at the same word and side.
+Consequently \eqref{eq:g7} holds, and so does \eqref{eq:sat-reg}.
+\end{theorem}
+\begin{proof}
+Use the clash-free four-spine extension from \cref{thm:four-spine}.
+Its least shape has a finite graph $G$ by \cref{thm:shape-graph}.
+Selection also has a finite graph: use states $(r,s,b)$, initially
+$(r_z,r_{\flip z},\operatorname{sg}(z))$, outputting the label at $r$
+when $b=0$ and the dual of that at $s$ when $b=1$. On letter $i$, advance
+both graph coordinates and update $b$ to $b\oplus c(i)$.
+Common shape from \cref{lem:selector} ensures that retained coordinates
+are both constructors or both extreme; stop at the extreme outputs.
+Induction on retained paths gives \eqref{eq:g60}, including its
+domain. At most $2|G|^2$ states suffice.
+Decoding $H_0$ uses another polarity bit, initially zero, to flip output
+labels. Pointwise tree duality flips labels and restriction just selects roots,
+so these operations also preserve graph finiteness.
+The fixed solution and four prefix conditions proved in
+\cref{thm:four-spine} therefore give a regular countermodel after decoding,
+on either side. Conversely, a regular countermodel is an arbitrary one.
+Any arbitrary countermodel supplies an unsafe word by \eqref{eq:g13},
+proving \eqref{eq:g7}. The same construction without spines gives a regular
+solution whenever a solution exists, which proves \eqref{eq:sat-reg}.
+\end{proof}
+
+\subsection{Finite Satisfiability and Least-Shape Depth}\label{sec:finite-sat}
+We first work covariantly over $k_\chi$ variables, with the cycle clashes
+\eqref{eq:g55} of \cref{sec:decision}: a nonempty word $\eta$ and variables
+$a,b$ with $\Lo(\eta,a,a)$, $D_\chi(a,b)$, and $\Up(\eta,b,b)$.
+
+\begin{theorem}[Covariant finite satisfiability]\label{thm:finite-sat}
+Finite satisfiability is characterized by
+
+\begin{equation}\label{eq:g56}
+\Sat_{\mathrm{fin}}(\chi)
+ \quad\Longleftrightarrow\quad
+ \chi\text{ has neither a label clash nor a cycle clash}.
+\end{equation}
+
+\end{theorem}
+
+\begin{proof}\emph{Necessity.} A label clash excludes every solution. For a cycle clash,
+\eqref{eq:g23} gives
+$\emb_{\bot}(\eta,\sigma(a))\le \sigma(a)\le \sigma(b)
+\le\emb_{\top}(\eta,\sigma(b))$.
+Iterating the two self-bounds gives the same sandwich along $\eta^h$
+for every $h$. Along this path both bounding trees have constructor
+labels at every proper prefix; the middle trees must therefore also
+have constructors there. In particular, $\sigma(a)$ has a path of length
+$h|\eta|$ for every $h$, contradicting finiteness.
+
+\par\noindent\emph{Sufficiency.} By \cref{thm:sat}, absence of a label
+clash makes $\sigma_{\mathrm{sh}}$ a solution. We prove that absence of a
+cycle clash bounds its depth, independently of label consistency.
+If a domain path of ${\sigma_{\mathrm{sh}}}(z)$ had length greater than $k_\chi^2+1$, its
+prefix $\tau$ of length $k_\chi^2+1$ would have constructor label. By \eqref{eq:g27}
+choose a lower and an upper path along $\tau$ from $z$, with endpoints
+supporting their constructor labels. Factor both paths at every cut, giving
+variables $a_i,b_i$, $0\le i\le |\tau|$, with
+
+\begin{equation}\label{eq:g58}
+\Lo(\tau[:i],a_i,z),\qquad
+ \Up(\tau[:i],z,b_i),\qquad D_\chi(a_i,b_i).
+\end{equation}
+
+The last relation is cancellation \eqref{eq:g24}. To obtain simultaneous
+factorizations with exact endpoints, induct on the positive path length:
+factor its first letter, continue from the resulting variable, and absorb
+the closure at each cut by transitivity. For length one retain the given
+endpoints. This gives $a_0=b_0=z$ and the chosen terminal supports, with
+$\Lo(\tau[i:j],a_j,a_i)$ and $\Up(\tau[i:j],b_i,b_j)$ for each
+$i<j$, by composition. At $i=j$ use reflexivity. Thus no nontrivial
+empty-path closure is being replaced by equality. Among the first $k_\chi^2+1$
+pairs, two agree, at cuts $i<j$. The nonempty factor $\tau[i:j]$
+then satisfies \eqref{eq:g55} at $(a_i,b_i)$, a contradiction. Therefore all
+domains of ${\sigma_{\mathrm{sh}}}$ have depth at most $k_\chi^2+1$, and finite branching makes
+them finite. This proves \eqref{eq:g56}.
+
+For an effective cycle test, take vertices $(a,b)$ with $D_\chi(a,b)$
+and an $i$-edge to $(a',b')$ when $\Lo(i,a',a)$ and $\Up(i,b,b')$.
+Cancellation puts the target in the vertex set. A nonempty closed walk
+composes to the two self-paths in \eqref{eq:g55}. Conversely, factor those
+self-paths at every letter with their exact endpoints; at each cut,
+transport their prefixes across $D_\chi(a,b)$ and cancel to obtain a
+vertex pair. These pairs give a nonempty closed walk. Thus cycle clash is
+exactly directed cyclicity in this finite graph. A simple cycle has at
+most $k_\chi^2$ edges; equivalently it suffices to test words of lengths
+$1$ through $k_\chi^2$. At arity zero, there are no edges.
+\end{proof}
+
+\begin{lemma}[Finite signed correspondence]\label{lem:finite-signed}
+For variance, one still has the equivalence
+
+\begin{equation}\label{eq:g59}
+\Sat_{\mathrm{fin},c}(\phi)
+ \quad\Longleftrightarrow\quad
+ \Sat_{\mathrm{fin}}(\phi^{\pm}).
+\end{equation}
+
+\end{lemma}
+
+\begin{proof}
+Normalization preserves domains and proves the forward implication.
+Conversely, a finite solution of $\psi$ excludes both clashes by
+\cref{thm:finite-sat}. Its least shape has depth at most $(2k)^2+1$.
+Selection by \cref{lem:selector} preserves that domain and gives a finite
+fixed solution. Decoding by \cref{lem:signed} again preserves domains,
+proving the reverse implication. Together with the two finite clash tests
+this decides finite satisfiability for every variance.
+\end{proof}
+
+\subsection{Finite Countermodel Transfer}\label{sec:finite-transfer}
+\begin{theorem}[Finite countermodel transfer]\label{thm:finite-transfer}
+Suppose $\phi$ has a finite variance solution. Every arbitrary-tree
+countermodel to $x\le y$ can then be replaced by a finite countermodel
+at any chosen unsafe word and side of the original countermodel.
+This proves \eqref{eq:g8}.
+\end{theorem}
+
+\begin{proof}
+\par\noindent\emph{Spine extensions add no cycle clash.} This assertion holds for
+the four-spine extension \eqref{eq:g28}, without a label-consistency
+hypothesis. Assign old
+variables rank zero, spine variables with index $j>0$ rank $j$, and
+fillers rank $|w|+1$. Every new lower-constructor literal
+has source children of strictly larger rank than its root; every new
+upper-constructor literal has sink children of strictly larger rank.
+The separation proof \eqref{eq:g30} still applies.
+
+Induction on \eqref{eq:g22} shows that a lower path rooted at a source
+ends at a source of at least its rank, strictly larger for a nonempty path.
+At length zero separation forces identity. At the first letter, the closure
+into the source forces the lower-literal root to be that source. Its literal
+is new and its chosen child is a source of larger rank, so induction
+applies to the remaining path. An upper path rooted at a sink satisfies
+the dual assertion, using closure out of a sink. Neither kind can have a nonempty self-cycle there. In a
+cycle clash \eqref{eq:g55}, $a$ cannot be a source and $b$ cannot be a sink.
+If $a$ were a sink, $D(a,b)$ would force $a=b$, impossible for
+the upper self-cycle; if $b$ were a source, the same argument contradicts
+the lower self-cycle. Thus both are old. A path between old endpoints
+cannot use a new constructor literal: its child would enter a source
+or sink and could not return to an old endpoint. Closure and both path
+judgments in \eqref{eq:g55} therefore reflect to the old system. Conversely, every
+old cycle remains. This proves cycle-clash equivalence for the extension.
+
+\par\noindent\emph{The selected witness is finite.}
+Choose an unsafe word $w$ from the arbitrary countermodel.
+By \cref{thm:four-spine}, its existing four-spine extension has no label
+clash. Normalizing the assumed finite solution, and dualizing it on the
+right side, gives a finite solution of the side system, so that system has no cycle clash. The rank argument
+above excludes cycle clashes in the extension. Its least shape therefore
+has depth at most $(2k+4|w|+4)^2+1$ by the depth proof of
+\cref{thm:finite-sat}. The selector keeps precisely this finite domain.
+It satisfies the whole extension and is fixed, so restriction supplies
+all four conditions \eqref{eq:g18}; decoding gives a finite countermodel
+at the same word. For the right side dualize the side solution back before
+decoding. Duality preserves both domains and fixedness.
+
+The assumed finite solution is used only to exclude cycles in the base
+constraints. The spine extension preserves this exclusion, so the
+countermodel is reconstructed independently as a finite least-shape solution.
+If no finite solution exists, finite entailment is vacuous. Otherwise, the construction
+just proved takes every failure of arbitrary entailment to a finite
+countermodel; conversely arbitrary entailment holds in every finite
+assignment. These observations prove \eqref{eq:g8}.
+\end{proof}
+
+\subsection{Countermodel Bounds}\label{sec:countermodel-bounds}
+For a chosen unsafe word $w$, put $k_\chi=2k+4|w|+4$. The regular
+construction uses at most $2^{2k_\chi}$ least-shape graph states,
+$2^{4k_\chi+1}$ selected graph states, and $2^{4k_\chi+2}$ states after
+decoding. Under finite satisfiability, the finite construction has tree
+depth at most $k_\chi^2+1$, not a bound of that size on the total number
+of nodes. The finite search supplies $|w|\le H$ with $H$ from
+\eqref{eq:bounds}, giving effective bounds in the input parameters.

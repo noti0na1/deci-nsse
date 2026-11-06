@@ -1,0 +1,531 @@
+\section{The Mechanized Proof}
+\label{app:lean}
+
+This appendix gives the formal definitions, the decision chain, and the
+correspondence with the paper. Names are in namespace \texttt{DeciNSSE}
+unless qualified otherwise. Listings suppress proof bodies and implicit
+variable declarations where these do not affect the statement. Assignments
+in the source may be named $\rho$, $\sigma$, or $A$; the paper uses variants
+of $\sigma$ for assignments. Paths are lists over
+\texttt{Fin n}; binary examples use $\{0,1\}$.
+
+\subsection{Trusted Definitions and Their Characterization}
+\label{app:lean-statement}
+The primitive symbols are \texttt{Sym.bot}, \texttt{Sym.f}, and
+\texttt{Sym.top}, with their three-element order, induced by \lean{Sym.rank} with values
+$0,1,2$. The trusted statement also includes \lean{polarity}, the parity
+of contravariant positions on a path, and the tree operations
+\lean{Tree.node}, \lean{Tree.bot}, and \lean{Tree.top}.
+Trees and their variance order are defined by
+\begin{lstlisting}
+structure Tree (n : ℕ) where
+  fn : List (Fin n) → Option Sym
+  wf : fn [] ≠ none ∧
+       ∀ π i, (fn (π ++ [i])).isSome ↔ fn π = some Sym.f
+
+def Tree.Le (c : Fin n → Bool) (t u : Tree n) : Prop :=
+  ∀ π a b, t.fn π = some a → u.fn π = some b →
+    if polarity c π then b ≤ a else a ≤ b
+\end{lstlisting}
+Here \texttt{true} is contravariant. The notation $\le$ on \texttt{Tree n}
+means the internal covariant order \lean{Tree.CovLe}; the public statements
+use \lean{Tree.Le} explicitly.
+
+The module \texttt{Semantics/Characterization} relates these definitions
+to conventional semantics. \lean{Characterization.treeLe_eq_gfp} identifies
+the order with the greatest fixed point of the textbook rule;
+\lean{Characterization.lfp_ne_treeLe} distinguishes the least fixed point
+at positive arity. \lean{Characterization.unfold_range_iff} characterizes
+the range of graph unfolding by finiteness of the set of rooted subtrees,
+and \lean{Characterization.toTree_range_iff} characterizes the image of
+finite terms by finite tree domain. The interpretation maps \lean{RGraph.unfold} and \lean{FTree.toTree}
+are themselves part of the trusted statement; the two range theorems
+justify quantification over these representations of the intended tree classes. The module also proves the precise
+flat expressiveness distinction:
+\lean{Characterization.le_definable_iff} and
+\lean{Characterization.nullary_not_definable} cover positive and zero arity.
+General flattening of nested input syntax is not part of the exported API.
+
+Variables are \lean{V}, an abbreviation for \texttt{Fin k}, and
+\lean{Constraint} is a list of the following literals:
+\begin{lstlisting}
+inductive Lit (n k : ℕ) where
+  | leF (x : V k) (children : Fin n → V k)
+  | fLe (children : Fin n → V k) (x : V k)
+  | eqBot (x : V k)
+  | eqTop (x : V k)
+
+def Sat (c : Fin n → Bool) (ρ : V k → Tree n)
+    (ϕ : Constraint n k) : Prop :=
+  ∀ l ∈ ϕ, Lit.holds c ρ l
+
+abbrev Satisfiable (c : Fin n → Bool) (ϕ : Constraint n k) : Prop :=
+  ∃ ρ, Sat c ρ ϕ
+
+def Entails (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) : Prop :=
+  ∀ ρ, Sat c ρ ϕ → Tree.Le c (ρ x) (ρ y)
+\end{lstlisting}
+The interpretation \lean{Lit.holds} uses constructor trees, the explicit
+variance order, and equality for the constant literals. Satisfaction by
+an assignment is distinct from existence of a solution.
+\begin{lstlisting}
+def EntailsReg (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) : Prop :=
+  ∀ σ : V k → RGraph n, Sat c (RGraph.unfold ∘ σ) ϕ →
+    Tree.Le c (σ x).unfold (σ y).unfold
+
+def EntailsFin (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) : Prop :=
+  ∀ σ : V k → FTree n, Sat c (FTree.toTree ∘ σ) ϕ →
+    Tree.Le c (σ x).toTree (σ y).toTree
+\end{lstlisting}
+
+\subsection{Public API and Module Layout}
+\label{app:lean-artifact}
+Importing \texttt{DeciNSSE} exposes the three procedures:
+\begin{lstlisting}
+def decideEntails {n k : ℕ} (c : Fin n → Bool)
+    (ϕ : Constraint n k) (x y : V k) : Decidable (Entails c ϕ x y)
+def decideEntailsReg {n k : ℕ} (c : Fin n → Bool)
+    (ϕ : Constraint n k) (x y : V k) : Decidable (EntailsReg c ϕ x y)
+def decideEntailsFin {n k : ℕ} (c : Fin n → Bool)
+    (ϕ : Constraint n k) (x y : V k) : Decidable (EntailsFin c ϕ x y)
+
+theorem decideEntails_correct {n k : ℕ} (c : Fin n → Bool)
+    (ϕ : Constraint n k) (x y : V k) :
+  @decide _ (decideEntails c ϕ x y) = true ↔ Entails c ϕ x y
+\end{lstlisting}
+The other correctness declarations are \lean{decideEntailsReg_correct} and
+\lean{decideEntailsFin_correct}. None assumes satisfiability, positive
+arity, an inhabited path alphabet, or a supplied reader family.
+\lean{productVariance} and \lean{arrowVariance}, in \texttt{Instances},
+provide the two named binary special cases. Importing \texttt{DeciNSSE.Main}
+suffices for the three procedures. The summary and unary procedures of
+\cref{app:lean-complexity} have the same types, the unary ones at arity one.
+All of them instantiate
+\lean{Monitor.decideEntailsOfMonitors} and its regular and finite versions,
+which take the two side monitors and a decision procedure for side holes.
+
+The artifact also contains a certifying solver, \lean{solve}. It searches for
+an entailment certificate, which records unsatisfiability or a closed cover
+of each query side, and for a refutation, which records a side and a hole;
+it checks every candidate with proved checkers and falls back to
+\lean{decideEntails}. \lean{solve_correct} states
+that its answer is \texttt{true} iff \lean{Entails} holds, and a refutation
+carries a regular countermodel. Under \texttt{import DeciNSSE}, compiled code
+of \lean{decideEntails} runs the packed decider
+\lean{Solver.decideEntailsPacked}, by the \texttt{csimp} lemma
+\lean{Solver.decideEntails_eq_decideEntailsPacked}; no other procedure is
+redirected, and the kernel-checked statements are unaffected.
+
+\begin{center}\small
+\begin{tabular}{@{}lp{0.70\linewidth}@{}}
+\toprule
+Module group & Contents\\\midrule
+\texttt{Words} & Finite-alphabet paths and periodicity.\\
+\texttt{Semantics} & Trees, finite terms, regular graphs, variance, normalization, polarity selection, and characterization.\\
+\texttt{Constraints} & Flat syntax, satisfaction, signed translation, closure, and path bounds.\\
+\texttt{Satisfiability} & Least shapes, graph realization, clash tests, finite and regular solutions.\\
+\texttt{Transfer} & Query sides and unsafe words, ranked extensions, cycle reflection, and countermodel transfers.\\
+\texttt{Monitor} & Four-spine extension, closure and clashes, events, label reader, side monitors, semantic interface, and the generic procedures.\\
+\texttt{Holes} & Readers and holes; the canonical hierarchy (\texttt{Holes/Hierarchy/*}), depth, cores, and supports; desubstitution, co-alignment, exchange types, level maps, normal forms, and boundary pairs; agreement, the column automaton, bounded-depth compression, and the elementary bound.\\
+\texttt{RejectedTail} & Rejected-path property, branching and forced tails, return gap, depth, and finite search.\\
+\texttt{Instances}, \texttt{Main} & Named variance maps and the three public decision procedures.\\
+\texttt{Countermodels} & The Boolean refutation check and computable regular and finite countermodels.\\
+\texttt{Certificates} & Certificate formats, covering products, the specification checkers and their soundness, and the JSON front end of the certificate checker.\\
+\texttt{Solver} & The certifying solver: packed readers and checks, the packed decider, certificate search, reachable countermodels, and the JSON front end of the solver.\\
+\texttt{Complexity} & The summary search, its configuration bound, and its procedures; one-letter readers and the unary procedures; binary automata and shared tree constructions; the hardness reduction; the counter automaton and the systems with exponentially long holes.\\\bottomrule
+\end{tabular}
+\end{center}
+The executable front ends \texttt{Certificates/Command} and
+\texttt{Solver/Command} and their JSON parser \texttt{Certificates/Json} are
+built by the executable targets and are not reachable from
+\texttt{import DeciNSSE}; every other module is.
+
+The files \texttt{lean-toolchain} and \texttt{lakefile.toml} pin Lean and
+Mathlib, respectively, to \texttt{v4.35.0}. To check the artifact, run
+\begin{lstlisting}
+lake exe cache get
+lake build DeciNSSE
+\end{lstlisting}
+The first command downloads compiled dependencies. The kernel checks the
+proofs, including the reduction to finite search; compiled execution also
+relies on the compiler. The three procedures are computable definitions,
+not classical choices of decidability instances. Proofs may use classical
+reasoning. The package's axiom audit reports only \texttt{propext},
+\texttt{Classical.choice}, and \texttt{Quot.sound} for the procedures,
+their correctness theorems, the solver's correctness theorem, and the
+headline theorems of \texttt{Complexity}. These dependencies can be inspected with
+\begin{lstlisting}
+import DeciNSSE
+#print axioms DeciNSSE.decideEntails
+#print axioms DeciNSSE.decideEntailsReg
+#print axioms DeciNSSE.decideEntailsFin
+#print axioms DeciNSSE.decideEntails_correct
+#print axioms DeciNSSE.decideEntailsReg_correct
+#print axioms DeciNSSE.decideEntailsFin_correct
+#print axioms DeciNSSE.solve_correct
+#print axioms DeciNSSE.decideEntailsSummary_correct
+#print axioms DeciNSSE.Complexity.Summary.card_config_label_le
+#print axioms DeciNSSE.decideEntailsUnary_correct
+#print axioms DeciNSSE.Complexity.Unary.exists_hole_length_le
+#print axioms DeciNSSE.Complexity.entailsFin_hardnessSystem_iff
+#print axioms DeciNSSE.Complexity.expSystem_shortest_hole
+\end{lstlisting}
+
+\subsection{The Decision Chain}
+\label{app:lean-decision}
+The function \lean{signed} constructs the signed constraint system.
+The function \lean{Signed.dual} implements the assignment involution and \lean{SignSelection.select} implements polarity selection on
+assignments with a common shape. The shared theorem
+\lean{SignSelection.select_leastShape_sat_fixed} states satisfaction and
+fixedness of the selected least shape of a flip-closed, sign-coherent
+system without label clash. It is used by the witness, regular, and finite
+constructions. \lean{Monitor.satB} decides satisfiability by the signed
+label-clash test. \lean{Spine.extension} enforces four prefix conditions
+in a signed layout directly; \texttt{Monitor/Closure} proves its closure
+invariants, and \texttt{Monitor/Clash} and \texttt{Monitor/Semantics}
+identify clashes with inherited clashes or events and then with unsafety.
+\lean{Events.sideUnsafe_iff_not_labelClash} has no satisfiability premise.
+
+The label reader \lean{Monitor.reader} uses
+\begin{lstlisting}
+structure Monitor.State (m : ℕ) where
+  U : Finset (V m)
+  L : Finset (V m)
+  b : Bool
+\end{lstlisting}
+The reader, target, and admission definitions have no side parameter.
+\lean{Events.sideSystem} chooses the signed system or its order dual, and
+\lean{Events.sideQuery} chooses $(x^+,y^+)$ or $(y^+,x^+)$;
+\lean{Monitor.sideReader} and \lean{Monitor.sideTarget} are the reader and
+target of a side.
+The acceptance latch records readiness at a strictly earlier cut.
+\lean{Monitor.target} is the complement of acceptance, and
+\lean{Monitor.admission} is the disjunction of cross and self admission.
+\lean{Monitor.hole_iff_not_occurs} requires no satisfiability hypothesis;
+\lean{Monitor.hole_iff_unsafe} requires a solution, precisely to exclude
+inherited clashes. \lean{Monitor.rejectedPath} supplies the rejected-path
+property without a satisfiability assumption. \lean{Monitor.family}
+packages the two side readers for the given variance.
+
+\lean{RejectedTail.RejectedPath} expresses betweenness and the
+admission cone. The general procedure
+\lean{RejectedTail.decideHole} enumerates finite-alphabet words up to
+\lean{RejectedTail.holeLengthBound}. Its bound is defined by
+\begin{lstlisting}
+def holeDepthBound (N : ℕ) : ℕ :=
+  2 * N * (4*N - 1) - 1
+
+def holeLengthBound (N : ℕ) : ℕ :=
+  ElementaryBound.lengthBound N (holeDepthBound N)
+\end{lstlisting}
+Here $N$ is the original reader-state count; \cref{sec:mechanization}
+explains how derivative states enter the bound. The theorem
+\lean{RejectedTail.return_gap} holds for every reader and gives
+$e-s\le |w|-J$; it assumes neither that $w$ is a hole nor the rejected-path property. Intermediate depth and compression theorems assume an inhabited
+alphabet, which nonempty words supply; the final bounded-length theorem
+\lean{RejectedTail.hole_iff_bounded_length} removes this assumption and
+explicitly covers the empty alphabet.
+
+The bounded-depth theorem uses the predicate \lean{LetteredHierarchy.InL}:
+$\mathsf{InL}(d,w)$ means that some canonical level $i\le d$ is unary.
+The bound in \eqref{eq:holebound} is \lean{ElementaryBound.lengthBound}:
+\begin{lstlisting}
+def dictionaryBound (N d : ℕ) : ℕ :=
+  2 + NormalForm.normalAllowance N d * 3 ^ d
+
+def lengthBound (N d : ℕ) : ℕ :=
+  (N + d + 1) *
+    BoundedDepth.descentFactor N d (dictionaryBound N d) ^ d
+\end{lstlisting}
+The column count is \lean{BoundedDepth.colBound}, and
+\lean{BoundedDepth.descentFactor N d g} is that count at $N+d+1$ states
+and $g$ tracks. \lean{NormalForm.exists_normal_form} preserves canonical
+depth and all start counts, never increases length or a dictionary, and
+recomputes the protected exchange types after each merge.
+\lean{ElementaryBound.exists_bounded_dictionary_hole} bounds the
+positive dictionaries of the resulting word by
+\lean{ElementaryBound.dictionaryBound}.
+
+\lean{BoundedDepth.shorten_level_supported} keeps its recursive support
+inside the original word's dictionary and deduplicates it. Its identity
+base case needs no bound on the level-zero alphabet.
+\lean{BoundedDepth.exists_short_hole_of_dictionary} combines this descent
+with unary shortening. Finally, \lean{ElementaryBound.exists_short_hole}
+composes normalization and descent; it retains membership in
+$\mathsf{InL}(d,\cdot)$, not necessarily equality of the first unary level.
+The back end invokes this theorem directly at
+\lean{RejectedTail.holeDepthBound}, with no intermediate stopping reader.
+
+The arithmetic estimates \lean{ElementaryBound.dictionaryBound_le} and
+\lean{ElementaryBound.lengthBound_le} yield the final checked inequality
+\begin{lstlisting}
+theorem holeLengthBound_le (N : ℕ) :
+  holeLengthBound N ≤ 2 ^ 2 ^ (1280 * (N + 1) ^ 5)
+\end{lstlisting}
+in namespace \texttt{RejectedTail}. The statements hold for every natural
+number $N$; actual monitors have a start state and hence $N\ge1$.
+The cost of enumerating all words up to this length
+(\cref{sec:complexity-upper}) is not mechanized;
+\cref{app:lean-complexity} describes the mechanized content of
+\cref{sec:complexity}.
+
+The entailment procedure \lean{Monitor.decideEntailsOf} combines
+satisfiability testing with the two reader searches, here the enumeration
+\lean{Monitor.SideMonitor.decideHoles} up to the length bound. \lean{entailsReg_iff_entails} and \lean{entailsFin_iff}
+provide the transfers. The finite procedure first tests \lean{satFinB};
+its equivalence with finite satisfiability uses the selector construction
+on the signed least-shape solution. \texttt{Main} instantiates the family,
+so there are no undischarged interface premises in the public API.
+
+\subsection{Correspondence}
+\label{app:lean-map}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.31\linewidth}>{\raggedright\arraybackslash}p{0.65\linewidth}@{}}
+\caption{Paper results and declarations in namespace \texttt{DeciNSSE}.
+A dagger marks differences in intermediate statement strength, retained
+witness information, or construction, explained below and in
+\cref{app:lean-diff,app:lean-complexity}. The last nine rows concern
+\cref{sec:complexity,app:small-arity}.}\label{tab:lean}\\
+\toprule
+Paper result & Formal counterpart\\\midrule\endfirsthead
+\toprule Paper result & Formal counterpart\\\midrule\endhead
+\bottomrule\endfoot
+\eqref{eq:g3}--\eqref{eq:g4}, domains & \lean{Characterization.treeLe_eq_gfp}, \lean{Characterization.unfold_range_iff}, \lean{Characterization.toTree_range_iff}\\
+Normalization (\cref{sec:normal}) & \lean{treeLe_iff_normalize}\\
+Unsafe words, \eqref{eq:g13} & \lean{entails_iff_not_sideUnsafe}\\
+Signed solutions (\cref{lem:signed}) & \lean{fixed_solution_correspondence}, \lean{signedDual_involutive}, \lean{SignSelection.sat_signedDual_of_flipClosed}, \lean{normalize_injective}\\
+Selection (\cref{lem:selector}) & \lean{SignSelection.leastShape_sameShape_dual}, \lean{SignSelection.select_sat_of_coherent}, \lean{SignSelection.select_fixed}, \lean{SignSelection.select_leastShape_sat_fixed}\\
+Signed satisfiability, \eqref{eq:g19} & \lean{sat_iff_signed_sat}\\
+Fixed witnesses (\cref{lem:fixed-witness,thm:four-spine}) & \lean{Events.sideUnsafe_iff_fixedWitness}, \lean{Spine.Closure.fixedWitness_iff_not_labelClash}, \lean{Events.sideUnsafe_iff_not_labelClash}\\
+Closure and path rules (\cref{sec:closure,lem:path-rules}) & \lean{Derives.sound}, \lean{UpperAt.comp}, \lean{LowerAt.comp}, \lean{UpperAt.le_embed}, \lean{LowerAt.embed_le}, \lean{UpperAt.factor}, \lean{LowerAt.factor}, \lean{LowerAt.decompose_upper}, \lean{LowerAt.decompose_lower}\\
+Sign purity (\cref{lem:sign-purity}) & \lean{Signs.derives_sign}, \lean{Signs.upperAt_sign}, \lean{Signs.lowerAt_sign}\\
+Satisfiability (\cref{thm:sat}) & \lean{leastShape_sat}, \lean{satisfiable_iff_not_labelClash}\\
+Spine extension$^\dagger$ (\cref{lem:spine}) & \lean{Spine.Closure.witness_of_sat}, \lean{Spine.Closure.extend_sat} (both for fixed assignments), \lean{Spine.Closure.extension_flipClosed}, \lean{Spine.Closure.extension_signCoherent}\\
+Separation and bridges (\cref{lem:separation,lem:bridge}) & \lean{Ranked.Extension.derives_into_source}, \lean{Ranked.Extension.derives_out_of_sink}, \lean{Ranked.Extension.derives_original} via \lean{Spine.Closure.extension_ranked}, \lean{Spine.Closure.derives_inv}, \lean{Spine.Closure.derives_lv_of_uAt}, \lean{Spine.Closure.derives_up_of_lAt}, \lean{Spine.Closure.derives_bridge}\\
+Clashes and events (\cref{thm:clashes}) & \lean{Spine.Closure.labelClash_extension_iff}, \lean{Events.sideUnsafe_iff_not_events}\\
+Label states and run (\cref{sec:label-reader}) & \lean{Monitor.card_state}, \lean{Monitor.mem_eval_U}, \lean{Monitor.mem_eval_L}, \lean{Monitor.eval_b_iff}\\
+Rejected-path property (\cref{sec:interface}) & \lean{Monitor.rejectedPath}\\
+Unsafe words are holes (\cref{thm:holes}) & \lean{Monitor.hole_iff_not_occurs}, \lean{Monitor.hole_iff_unsafe}\\
+Tail (\cref{thm:brt}) & \lean{RejectedTail.boundedRejectedTail_of_rejectedPath}\\
+Return gap (\cref{lem:return-gap}) & \lean{RejectedTail.return_gap}\\
+Alignment (\cref{lem:alignment}) & \lean{LetteredHierarchy.alignment}\\
+Cores (\cref{lem:cores}) & \lean{CoreOccurrences.corePos_succ_iff_occurrence}, \lean{LetteredHierarchy.startCore_invariants}, \lean{RejectedTail.cores_succ_subset}, \lean{StartCores.sCount_le_level}, \lean{CoreOccurrences.rho_at_greatest}\\
+Equal-support width (\cref{lem:width}) & \lean{RejectedTail.equal_support_width}\\
+Depth (\cref{thm:depth}) & \lean{RejectedTail.rejected_depth}, \lean{RejectedTail.depth_le_of_support_width}\\
+Derivatives (\cref{lem:der-holes}) & \lean{LetteredHierarchy.isHole_der_iff}, \lean{LetteredHierarchy.isHole_hierOf_iff}, \lean{BoundedDepth.card_cores}\\
+Comparison maps (\cref{lem:comparison-map}) & \lean{CoAlignment.isComp_map_iff}, \lean{LevelMaps.NoCollapse.reflect_last}\\
+Exchange types (\cref{lem:exchange-types}) & \lean{Exchange.exType}, \lean{Exchange.card_exType_le}, \lean{NormalForm.normalTypeBound}, \lean{Exchange.Pset}, \lean{Exchange.Uset}\\
+Isolated exchange (\cref{lem:isolated-exchange}) & \lean{Exchange.Isolated}, \lean{Exchange.isolated_merge}, \lean{NormalForm.isolated_merge_spec}\\
+Level maps and start counts (\cref{lem:level-maps}) & \lean{LevelMaps.levelMap_spec}, \lean{LevelMaps.start_below}, \lean{LevelMaps.start_cap_up}, \lean{LevelMaps.LevelMapResult.depth_eq}\\
+Dictionary normal form (\cref{lem:dictionary-normal-form}) & \lean{NormalForm.Normal}, \lean{NormalForm.dictionaryPotential_lt}, \lean{NormalForm.exists_normal_form}\\
+Dictionary counting (\cref{lem:dictionary-count}) & \lean{NormalForm.normalAt_alphCard_le}, \lean{NormalForm.normalAllowance}\\
+Propagation (\eqref{eq:boundary-propagation}) & \lean{BoundaryPairs.boundaryPairs_expand_subset}, \lean{BoundaryPairs.card_endpointPairs_le}, \lean{BoundaryPairs.boundaryCount_step_add_one}\\
+Dictionary bounds (\cref{lem:dictionary-bound}) & \lean{ElementaryBound.normal_boundary_count_le}, \lean{ElementaryBound.normal_alphCard_le}, \lean{ElementaryBound.exists_bounded_dictionary_hole}\\
+Agreement (\eqref{eq:monitor-agreement}, \cref{lem:agreement-derivative}) & \lean{BoundedDepth.Agree}, \lean{BoundedDepth.Agree.comp}, \lean{BoundedDepth.Agree.isHole_iff}, \lean{BoundedDepth.Agree.derive}\\
+Column summary, \eqref{eq:col} & \lean{BoundedDepth.colEval}, \lean{BoundedDepth.der_type_of_summ}, \lean{BoundedDepth.exists_short_letters}, \lean{BoundedDepth.colBound}, \lean{BoundedDepth.card_CS}\\
+Supported compression (\cref{lem:simultaneous-compression}) & \lean{BoundedDepth.PositiveDictionaryBound}, \lean{BoundedDepth.mem_lower_dictionary}, \lean{BoundedDepth.shorten_level_supported}, \lean{BoundedDepth.descentFactor}\\
+Compression (\cref{thm:search}) & \lean{BoundedDepth.exists_short_hole_of_dictionary}, \lean{ElementaryBound.exists_short_hole}, \lean{ElementaryBound.lengthBound}\\
+Closed form (\cref{lem:elementary-estimate}) & \lean{ElementaryBound.dictionaryBound_le}, \lean{ElementaryBound.lengthBound_le}, \lean{RejectedTail.holeLengthBound_le}\\
+Finite search (\cref{thm:hole-decision}) & \lean{RejectedTail.hole_iff_bounded_length}, \lean{RejectedTail.decideHole}\\
+Regular transfer$^\dagger$ (\cref{sec:regular}) & \lean{unfold_shapeGraph}, \lean{regular_fixed_solution}, \lean{regular_countermodel}, \lean{RegularTransfer.countermodel_spec}, \lean{entailsReg_iff_entails}\\
+Finite satisfiability (\cref{thm:finite-sat,lem:finite-signed}) & \lean{satFin_iff}, \lean{satFin_iff_signed}, \lean{satFinB_iff}\\
+Finite transfer$^\dagger$ (\cref{thm:finite-transfer}) & \lean{Ranked.Extension.cycleClash_iff}, \lean{FiniteTransfer.finite_fixedWitness}, \lean{FiniteTransfer.finite_countermodel_of_unsafe}, \lean{finite_countermodel_transfer}, \lean{entailsFin_iff}\\
+Decision (\cref{thm:correct,thm:main}) & \lean{decideEntails}, \lean{decideEntailsReg}, \lean{decideEntailsFin}, and their correctness theorems\\\midrule
+Summary monitor (\cref{lem:summary-monitor}) & \lean{Complexity.Summary.derivedTable}, \lean{Complexity.Summary.derivedTable_agree}\\
+Summary search$^\dagger$ (\cref{prop:summary-search}) & \lean{Complexity.Summary.Config}, \lean{Complexity.Summary.summarySearch}, \lean{Complexity.Summary.summarySearch_iff_reachable}, \lean{Complexity.Summary.summarySearch_sound}, \lean{Complexity.Summary.summarySearch_complete}, \lean{Complexity.Summary.card_config_le}, \lean{Complexity.Summary.configBits_le}\\
+Upper bounds$^\dagger$ (\cref{thm:complexity}) & \lean{Complexity.Summary.hole_iff_summarySearch}, \lean{Complexity.Summary.card_config_label_le}, \lean{decideEntailsSummary}, \lean{decideEntailsRegSummary}, \lean{decideEntailsFinSummary}, and their correctness theorems\\
+One-letter readers$^\dagger$ (\cref{lem:one-letter}) & \lean{Complexity.Unary.isReaderHole_take}, \lean{Complexity.Unary.firstRejected_lt_card}, \lean{Complexity.Unary.exists_hole_length_le}, \lean{Complexity.Unary.hole_iff_length_le_card_sub_one}\\
+Arity one (\cref{thm:arity-one}) & \lean{Complexity.Unary.unsafe_iff_bounded}, \lean{Complexity.Unary.firstRejectedCut}, \lean{Complexity.Unary.hole_iff_firstRejectedCut}, \lean{decideEntailsUnary}, \lean{decideEntailsRegUnary}, \lean{decideEntailsFinUnary}, and their correctness theorems\\
+Top-free trees, item (3), and item (4) for $a\in\{0,1\}$ (\cref{lem:cx-topfree}) & \lean{Complexity.Rejection.trace_confined}, \lean{Complexity.FiniteTrees.trunc}, \lean{Complexity.FiniteTrees.node_letterChildren_le_trunc}\\
+Counter automaton (\cref{lem:cx-counter}) & \lean{Complexity.Counter.exists_runs_iff}, \lean{Complexity.Counter.counterRecord}, \lean{Complexity.Counter.length_counterRecord}, \lean{Complexity.Counter.counterNFA}, \lean{Complexity.Counter.counterNFA_final}, \lean{Complexity.Counter.counterNFA_accepts_iff}, \lean{Complexity.Counter.length_counterWord}\\
+Exponentially long holes$^\dagger$ (\cref{prop:cx-length}) & \lean{Complexity.rejectionSystem}, \lean{Complexity.Rejection.not_unsafe_left}, \lean{Complexity.Rejection.unsafe_iff}, \lean{Complexity.expSystem}, \lean{Complexity.satisfiableFin_expSystem}, \lean{Complexity.not_entails_expSystem}, \lean{Complexity.not_entailsReg_expSystem}, \lean{Complexity.not_entailsFin_expSystem}, \lean{Complexity.expSystem_unsafe_iff}, \lean{Complexity.expSystem_hole_iff}, \lean{Complexity.expSystem_shortest_hole}, \lean{Complexity.expSystem_shortest_refutesB}, \lean{Complexity.two_pow_le_length_counterWord}\\
+PSPACE-hardness$^\dagger$ (\cref{thm:cx-hard}) & \lean{Complexity.Hardness.doublingCode}, \lean{Complexity.Hardness.eq_of_doublingCode_prefix}, \lean{Complexity.hardnessSystem}, \lean{Complexity.entails_hardnessSystem_iff}, \lean{Complexity.entailsReg_hardnessSystem_iff}, \lean{Complexity.entailsFin_hardnessSystem_iff}, \lean{Complexity.Hardness.numVars_eq}, \lean{Complexity.hardnessSystem_length_le}, \lean{Complexity.satisfiable_hardnessSystem}\\
+\end{longtable}
+
+The minimal-constructor-position result (\cref{lem:minimal-shape}), the
+equivalence and alphabet reduction in \cref{sec:general-holes}, and the
+countermodel size bounds in \cref{sec:countermodel-bounds} are not
+mechanized. The explicit elementary estimate in \eqref{eq:elementary-closed}
+is mechanized. The parts of \cref{sec:complexity} that are not mechanized
+are listed in \cref{app:lean-complexity}.
+
+\lean{RegularTransfer.countermodel_spec} records failure at the same word
+as a disjunction of the two sides. The regular satisfiability equivalence
+at the end of \cref{sec:regular} follows from the paper's construction;
+there is no separately exported declaration of that equivalence.
+For finite trees, \lean{FiniteTransfer.finite_fixedWitness} retains the
+word in the signed witness, whereas the decoded export
+\lean{FiniteTransfer.finite_countermodel_of_unsafe} records only order failure.
+
+\subsection{Paper and Formalization}
+\label{app:lean-diff}
+Both presentations work directly over the child alphabet and use the same
+label-state count and final rejected-tail, depth, and search bounds. All three
+domains use the same four-spine construction and selected least shape.
+The paper and formalization differ in representation, in the strength
+of some intermediate statements, and in intermediate numerical bounds.
+\begin{itemize}[leftmargin=*]
+\item \emph{Representation.} The paper uses $V\times\{0,1\}$ for signed variables and freely names
+fresh spine variables. The code builds $\Psi^4_w$ directly in the signed
+finite ordinal type of size $2(k+2|w|+2)$ and generates its upper half by
+flipping the lower half. Its old-variable map is an injective embedding.
+The general \lean{Ranked.Extension} accepts this embedding, rather than
+requiring the old signed variables to occupy an initial segment;
+\lean{Spine.Closure.extension_ranked} supplies the instance. Its rank is
+the base-variable index, whereas the paper uses $0$, $j$, and $|w|+1$
+for old variables, spine cuts, and fillers.
+\item \emph{Proof organization.} The paper packages the bridge formula as an equivalence.
+The code uses an invariant for forward closure derivations and separate
+backward construction lemmas; the correspondence table lists both.
+\item \emph{Intermediate statement strength.} The paper proves both directions of
+\cref{lem:spine} for any old assignment satisfying the base system.
+The code's extension and restriction interface is
+stated for fixed assignments, which suffices for every witness transfer.
+The paper assigns suffix embeddings to fresh spine variables;
+\lean{Spine.Closure.extend} and \lean{Spine.Closure.extendBase} instead
+extend the fixed witness using traces of its root trees.
+\item \emph{Hypotheses.} The clash equivalence
+\lean{Spine.Closure.labelClash_extension_iff} holds for any flip-closed,
+sign-coherent system and any roots $X,Y$. The fixed-witness equivalence
+\lean{Spine.Closure.fixedWitness_iff_not_labelClash} has the same scope.
+The formal reader and rejected-path property require neither flip closure
+nor sign coherence.
+The inhabited-alphabet assumptions of intermediate depth and compression
+results are removed by the final bounded-length theorem, as explained
+in \cref{app:lean-decision}.
+\item \emph{Graph representation.} For the least-shape graph, the paper stores upper and lower sets.
+The code computes the upper set as a lower set in the order-dual system;
+these are the same supporting-variable sets by path duality.
+Decoding uses \lean{decodedGraph}, whose normalization
+\lean{RGraph.normalize} of a graph $g$ is \lean{RGraph.mix} applied to $g$
+twice, with $2|g|^2$ states and only diagonal graph pairs reachable, whereas the paper uses a single graph state and a polarity bit;
+the size and depth bounds are not exported theorems.
+\item \emph{Elementary compression.} The functions $C,A,G$ and $\holeBound$
+match \lean{NormalForm.normalTypeBound}, \lean{NormalForm.normalAllowance},
+\lean{ElementaryBound.dictionaryBound}, and
+\lean{ElementaryBound.lengthBound}. The paper uses finite sets for
+recursive supports; \lean{BoundedDepth.shorten_level_supported} uses
+lists with a no-duplicates proof and explicitly calls \texttt{dedup}.
+The fixed-original-dictionary invariant is the same. The paper's ordered
+boundary-pair inequality subtracts one; the formal recurrence uses
+\lean{BoundaryPairs.boundaryCount_step_add_one}, with one added to the
+left side, avoiding natural-number subtraction. The normalization maps
+preserve geometry and start counts; neither presentation assumes global
+agreement of higher derived predicates after a merge. The stronger
+all-state agreement is used separately for column compression.
+\item \emph{Periodicity proofs in the tail bound.} The paper's branching case uses a rotation
+argument where the code uses Fine--Wilf periodicity \citep{FineWilf65}. Both prove the same
+intermediate bounds, $4N-2$ for a branching cycle and $2N$ for a forced cycle.
+\end{itemize}
+
+
+The separate kernel-checked formalization of the NP03 counterexample
+agrees with the argument in \cref{app:np03}. It is not part of this
+artifact or a dependency of the decision procedures.
+
+\subsection{Complexity Results}
+\label{app:lean-complexity}
+The module \texttt{Complexity} formalizes the combinatorial content of
+\cref{sec:complexity} and of \cref{app:small-arity}; the last nine rows of
+\cref{tab:lean} give the correspondence. Importing \texttt{DeciNSSE} also
+exposes six further procedures. \lean{decideEntailsSummary}, \lean{decideEntailsRegSummary}, and
+\lean{decideEntailsFinSummary} decide the three entailment relations for
+every arity and variance by the summary search, at the depth bound
+\lean{RejectedTail.holeDepthBound} and the dictionary bound
+\lean{ElementaryBound.dictionaryBound} at that depth; at arity zero their
+hole tests examine only the empty word
+(\lean{Complexity.Summary.hole_iff_nil_of_eq_zero}).
+\lean{decideEntailsUnary}, \lean{decideEntailsRegUnary}, and
+\lean{decideEntailsFinUnary} decide them at arity one, by the test of
+\cref{thm:arity-one}. Each has a correctness theorem of the form of
+\lean{decideEntails_correct}, without premises. Beyond the trusted statement
+of \cref{app:lean-statement}, the hardness theorems and the theorems on
+exponentially long holes depend on the definitions of binary automata and
+their languages (\lean{Complexity.BinNFA},
+\lean{Complexity.BinNFA.Accepts}) and of the constructed systems.
+
+The complexity classes themselves are not mechanized: space-bounded
+machines, the space accounting of \cref{app:complexity}, Savitch's theorem,
+and the space hierarchy theorem. Nor are the PSPACE-hardness of
+universality, which \cref{thm:cx-hard} cites, the polynomial-time tests of
+\cref{lem:poly-tests}, the polynomial-time computability of the reduction and
+of $\mathcal B_\beta$, the polynomial-time procedure of
+\cref{prop:arity-zero} with its general systems, \cref{prop:cx-embedding},
+and \cref{ex:cx-padding}. Items (1) and (2) of \cref{lem:cx-topfree} are
+not stated separately. The formalization differs from the paper as follows.
+\begin{itemize}[leftmargin=*]
+\item \emph{Summary search.} \Cref{prop:summary-search} describes a
+nondeterministic search that counts the columns of the guessed column word
+and stops before $\mathit{col}(N+j,h)$ of them.
+\lean{Complexity.Summary.summarySearch} instead decides reachability of an
+accepting configuration in a finite graph
+(\lean{Complexity.Summary.summarySearch_iff_reachable}), which it computes
+by saturating the set of reachable configurations
+(\lean{Complexity.reachSet}). A configuration,
+\lean{Complexity.Summary.Config}, holds the level, the number of current
+letters, the current table, and, during a derive move, the marker, the
+number of blocks, the summary, and the track flags. It has no column counter, since reachability in a finite
+graph needs no bound on the length of a path. Hence completeness uses
+neither column shortening nor \cref{lem:summary-agreement}: the search reads
+the whole column word of the lifted blocks, and
+\lean{Complexity.Summary.derivedTable_agree} composed with
+\lean{BoundedDepth.Agree.derive} gives the agreement at the next level. For a
+monitor with $N$ states over $n$ letters, at most $g$ blocks per level, and
+depth bound $d$, \lean{Complexity.Summary.card_config_le} and
+\lean{Complexity.Summary.configBits_le} bound the number of configurations
+by $2^{11(N+d+1)^2(n+g+1)^2}$, matching the space bound of
+\cref{prop:summary-search} with $|\Gamma|=n$. For the label readers,
+\lean{Complexity.Summary.card_config_label_le} gives the bound
+$2^{(n+1)^2\cdot2^{2^{20k+20}}}$, so a configuration fits in
+$(n+1)^2\cdot2^{2^{20k+20}}$ bits, that is, in
+$2^{2^{O(k)}}\cdot\operatorname{poly}(n)$ bits, as in the proof of
+\cref{thm:complexity}. These bounds support the space argument; the
+saturation itself is not proved to run within that space.
+\item \emph{Hardness.} The paper treats an automaton with one initial state
+$q_0$, sets $x:=X_{q_0}$, and builds $\chi(\mathcal A')$ from the code
+automaton $\mathcal A'$. \lean{Complexity.hardnessSystem} is built from the
+automaton directly and allows several initial states. Its transition
+variables $Y_t$ stand for the middle states of $\mathcal A'$, and $b$ stands
+for $X_{q_{\mathrm f}}$, which is $\Bot$ in every solution. Flat literals have
+no inequality between two variables, so a sandwich variable $z$, with the
+literals $f(x,b,\ldots,b)\le z$ and $z\le f(X_p,b,\ldots,b)$ for every
+initial state $p$, expresses that $x\le X_p$ for all of them: by
+decomposition, such a $z$ exists iff these inequalities hold. Both proofs
+therefore establish the same theorem, for every $n\ge2$ and each domain: an
+always satisfiable covariant system of linear size entails $x\le r$ iff the
+automaton is universal. With the PSPACE-hardness of universality, either
+gives \cref{thm:cx-hard}. The universal
+case of the paper's proof
+uses the identification $x=X_{q_0}$ only through $\sigma(x)\le\sigma(X_{q_0})$,
+and in the rejecting case $z=f(\sigma(x),\Bot,\ldots,\Bot)$ completes the
+countermodel. With several initial states, the reduction to one initial
+state in \cref{sec:complexity-lower} is not needed. For an automaton with
+the states $Q$ and a list $\delta$ of transitions, the formal system has
+$\len Q+\len\delta+6$ variables and at most $2\len Q+2\len\delta+4$ literals
+(\lean{Complexity.Hardness.numVars_eq},
+\lean{Complexity.hardnessSystem_length_le}); the paper's has
+$\len{Q'}+4=\len Q+\len\delta+5$ variables.
+\item \emph{Exponentially long holes.} \lean{Complexity.rejectionSystem} produces the
+literals of $\Phi_\beta^{(n)}$, up to repetition, from any automaton all of
+whose states are final. Its variables $x$, $g$, and $b$ are named as in the
+paper, and its variable $y$ receives the lower literals of the initial
+states directly, as $Y_{q_{\mathrm{in}}}$ does. The semantic theorems
+\lean{Complexity.Rejection.unsafe_iff} and \lean{Complexity.Rejection.hole_iff}
+hold for every such automaton whose language is the set of words without a
+fixed nonempty prefix, and \lean{Complexity.expSystem} applies them to
+\lean{Complexity.Counter.counterNFA}. In \lean{Complexity.expSystem}, the
+Lean parameter named \texttt{k} corresponds to $\beta$, and the variable count
+$9\beta+31$ is the paper's $k$. The literal count is only bounded, by $81\beta+247$
+(\lean{Complexity.expSystem_length_le}).
+\item \emph{One-letter readers.} \lean{Complexity.Unary.exists_hole_length_le}
+holds for every reader over an alphabet with at most one letter, which
+includes the empty alphabet, whereas \cref{lem:one-letter} assumes one
+letter; neither needs the rejected-path property. As in the proof of
+\cref{thm:arity-one}, the unary procedures follow the run to the first
+rejected cut $J<N$ (\lean{Complexity.Unary.firstRejectedCut}) and test the
+single word $0^J$ (\lean{Complexity.Unary.hole_iff_firstRejectedCut}).
+\item \emph{Arity $n\ge3$.} The formalization proves the hardness theorems
+and the theorems on exponentially long holes directly for every $n\ge2$, with $b$ in the arguments
+$2,\ldots,n-1$, and does not use \cref{prop:cx-embedding}. The paper proves
+\cref{thm:cx-hard} directly as well, but reaches $n\ge3$ in
+\cref{prop:cx-length} through the embedding.
+\end{itemize}

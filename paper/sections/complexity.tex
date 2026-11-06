@@ -1,0 +1,255 @@
+\section{Complexity}
+\label{sec:complexity}
+
+This section bounds the cost of deciding entailment. The input lists the
+arity $n$, the variance table $c(0),\ldots,c(n-1)$, the variable set $V$, the
+query, and the literals of $\phi$, each constructor literal listing all $n$
+child variables. Write $\insize\phi$ for its size; thus $n\le\insize\phi$ and
+$k=|V|\le\insize\phi$. The readers of \cref{sec:label-reader} have
+$N=2\cdot4^{2k}=2^{4k+1}$ states. The constants hidden in $O$-notation below
+are absolute: they depend neither on $n$, nor on $c$, nor on the domain. We
+write 2-EXPSPACE for the problems decidable in deterministic space
+$2^{2^{p(\insize\phi)}}$, and 3-EXPTIME for those decidable in deterministic
+time $2^{2^{2^{p(\insize\phi)}}}$, for polynomials $p$. Deterministic
+classes, such as these and PSPACE, are closed under complement, so their
+bounds hold for entailment and non-entailment alike.
+
+This section concentrates on constructors of arity $n\ge2$.
+\Cref{sec:complexity-upper} proves an upper bound that holds for every
+arity: a search that stores one level of the block hierarchy at a time places
+entailment in 2-EXPSPACE and in 3-EXPTIME. For $n\le1$ stronger bounds hold,
+PSPACE at arity one and polynomial time at arity zero
+(\cref{app:small-arity}). \Cref{sec:complexity-lower} proves lower bounds for
+a covariant constructor of each fixed arity $n\ge2$: shortest holes can be
+exponentially long in $k$, and entailment is PSPACE-hard. All these bounds
+hold in each of the three domains.
+
+\subsection{Upper Bounds}
+\label{sec:complexity-upper}
+
+\paragraph{Hole Length}
+The constants of \eqref{eq:bounds} are $B=4N-2$, $d=8N^2-2N-1$, and
+$H=\holeBound(N,d)$. By \cref{thm:hole-decision,lem:elementary-estimate},
+\[
+ H\le2^{2^{1280(N+1)^5}},
+\]
+a triply exponential bound $2^{2^{2^{O(k)}}}$ in $k$. When $\phi$ is
+satisfiable in the domain considered and the entailment fails, a hole of
+length at most $H$ of one of the two label readers certifies the failure
+(\cref{thm:holes,prop:transfer}). It is an unsafe word, and it can be checked
+in time polynomial in its length and in $\insize\phi$. The bound concerns the
+length of an unsafe word, not the node count of a fully expanded
+countermodel. Enumerating all words up to length $H$, as \cref{fig:algorithm}
+does, examines $\sum_{L\le H}n^L$ words per reader, four exponentials in $k$
+for fixed $n\ge2$. The summary search below decides the same question without
+storing a word.
+
+\paragraph{Polynomial-Time Tests}
+Every test of the reduction other than the search for holes is cheap.
+
+\begin{lemma}[Polynomial-time tests]\label{lem:poly-tests}
+From a flat system $\phi$ with $k$ variables and the query, the following are
+computable in time polynomial in $\insize\phi$: the signed system
+$\psi=\phi^\pm$, its order dual, and their closures; whether either has a
+label clash or a cycle clash; and, for either label reader and states given
+as bit vectors, the initial state, the successor of a state under a letter,
+whether a state is rejected, and whether a pair of states is admitted. In
+particular, $\Sat_{\mathcal D,c}(\phi)$ is decidable in polynomial time for
+each of the three domains $\mathcal D$.
+\end{lemma}
+
+The closure has at most $(2k)^2$ pairs and is computed by saturation. Every
+reader operation is a set operation on the $2k$ signed variables, computed
+from the closure. The clash tests decide satisfiability by \eqref{eq:g19},
+\cref{thm:sat}, \eqref{eq:sat-reg}, and \cref{lem:finite-signed,thm:finite-sat}.
+The proof is in \cref{app:complexity}.
+
+\paragraph{Searching Without Storing the Word}
+\Cref{thm:hole-decision} bounds the length of a shortest hole, but a hole of
+that length takes triply exponential space to write down. The search below
+stores much less. It rests on three observations about \cref{sec:search}.
+First, a lettered monitor with $N$ states and a nonempty hole of depth at
+most $d$ has such a hole whose hierarchy uses at most $\DictBound(N,d)$ distinct letters at each positive
+level (\cref{lem:dictionary-bound}). The $h$ blocks of a level, over a monitor
+with $N+j$ states, can be shortened together below $\mathit{col}(N+j,h)$
+letters without changing their summary, and a unary hole of such a monitor
+can be shortened to at most $N+j$ letters. Second, compression cuts a given
+hole top-down, but the derived monitors are built bottom-up:
+$\mathcal M_{j+1}$ is the derivative of $\mathcal M_j$ at the marker
+$\ell_j$. Restricted to the blocks that are the letters of level $j+1$, and
+up to their names, it depends only on the summary of these blocks and on the
+targets of $\mathcal M_j$ at the marker, not on the blocks themselves
+(\cref{lem:summary-monitor}). A search can therefore forget the blocks and
+call them $1,\ldots,h$. Third, the summary is computed by an automaton that
+reads the blocks column by column (\cref{fig:columns}), so the columns can be
+guessed and discarded one at a time.
+
+The search thus keeps only the tables of a current monitor over the abstract
+letters $1,\ldots,h$. It guesses the next level's blocks column by column,
+keeps their running summary, and accepts when a short unary word is a hole of
+the current monitor (\cref{fig:summary-search,fig:summary-levels}). The stored
+tables are doubly exponential in $k$, although the hole they describe may be
+triply exponentially long.
+
+\begin{figure}[tbp]
+\small
+\begin{minipage}{0.94\linewidth}
+\textbf{Input:} a lettered monitor $\mathcal M_0$ with $N$ states over a
+finite alphabet $\Gamma$, given by its tables, and a depth $d$.\\
+\textbf{Stored:} a level $j\le d$ and a current monitor $\mathcal W$ with
+$N+j$ states over a current alphabet $\Gamma_{\mathcal W}$; initially $j=0$,
+$\mathcal W=\mathcal M_0$, and $\Gamma_{\mathcal W}=\Gamma$.\\
+\textbf{Repeat} one of two nondeterministic moves:
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item \emph{Accept.} Guess a letter $z\in\Gamma_{\mathcal W}$ and a length
+$1\le m'\le N+j$. Accept if $z^{m'}$ is a hole of $\mathcal W$.
+\item \emph{Derive}, if $j<d$. Guess a marker $\ell\in\Gamma_{\mathcal W}$ and
+a number $1\le h\le\DictBound(N,d)$. Guess a valid column word with $h$
+tracks over $\Gamma_{\mathcal W}\setminus\{\ell\}$ and fewer than
+$\mathit{col}(N+j,h)$ columns, one column at a time. After each column,
+update the summary $\Theta$ of the tracks with respect to $\mathcal W$ and
+$\ell$, and discard the column. Stop without accepting unless $\Theta$
+declares the $h$ blocks pairwise distinct. Then replace $\mathcal W$ by the
+monitor $\mathcal W[\ell,\Theta]$ over $\Gamma_{\mathcal W}=[h]$ that the
+summary determines, and $j$ by $j+1$.
+\end{enumerate}
+\end{minipage}
+\caption{The summary search of \cref{prop:summary-search}. Here
+$[h]=\{1,\ldots,h\}$, and $\mathcal W[\ell,\Theta]$ has one new state
+(\cref{lem:summary-monitor}). The track flags that keep the column word
+valid, the order of the summary updates, and the space accounting are in
+\cref{app:complexity}.}
+\Description{An algorithm box with an accept move, which tests a short unary word, and a derive move, which streams the columns of a tuple of blocks and replaces the current monitor by the monitor of their summary.}
+\label{fig:summary-search}
+\end{figure}
+
+\begin{figure}[tbp]
+\centering
+\begin{tikzpicture}[>=Stealth,
+    mon/.style={draw, rounded corners=2pt, align=center, font=\small,
+      inner sep=3pt, minimum height=9mm}]
+  \node[mon] (w0) {$\mathcal W_0=\mathcal M_0$\\[-1pt]over $\Gamma$};
+  \node[mon, right=16mm of w0] (w1) {$\mathcal W_1$\\[-1pt]over $[h_1]$};
+  \node[right=9mm of w1] (dots) {$\cdots$};
+  \node[mon, right=9mm of dots] (wj) {$\mathcal W_j$\\[-1pt]over $[h_j]$};
+  \node[mon, right=12mm of wj] (acc) {accept:\\[-1pt]$z^{m'}$ is a hole};
+  \draw[->] (w0) -- node[above,font=\footnotesize] {$\ell_0,\Theta_1$}
+    node[below,font=\footnotesize,align=center] {columns\\[-2pt]streamed} (w1);
+  \draw[->] (w1) -- node[above,font=\footnotesize] {$\ell_1,\Theta_2$} (dots);
+  \draw[->] (dots) -- (wj);
+  \draw[->] (wj) -- node[above,font=\footnotesize] {$z,m'$} (acc);
+  \draw[->, dashed] ([yshift=-5mm]acc.south) -- node[below,font=\footnotesize]
+    {expansion into a hole of $\mathcal M_0$, never stored}
+    ([yshift=-5mm]w0.south);
+\end{tikzpicture}
+\caption{The summary search builds the derived monitors bottom-up. A derive
+step chooses a marker $\ell_j$ of the current monitor $\mathcal W_j$, streams
+the columns of $h_{j+1}$ distinct blocks that avoid it, keeps only their
+summary $\Theta_{j+1}$, and moves to
+$\mathcal W_{j+1}=\mathcal W_j[\ell_j,\Theta_{j+1}]$ over the abstract
+letters $[h_{j+1}]$. Expanding the abstract letters level by level would
+turn an accepted unary word into a hole of $\mathcal M_0$ (dashed arrow).
+Compression in \cref{sec:search} instead starts from a given hole and
+shortens its hierarchy top-down.}
+\Description{A chain of current monitors from the original monitor to a level at which a unary word is accepted, with a dashed arrow back indicating the expansion into a hole that is never stored.}
+\label{fig:summary-levels}
+\end{figure}
+
+\begin{proposition}[Summary search]\label{prop:summary-search}
+Let $\mathcal M_0$ be a lettered monitor with $N\ge1$ states over a finite
+alphabet $\Gamma$, given by its tables, and let $d\ge0$. Whether
+$\mathcal M_0$ has a nonempty hole of depth at most $d$ is decidable in
+nondeterministic space
+\[
+ O\bigl((N+d+1)^2\,(\DictBound(N,d)+|\Gamma|)^2\bigr),
+\]
+which is polynomial in $N+d+1$, the dictionary bound $\DictBound(N,d)$ of
+\eqref{eq:dictionary-constants}, and $|\Gamma|$. Hence it is decidable in
+deterministic space $2^{O((N+d+1)^3)}\cdot(1+|\Gamma|)^4$.
+\end{proposition}
+
+The search of \cref{fig:summary-search} has two moves. An accept move tests
+a bounded unary hole of the current monitor. A derive move chooses a marker
+and streams a bounded tuple of blocks that avoid it. The search maintains
+the following invariant. At each level $j\ge1$, each current letter names a
+distinct block over the letters of level $j-1$. The stored tables give the
+transitions, final targets, and admissions of the corresponding derived
+monitor on these letters. A derive move generates the blocks one column at a
+time, checks from the equality bits of the summary that they are distinct,
+and then retains only their names $1,\ldots,h$ and the tables of
+$\mathcal W[\ell,\Theta]$. Higher levels use only this information.
+
+An accepting computation could be expanded backward into a hole of
+$\mathcal M_0$: replace each abstract letter by the block it names, level by
+level, and close each block with its marker. Agreement
+(\cref{lem:agreement-derivative}) and desubstitution (\cref{lem:der-holes})
+make each expansion a hole of the monitor one level below, which gives
+soundness; the search itself never performs or stores this expansion.
+Completeness follows from the dictionary bound (\cref{lem:dictionary-bound}),
+column shortening, and unary shortening (\cref{app:search}): the markers and
+the shortened blocks of a suitable hole provide the guesses. The largest
+stored items are the relations of the current monitor, the derived-admission
+bits of one summary, and the column counter, each of
+$O((N+d+1)^2(\DictBound(N,d)+|\Gamma|)^2)$ bits. The deterministic bound then
+follows from Savitch's theorem~\citep{Savitch70}. The full proof is in
+\cref{app:complexity}.
+
+\begin{theorem}[Upper bounds]\label{thm:complexity}\label{cor:complexity}
+For every arity $n$, every variance $c$, and each of the three tree domains,
+entailment $\phi\models_{\mathcal D,c}x\le y$ of a flat system with $k$
+variables is decidable in deterministic space
+$2^{2^{O(k)}}\cdot\operatorname{poly}(\insize\phi)$. Hence entailment and
+non-entailment are in 2-EXPSPACE and in 3-EXPTIME in each domain, also for
+the general input syntax of \cref{prop:flattening}.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+By \cref{lem:poly-tests}, decide in polynomial time whether $\phi$ is
+satisfiable in $\mathcal D$; if it is not, the entailment holds. Otherwise,
+by \cref{prop:transfer}, \eqref{eq:g13}, and \cref{thm:holes}, the entailment
+holds iff neither label reader has a hole. The empty word is a hole iff the
+initial state is rejected. By \cref{thm:brt,thm:depth}, a label reader has a
+hole iff the empty word is a hole or the reader has a nonempty hole of depth
+at most $d=8N^2-2N-1$. Its nonempty holes are those of its lettered monitor,
+whose tables are computed entry by entry by \cref{lem:poly-tests}.
+\Cref{prop:summary-search}, with $|\Gamma|=n$ and
+$N+d+1=8N^2-N\le2^{8k+5}$, decides this in space $2^{2^{O(k)}}(1+n)^4$.
+Since $k\le\insize\phi$, the whole procedure runs in space
+$2^{2^{O(k)}}\operatorname{poly}(\insize\phi)$, hence in time
+$2^{2^{2^{O(\insize\phi)}}}$. At positive arity, \cref{prop:flattening}
+reduces the general syntax in polynomial time to a flat system with
+$O(\insize\phi)$ variables; at arity zero, \cref{prop:arity-zero} in
+\cref{app:small-arity} applies.
+\Cref{app:complexity} gives the full accounting.
+\end{proof}
+
+\paragraph{Comparison with the Length Bound}
+Guessing a hole of length at most $H$ and checking it places non-entailment
+in 3-NEXPTIME and entailment in co-3-NEXPTIME, hence in 3-EXPSPACE; these are
+the bounds that the length bound alone provides. \Cref{thm:complexity}
+implies them, since
+\[
+ \text{2-EXPSPACE}\subseteq\text{3-EXPTIME}\subseteq
+ \text{3-NEXPTIME}\cap\text{co-3-NEXPTIME},
+\]
+and it lowers the space bound by one exponential; by the space hierarchy
+theorem \citep[Theorem~6]{StearnsHartmanisLewis65}, 2-EXPSPACE is a proper
+subclass of 3-EXPSPACE. The bound $H$ on the hole length is unchanged. The
+saving comes from representing one level of the hierarchy by the tables of
+its derived monitor instead of storing a hole. For fixed $n\ge2$:
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Procedure & Stored object & Resulting bound\\
+\midrule
+Enumeration (\cref{fig:algorithm}) & a word of length at most $H$ & time: four exponentials in $k$\\
+Guessing a hole & a hole of length at most $H$ & 3-NEXPTIME, hence 3-EXPSPACE\\
+Summary search (\cref{prop:summary-search}) & tables of one level & 2-EXPSPACE and 3-EXPTIME\\
+\bottomrule
+\end{tabular}
+\end{center}
+The search keeps tables of doubly exponential size in $k$, whereas the only
+known bound on the hole length is triply exponential.
+
+\input{sections/complexity-lower}

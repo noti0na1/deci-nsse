@@ -1,0 +1,515 @@
+\section{Proofs for the Upper Bounds}
+\label{app:complexity}
+
+We prove \cref{lem:poly-tests}, \cref{prop:summary-search}, and
+\cref{thm:complexity}.
+
+\subsection{Polynomial-Time Tests}
+
+\begin{proof}[Proof of \cref{lem:poly-tests}]
+The table of \cref{sec:signed} gives $\psi$ with $2k$ variables and two
+literals for each literal of $\phi$; the order dual reverses its inequalities
+and exchanges its constants. The
+closure is computed by adding reflexive, transitive, and decomposition
+consequences \eqref{eq:g21} until none is new. At most $(2k)^2$ pairs are
+added, and each round inspects polynomially many pairs of literals and
+closure pairs. By \eqref{eq:g22} with an empty remainder, $\Up(i,u,v)$ holds
+iff $D_\psi(u,z)$, $z\le f(\vec b)\in\psi$, and $D_\psi(b_i,v)$ for some
+$z,\vec b$, and dually for $\Lo$. Hence the updates $E_i,G_i$ of
+\eqref{eq:g37}, the tests of \eqref{eq:g34}, the initial state and transitions
+\eqref{eq:g38}, rejection \eqref{eq:g40}, and admission \eqref{eq:g41} are
+operations on subsets of the $2k$ signed variables, computed from the
+closure in polynomial time. A label clash is a lower and an upper literal
+with incompatible root labels whose roots are related by the closure
+(\cref{sec:least}). A cycle clash \eqref{eq:g55} is a directed cycle in the
+graph on the at most $(2k)^2$ closure pairs used in the proof of
+\cref{thm:finite-sat}; its edges need only single-letter path judgments, so
+cyclicity is decided in polynomial time. Finally, $\Sat_c(\phi)$ and
+$\Sat_{\mathrm{reg},c}(\phi)$ hold iff $\psi$ has no label clash
+(\eqref{eq:g19}, \cref{thm:sat}, and \eqref{eq:sat-reg}), and
+$\Sat_{\mathrm{fin},c}(\phi)$ holds iff $\psi$ has neither a label clash nor a
+cycle clash (\cref{lem:finite-signed,thm:finite-sat}).
+\end{proof}
+
+\subsection{Summaries Determine Derived Monitors}
+
+The proof of \cref{prop:summary-search} uses the lettered monitors and
+derivatives of \cref{sec:search}, and the summaries, column words, and
+agreement of \cref{app:search}. Throughout, $\mathcal M$ is a lettered monitor
+with state set $\mathcal Q$ and start state $\zeta_0$, $\ell$ is one of its
+letters, and $[h]=\{1,\ldots,h\}$.
+
+The summary of blocks $X_1,\ldots,X_h$ avoiding $\ell$, with respect to
+$\mathcal M$ and $\ell$, is the tuple
+$\Theta=(\mathit{exit},\mathit{term},\mathit{eq},\mathit{adm})$ of
+\cref{app:search}, which the column automaton described there computes along
+the column word of the tuple. A column whose entries are all absent changes no
+component of a summary. Every valid column word whose tracks spell
+$X_1,\ldots,X_h$ is the column word of the tuple preceded by such columns, so
+the automaton computes $\Theta$ along every such word.
+
+\begin{lemma}[Summary monitor]\label{lem:summary-monitor}
+Let $\Theta=(\mathit{exit},\mathit{term},\mathit{eq},\mathit{adm})$ be the
+summary of pairwise distinct blocks $X_1,\ldots,X_h$ avoiding $\ell$. Let
+$\mathcal M[\ell,\Theta]$ be the lettered monitor over $[h]$ with state set
+$\mathcal Q\sqcup\{\star\}$, start state $\star$, and, for $a,b\in[h]$ and
+$\zeta,\zeta'\in\mathcal Q\sqcup\{\star\}$,
+\begin{equation}\label{eq:summary-monitor}
+\begin{aligned}
+ \delta(\zeta,a)&=\mathit{exit}_a(\zeta),\\
+ \Tfin(\zeta,a)&\iff\Tfin_{\mathcal M}(\mathit{exit}_a(\zeta),\ell)\land
+   \neg\,\mathit{term}_a(\zeta,\mathit{exit}_a(\zeta)),\\
+ \Lambda((\zeta,a),(\zeta',b))&\iff\mathit{adm}(a,b,\zeta,\zeta'),\\
+ \Lfin((\zeta,a),(\zeta',b))&\iff\mathit{adm}(a,b,\zeta,\zeta')\lor
+   \mathit{term}_a(\zeta,\mathit{exit}_b(\zeta')),
+\end{aligned}
+\end{equation}
+where $\Tfin_{\mathcal M}$ is the target of $\mathcal M$; every relation
+involving the label $\triangleright$ is false. Then
+\[
+ \mathcal M[\ell,\Theta]\equiv_{[h],X}\mathcal M_\ell,
+\]
+where $X$ denotes the map $a\mapsto X_a$.
+In particular, $\Theta$ and the targets $\Tfin_{\mathcal M}(\cdot,\ell)$
+determine the restriction of the derivative $\mathcal M_\ell$ to the letters
+$X_1,\ldots,X_h$, up to the names of these letters.
+\end{lemma}
+
+\begin{proof}
+The right-hand sides are defined: an exit state is a state of $\mathcal Q$,
+also from the entry state $\star$, and $\mathit{term}_a(\zeta,\zeta'')$ is
+recorded for every $\zeta''\in\mathcal Q$. Both monitors have the state set
+$\mathcal Q\sqcup\{\star\}$ and the start state $\star$, and $X$ is
+injective because the blocks are distinct. We compare
+\eqref{eq:summary-monitor} with \cref{def:derivative} at the letters
+$X_a,X_b$ and the states $\zeta,\zeta'$. The derived transition
+$\delta_\ell(\zeta,X_a)$ is the exit state of the shifted block of $X_a$ read
+from $\zeta$, that is, $\mathit{exit}_a(\zeta)$. The bit
+$\mathit{term}_a(\zeta,\zeta'')$ states that
+$\Lfin(\mathit{lab}_p(\zeta,X_a),(\zeta'',\ell))$ holds for some
+$p\le|X_a|$. For $\zeta''=\delta_\ell(\zeta,X_a)$ this is the condition
+excluded by $\Tfin_\ell(\zeta,X_a)$, whose other condition is
+$\Tfin_{\mathcal M}(\delta_\ell(\zeta,X_a),\ell)$; this proves the second
+line. For $\zeta''=\delta_\ell(\zeta',X_b)$ it is the second disjunct of
+$\Lfin_\ell((\zeta,X_a),(\zeta',X_b))$. By definition,
+$\mathit{adm}(a,b,\zeta,\zeta')$ states
+$\Lambda_\ell((\zeta,X_a),(\zeta',X_b))$, which is also the first disjunct
+of $\Lfin_\ell$. This proves the third and fourth lines. Finally, every
+relation involving the start label $\triangleright$ of $\mathcal M_\ell$ is
+false by \cref{def:derivative}. These are all the conditions of
+\eqref{eq:monitor-agreement} for the letters of $[h]$ and the labels over
+them.
+\end{proof}
+
+\begin{lemma}[Summaries under agreement]\label{lem:summary-agreement}
+Let $\mathcal U\equiv_{E,\rho}\mathcal V$ with $\ell\in E$, and let
+$X_1,\ldots,X_h$ be blocks over $E$ avoiding $\ell$. Then the summary of
+$X_1,\ldots,X_h$ with respect to $\mathcal U$ and $\ell$ equals the summary
+of $\rho^*(X_1),\ldots,\rho^*(X_h)$ with respect to $\mathcal V$ and
+$\rho(\ell)$.
+\end{lemma}
+
+\begin{proof}
+The image blocks avoid $\rho(\ell)$, since $\rho$ is injective on $E$, and
+the column word of the image tuple is the letterwise image of the column
+word of $X_1,\ldots,X_h$, with absent entries kept absent. We show by
+induction on the columns that the two column automata, for $\mathcal U,\ell$
+and for $\mathcal V,\rho(\ell)$, reach equal summaries. Both monitors have
+the same states and the same start state, and summaries take values in
+states and bits only. In the initial summary,
+$\mathit{exit}_a(\zeta)=\delta(\zeta,\ell)$ agrees by the first line of
+\eqref{eq:monitor-agreement}, $\mathit{exit}_a(\star)$ is the common start
+state, and the $\mathit{term}$ and $\mathit{adm}$ bits evaluate $\Lfin$ and
+$\Lambda$ on the labels $\mathit{lab}_0(\zeta)$ and $(\zeta'',\ell)$. The map
+$\widehat\rho$ sends these labels to the corresponding labels for the marker
+$\rho(\ell)$, so the two lines of \eqref{eq:monitor-agreement} for the
+relations give equal bits. An update evaluates $\delta$ at a letter of $E$,
+$\Lambda$ and $\Lfin$ on labels whose letters lie in $E$, and the equality of
+two entries of the column. Agreement preserves the first two, and
+injectivity of $\rho$ on $E$ preserves equality and inequality of letters.
+Hence the updated summaries are equal.
+\end{proof}
+
+\subsection{The Search}
+
+We restate the search of \cref{fig:summary-search} with the details that the
+space bound needs. Fix $\mathcal M_0$, with state set $Q$ of size $N\ge1$,
+start state $\zeta_0$, and finite alphabet $\Gamma$, and fix $d\ge0$. Put
+\[
+ g=\DictBound(N,d),\qquad \bar N=N+d+1,\qquad \bar g=g+|\Gamma|;
+\]
+thus $\bar N$ bounds the number of states, and $\bar g$ the number of
+letters, of every monitor that the search stores.
+The search keeps a level $j\le d$ and a \emph{current monitor}
+$\mathcal W$: a lettered monitor with state set
+$Q\sqcup\{\star_1,\ldots,\star_j\}$, of size $N+j$, over a \emph{current
+alphabet} $\Gamma_{\mathcal W}$, which is $\Gamma$ for $j=0$ and $[h]$ for some
+$h\le g$ for $j\ge1$. Initially $j=0$ and $\mathcal W=\mathcal M_0$. The
+search repeats one of two moves.
+\begin{itemize}[leftmargin=*]
+\item \emph{Accept.} Choose $z\in\Gamma_{\mathcal W}$ and $1\le m'\le N+j$, and
+  accept if $z^{m'}$ is a hole of $\mathcal W$. Every pair of cuts of a
+  unary word is a comparison, so the test checks the target at the last
+  label, $\Lfin$ between the label of every cut $s<m'$ and the last label,
+  and $\Lambda$ between the labels of every two cuts $s<e<m'$
+  (\cref{app:search}, paragraph on unary words). The labels are computed
+  along the run of $\mathcal W$ on $z^{m'}$.
+\item \emph{Derive}, if $j<d$. Choose a marker $\ell\in\Gamma_{\mathcal W}$ and a
+  number $1\le h\le g$. Guess a column word with $h$ tracks over
+  $\Gamma_{\mathcal W}\setminus\{\ell\}$, one column at a time. Keep one flag per
+  track recording whether the track has started, and refuse a column with an
+  absent entry on a started track, so that the word is valid. Count the
+  columns with a binary counter and stop before $\mathit{col}(N+j,h)$
+  columns. Maintain the summary of the tracks read so far by the column
+  automaton of \cref{app:search} for $\mathcal W$ and $\ell$, starting from
+  the summary of $h$ empty blocks. At the end, with final summary $\Theta$,
+  require $\mathit{eq}(a,b)$ to be false for all $a\ne b$. Then replace
+  $\mathcal W$ by $\mathcal W[\ell,\Theta]$ of \cref{lem:summary-monitor},
+  naming its new state $\star_{j+1}$, and replace $j$ by $j+1$.
+\end{itemize}
+The tracks of the guessed column word spell blocks $Y_1,\ldots,Y_h$ over
+$\Gamma_{\mathcal W}$ that avoid $\ell$. Their summary is the final summary
+$\Theta$, and the final test makes them pairwise distinct.
+
+\paragraph{Space}
+The current monitor has $N+j<\bar N$ states and at most $\bar g$ letters.
+Write each state with $\lceil\log_2\bar N\rceil\le\bar N$ bits and each
+letter, or absent entry, with $\lceil\log_2(\bar g+1)\rceil\le\bar g$ bits.
+The search stores the following items.
+\begin{itemize}[leftmargin=*]
+\item The current monitor: its transitions, targets, and the relations
+  $\Lambda$ and $\Lfin$ on its at most $1+\bar N\bar g$ labels, in at most
+  $\bar N^2\bar g+\bar N\bar g+2(1+\bar N\bar g)^2\le10\bar N^2\bar g^2$ bits.
+\item During a derive move, the next monitor $\mathcal W[\ell,\Theta]$, with
+  $N+j+1\le\bar N$ states and $h\le\bar g$ letters, in at most
+  $10\bar N^2\bar g^2$ bits.
+\item One summary, for $h\le\bar g$ blocks, $N+j+1\le\bar N$ entry states, and
+  $N+j<\bar N$ states: $\mathit{exit}$ uses at most $h\bar N\cdot\bar N$ bits,
+  $\mathit{term}$ at most $h\bar N^2$, $\mathit{eq}$ at most $h^2$, and
+  $\mathit{adm}$ at most $h^2\bar N^2$, in total at most $4\bar N^2\bar g^2$
+  bits.
+\item The column counter. By \eqref{eq:col}, which is nondecreasing in both
+  arguments, it counts below $\mathit{col}(\bar N,g)$, and
+  \[
+   \log_2\mathit{col}(\bar N,h)=(\bar N+1)h\log_2\bar N+\bar N(\bar N+1)h+h^2
+   +(\bar N+1)^2h^2\le4(\bar N+1)^2h^2,
+  \]
+  using $\log_2\bar N\le\bar N$. The counter therefore has at most
+  $1+16\bar N^2g^2\le17\bar N^2\bar g^2$ bits.
+\item The current column and the track flags, in at most
+  $h(\bar g+1)\le2\bar g^2$ bits.
+\item The level $j$, the choices $\ell$, $h$, $z$, $m'$, and, for the accept
+  test, two cuts, the states at three cuts, and a running state with its
+  counter, recomputed from the start state: at most
+  $9\bar N+3\bar g\le12\bar N^2\bar g^2$ bits.
+\end{itemize}
+These items take at most $55\bar N^2\bar g^2$ bits. The summary is updated
+in place, column by column. Of the old summary, an update of a field
+$\mathit{term}$, $\mathit{eq}$, or $\mathit{adm}$ reads only its own old bit
+and the old exit states, and an update of a field $\mathit{exit}$ reads only
+its own old value. So the search first updates the fields $\mathit{term}$,
+$\mathit{eq}$, and $\mathit{adm}$, retaining the old exit states, and then
+the fields $\mathit{exit}$. Alternatively, a second summary buffer of the
+same size holds the new values. The remaining work space consists of the
+position of the input head, the counters and indices that address entries of
+the stored tables, the binary arithmetic that computes
+$\mathit{col}(N+j,h)$ and compares the column counter with it, and the
+evaluation of single entries of the update formulas and of
+\eqref{eq:summary-monitor}. Every number involved is below
+$\mathit{col}(\bar N,g)$ or below the size of the input or of a stored table,
+so this work space takes $O(\bar N^2\bar g^2)$ bits. Hence the search uses at
+most $\mathsf{Sp}=c_{\mathsf{Sp}}\bar N^2\bar g^2$ bits, for an absolute
+constant $c_{\mathsf{Sp}}$; this is polynomial in $\bar N$, $g$, and
+$|\Gamma|$. All bounds above use only the column bound \eqref{eq:col}, the
+dictionary bound $g$, and the unary bound $m'\le N+j$.
+
+\paragraph{Soundness}
+We show that whenever the search is at level $j$ with current monitor
+$\mathcal W$, there are markers
+$\widetilde{\boldsymbol\ell}=(\widetilde\ell_0,\ldots,\widetilde\ell_{j-1})$
+and a map $\rho_j$ from $\Gamma_{\mathcal W}$ to letters of level $j$,
+injective with an image family valid for $\widetilde{\boldsymbol\ell}$, such
+that
+\[
+ \mathcal W\equiv_{\Gamma_{\mathcal W},\rho_j}
+ \mathcal M^{\widetilde{\boldsymbol\ell}}_j ,
+\]
+in the notation of \cref{app:search} for towers. Initially $\rho_0$ is the
+identity on $\Gamma$ and the marker sequence is empty.
+
+For a derive move, let $Y_1,\ldots,Y_h$ be the spelled blocks and $\Theta$
+their summary. By \cref{lem:summary-monitor},
+$\mathcal W[\ell,\Theta]\equiv_{[h],Y}\mathcal W_\ell$, where $Y$ is the map
+$a\mapsto Y_a$. By \cref{lem:agreement-derivative}, applied to the family
+$\{Y_1,\ldots,Y_h\}$ of blocks over $\Gamma_{\mathcal W}$ avoiding
+$\ell\in\Gamma_{\mathcal W}$,
+\[
+ \mathcal W_\ell\equiv_{\{Y_a\},\rho_j^*}
+ \bigl(\mathcal M^{\widetilde{\boldsymbol\ell}}_j\bigr)_{\rho_j(\ell)},
+\]
+and the image blocks avoid $\rho_j(\ell)$. Put
+$\widetilde\ell_j=\rho_j(\ell)$ and $\rho_{j+1}(a)=\rho_j^*(Y_a)$. Composing
+the two agreements gives the invariant at level $j+1$; appending a marker
+does not change the lower monitors of the tower. The map $\rho_{j+1}$ is
+injective because the blocks are distinct and $\rho_j^*$ is injective on
+words over $\Gamma_{\mathcal W}$. Each image block avoids $\widetilde\ell_j$
+and consists of valid level-$j$ letters, so the image family is valid.
+
+If the search accepts with $z^{m'}$, agreement preserves holes of words over
+$\Gamma_{\mathcal W}$, so $\rho_j(z)^{m'}$ is a hole of
+$\mathcal M^{\widetilde{\boldsymbol\ell}}_j$. Expand it along
+$\widetilde\ell_{j-1},\ldots,\widetilde\ell_0$. At each level the word is a
+nonempty word of blocks avoiding that level's marker, by validity, so
+\cref{lem:der-holes} makes its expansion a hole of the monitor one level
+below. This yields a nonempty hole $w$ of $\mathcal M_0$. Each expansion ends
+with its marker, and its blocks avoid that marker. As in the proof of
+\cref{thm:search}, cutting $w$ at its successive markers recovers the
+expanded words, so the canonical hierarchy of $w$ reaches the unary word
+$\rho_j(z)^{m'}$ at level $j$, and $\depth(w)\le j\le d$.
+
+\paragraph{Completeness}
+Suppose that $\mathcal M_0$ has a nonempty hole of depth at most $d$. By
+\cref{lem:dictionary-bound}, it has a nonempty hole $w$ of some depth
+$\Delta\le d$ whose dictionaries satisfy $g_i\le g$ for $1\le i\le\Delta$. Let $u_i$,
+$\ell_i$, $\mathcal A_i$, and $\mathcal M_i$ be its hierarchy, markers,
+dictionaries, and derived monitors, so that $\mathcal M_{i+1}=(\mathcal
+M_i)_{\ell_i}$ and $u_i$ is a hole of $\mathcal M_i$ (\cref{lem:der-holes}).
+We follow a run that reaches, at each level $j\le\Delta$, a current monitor
+$\mathcal W_j$ and a map $\pi_j$ with
+\[
+ \mathcal W_j\equiv_{\Gamma_{\mathcal W_j},\pi_j}\mathcal M_j,\qquad
+ \mathcal A_j\subseteq\pi_j(\Gamma_{\mathcal W_j}).
+\]
+At $j=0$ take $\mathcal W_0=\mathcal M_0$ and $\pi_0$ the identity on
+$\Gamma$.
+
+Let $j<\Delta$, so a derive move is allowed. The $h=g_{j+1}\le g$ letters
+$X_1,\ldots,X_h$ of $\mathcal A_{j+1}$ are distinct blocks of $u_j$; their
+letters lie in $\mathcal A_j$, and they avoid $\ell_j\in\mathcal A_j$.
+Choose $\ell=\pi_j^{-1}(\ell_j)$ and $Y'_a=(\pi_j^{-1})^*(X_a)$, which avoid
+$\ell$. By \cref{lem:summary-agreement}, the summary $\Theta$ of
+$Y'_1,\ldots,Y'_h$ with respect to $\mathcal W_j$ and $\ell$ equals that of
+$X_1,\ldots,X_h$ with respect to $\mathcal M_j$ and $\ell_j$; in particular,
+its equality fields declare the blocks pairwise distinct. The current
+monitor has $N+j$ states, so by column shortening (\cref{app:search},
+paragraph on shortening), some valid column word with fewer than
+$\mathit{col}(N+j,h)$ columns has the same final summary $\Theta$. The
+search chooses $\ell$ and $h$, guesses this column word, and passes the final
+test. Its new monitor $\mathcal W_{j+1}=\mathcal W_j[\ell,\Theta]$ depends
+only on $\Theta$. Since $\Theta$ is also the summary of the distinct blocks
+$Y'_a$, \cref{lem:summary-monitor} gives
+$\mathcal W_{j+1}\equiv_{[h],Y'}(\mathcal W_j)_\ell$, where $Y'$ is the map
+$a\mapsto Y'_a$. \Cref{lem:agreement-derivative} gives
+$(\mathcal W_j)_\ell\equiv_{\{Y'_a\},\pi_j^*}(\mathcal M_j)_{\ell_j}
+=\mathcal M_{j+1}$. Composing, $\mathcal W_{j+1}\equiv_{[h],\pi_{j+1}}\mathcal
+M_{j+1}$ for $\pi_{j+1}(a)=\pi_j^*(Y'_a)=X_a$, a bijection onto
+$\mathcal A_{j+1}$.
+
+At level $\Delta$, the word $u_\Delta=z^L$ is a unary hole of $\mathcal M_\Delta$,
+which has $N+\Delta$ states. By unary shortening (\cref{app:search}, paragraph on
+unary words), $z^{m'}$ is a hole of $\mathcal M_\Delta$ for some
+$1\le m'\le N+\Delta$. Write $z=\pi_\Delta(z')$. By agreement, $z'^{m'}$ is a hole of
+$\mathcal W_\Delta$, and the search accepts. For $\Delta=0$ this is the accept move at
+level zero.
+
+\paragraph{Deterministic Space}
+The configurations of the search consist of the items counted above, a
+control state, and the input head position. The bound
+$\mathsf{Sp}=c_{\mathsf{Sp}}\bar N^2\bar g^2$ is at least the logarithm of
+the input size, and it can be computed from $N$, $d$, and $|\Gamma|$ in space
+$O(\mathsf{Sp})$. Savitch's theorem~\citep{Savitch70} simulates a
+nondeterministic machine with a space bound of this kind, at least
+logarithmic and constructible, by a deterministic machine in the square of
+that space. Hence the search runs in deterministic space
+$O(\mathsf{Sp}^2)=O(\bar N^4\bar g^4)$. Since $g\ge1$, we have
+$\bar g\le g(1+|\Gamma|)$, and $g\le2^{\Xi(N,d)}$ by
+\cref{lem:elementary-estimate}. Moreover,
+\[
+ \Xi(N,d)=3N^2+4N(N+d)(d+1)+3N+3d+4\le3\bar N^2+4\bar N^3+3\bar N+1
+ \le11\bar N^3,
+\]
+and $\bar N^4\le2^{4\bar N}$. Hence
+\[
+ \bar N^4\bar g^4\le2^{4\bar N+44\bar N^3}(1+|\Gamma|)^4
+ \le2^{48\bar N^3}(1+|\Gamma|)^4,
+\]
+which proves the deterministic bound of \cref{prop:summary-search}. The
+nondeterministic bound is the count $\mathsf{Sp}$ above, and soundness and
+completeness show that the search accepts iff $\mathcal M_0$ has a nonempty
+hole of depth at most $d$.
+\qed
+
+\subsection{Accounting for the Upper Bounds}
+
+\begin{proof}[Proof of \cref{thm:complexity}]
+We account for each part of the procedure.
+
+\emph{Satisfiability and transfers.} By \cref{lem:poly-tests}, decide in
+polynomial time whether $\phi$ is satisfiable in $\mathcal D$. If it is not,
+the entailment holds. Otherwise $\phi$ has a solution in arbitrary trees, and
+by \eqref{eq:g7} and \eqref{eq:g8} entailment in $\mathcal D$ coincides with
+entailment in arbitrary trees. By \eqref{eq:g13} and \cref{thm:holes}, the
+latter holds iff neither label reader has a hole.
+
+\emph{Reader and monitor tables.} Each label reader has $N=2^{4k+1}$ states
+over $\Dir$, with $|\Dir|=n$. Its transitions, rejected states, and admitted
+pairs fill $Nn(4k+1)+N+N^2$ bits, and each entry is computed in polynomial
+time by \cref{lem:poly-tests}. The lettered monitor of the reader
+(\cref{sec:search}) has the same transitions, the targets
+$\Tfin(\zeta,a)\iff\delta(\zeta,a)\in\Rej$, and $\Lambda=\Lfin$ given by
+$\Adm$ on the denoted states; it has $1+Nn$ labels. All these tables are
+written in space $2^{O(k)}\operatorname{poly}(\insize\phi)$.
+
+\emph{The empty word.} The empty word has no comparison, so it is a hole iff
+the initial state is rejected; this is tested directly.
+
+\emph{The depth bound.} As in the proof of \cref{thm:hole-decision},
+\cref{thm:brt,thm:depth} show that a reader with the rejected-path property
+has a hole iff the empty word is a hole or the reader has a nonempty hole of
+depth at most $d=8N^2-2N-1$. Both label readers have this property
+(\cref{lem:between}), and their nonempty holes are those of their lettered
+monitors.
+
+\emph{The summary search.} For each side, \cref{prop:summary-search}, with
+these $N$ and $d$ and with $|\Gamma|=n$, decides the existence of such a
+nonempty hole in deterministic space $2^{O((N+d+1)^3)}(1+n)^4$. Here
+$N+d+1=8N^2-N\le2^{8k+5}$, so $(N+d+1)^3\le2^{24k+15}$, and the space is
+$2^{2^{O(k)}}(1+n)^4$.
+
+\emph{Total.} The stages run one after another, and the space of the whole
+procedure is at most the sum of their bounds, which is
+$2^{2^{O(k)}}\operatorname{poly}(\insize\phi)$. This lies in 2-EXPSPACE
+because $k\le\insize\phi$. A deterministic machine that uses space
+$s\ge\log\insize\phi$ has at most $2^{O(s)}$ configurations, which gives
+deterministic time $2^{2^{2^{O(\insize\phi)}}}$. For the general syntax at
+positive arity, \cref{prop:flattening} produces, in polynomial time, a flat
+system and a variable query with the same entailment in each domain: it adds
+a constant number of variables per subexpression and per encoded inequality,
+and $O(n)$ symbols per encoding. The flat system has $O(\insize\phi)$
+variables, so the space is $2^{2^{O(\insize\phi)}}$. At arity zero,
+\cref{prop:arity-zero} gives polynomial time.
+\end{proof}
+
+\section{Constructors of Arity at Most One}
+\label{app:small-arity}
+
+\Cref{sec:complexity} concentrates on constructors of arity $n\ge2$. Its
+upper bound, \cref{thm:complexity}, also covers $n\le1$, but stronger bounds
+hold there: entailment is in PSPACE at arity one (\cref{thm:arity-one}) and in
+polynomial time at arity zero (\cref{prop:arity-zero}), in each of the three
+domains. We use the input size $\insize\phi$ and the polynomial-time tests of
+\cref{lem:poly-tests}.
+
+\subsection{Arity One}
+
+For $n=1$ the alphabet is $\Dir=\{0\}$. Every word is a power $0^L$, every
+pair of cuts $s<e\le L$ is a comparison, because $0^{L-e}\pre0^{L-s}$, and
+every nonempty word is unary and so has depth zero. \Cref{thm:search} with
+$d=0$ gives the length bound $\holeBound(N,0)=N+1$ of \eqref{eq:holebound}.
+The following lemma improves it and needs no rejected-path property.
+
+\begin{lemma}[One-letter readers]\label{lem:one-letter}
+Let $(\mathcal M,\Adm,\Rej)$ be a reader with $N$ states over a one-letter
+alphabet, and let $w$ be a hole. Then $\wpre{w}{J(w)}$ is a hole and
+$J(w)\le N-1$. In particular, a reader of this kind that has a hole has a
+hole of length at most $N-1$.
+\end{lemma}
+
+\begin{proof}
+Let $J=J(w)$; it exists because $w$ is rejected. The prefix $\wpre{w}{J}$
+ends in the rejected state $q_J$. Its comparisons are the pairs $s<e\le J$,
+which are comparisons of $w$ with the same cut states; none of them is
+admitted, so $\wpre wJ$ is a hole. Suppose $q_i=q_j$ for some $i<j\le J$.
+With one letter, $q_{i+t}=q_{j+t}$ for every $t\ge0$. For $t=J-j$ this gives
+$q_{J-(j-i)}=q_J\in\Rej$ with $J-(j-i)<J$, contradicting the minimality of
+$J$. Hence $q_0,\ldots,q_J$ are pairwise distinct, and $J+1\le N$.
+\end{proof}
+
+The bound is attained among general readers: take states $0,\ldots,N-1$,
+let the letter map $i$ to $\min(i+1,N-1)$, reject only $N-1$, and admit no
+pair. Its only holes are the words of length at least $N-1$.
+
+The lemma also gives an algorithm that tests a single word per reader. All
+words $0^L$ follow one run $q_0,q_1,\ldots$, so every hole has the same first
+rejected cut $J$, the first cut of this run with a rejected state. Follow
+the run to $J$; if none of $q_0,\ldots,q_{N-1}$ is rejected, there is no
+hole. Otherwise a hole exists iff $0^J$ is a hole.
+
+\begin{theorem}[Arity one]\label{thm:arity-one}
+Let $n=1$, with either variance, and let $\mathcal D$ be any of the three
+domains. If $\phi$ is satisfiable in $\mathcal D$ and
+$\phi\not\models_{\mathcal D,c}x\le y$, then some unsafe word has length at
+most $2^{4k+1}-1$. Entailment at arity one is decidable in polynomial space
+and in deterministic time $2^{O(k)}\operatorname{poly}(\insize\phi)$. In
+particular, it is in PSPACE in each domain, also for the general input syntax
+of \cref{prop:flattening}.
+\end{theorem}
+
+\begin{proof}
+By \cref{lem:poly-tests}, satisfiability in $\mathcal D$ is decided in
+polynomial time; if it fails, the entailment holds. Otherwise, by
+\eqref{eq:g7}, \eqref{eq:g8}, \eqref{eq:g13}, and \cref{thm:holes}, the
+entailment fails iff some label reader has a hole, and every hole is an
+unsafe word. By \cref{lem:one-letter}, a label reader with a hole has one of
+length at most $N-1=2^{4k+1}-1$, which proves the first claim.
+
+For the algorithm, consider each label reader and its run
+$q_0,q_1,\ldots$ on the powers of $0$. A state of \eqref{eq:g38}, two sets of
+signed variables and a latch bit, takes $4k+1$ bits, and a counter of $4k+1$
+bits counts up to $N-1$. Follow the run for at most $N-1$ steps, keeping only
+the current state and the counter. If none of $q_0,\ldots,q_{N-1}$ is
+rejected, the reader has no hole, since a hole $w$ would have
+$q_{J(w)}\in\Rej$ with $J(w)\le N-1$ by \cref{lem:one-letter}. Otherwise let
+$J$ be the first rejected cut of the run. Every hole $w$ is a power of $0$
+with $J(w)=J$, so by \cref{lem:one-letter} the reader has a hole iff $0^J$ is
+a hole, that is, iff $\neg\Adm(q_s,q_e)$ for all $s<e\le J$. The pairs $s<e$
+are enumerated by two counters, and the states $q_s$ and $q_e$ are
+recomputed from $q_0$. Each transition, each rejection test, and each
+admission test takes polynomial time by \cref{lem:poly-tests}. Only the
+closure, a constant number of states and counters, and the work space of
+these tests are stored, so the space is polynomial in $\insize\phi$. The
+procedure performs $O(N^3)$ transitions and tests, which gives the time
+bound. For the general syntax at positive arity, \cref{prop:flattening} is a
+polynomial-time reduction to a flat system with $O(\insize\phi)$ variables,
+so entailment remains in PSPACE.
+\end{proof}
+
+\subsection{Arity Zero}
+
+For $n=0$ the reader search of \cref{fig:algorithm} examines only the empty
+word, and general systems cannot be reduced to our restricted flat syntax by
+the positive-arity encoding of \cref{prop:flattening}. Both cases are
+nevertheless easy.
+
+\begin{proposition}[Arity zero]\label{prop:arity-zero}
+Let $n=0$. The three domains coincide, and entailment is decidable in
+polynomial time, both for flat systems and for general systems of
+inequalities between variables and the constants $\bot,f(),\top$, with a
+query between two such expressions.
+\end{proposition}
+
+\begin{proof}
+At arity zero every tree is $\bot$, $f()$, or $\top$ (\cref{sec:words}), so
+the three domains coincide, and by \eqref{eq:g3} the order is the chain
+$\bot<f()<\top$. For a flat system, the procedure of \cref{fig:algorithm}
+computes the closure, tests for a label clash, and then tests the empty
+word, that is, whether the initial state of either reader is rejected. All of
+this takes polynomial time by \cref{lem:poly-tests}. For a general system
+$\phi$ and query $t\le t'$, the query fails under an assignment $\sigma$ iff
+$\sigma(t)>\sigma(t')$. For each of the three pairs of constants $a>b$, test
+whether $\phi$ together with $t\le a$, $a\le t$, $t'\le b$, and $b\le t'$ is
+satisfiable; entailment holds iff all three tests fail.
+
+Satisfiability of a finite set $\Phi$ of inequalities between variables and
+constants over the chain is decided by propagation. Start with
+$\lambda(v)=\bot$ for every variable, and let $\lambda$ map each constant to
+itself. While some inequality $t_1\le v$ with a variable $v$ has
+$\lambda(t_1)>\lambda(v)$, raise $\lambda(v)$ to $\lambda(t_1)$. Each variable
+is raised at most twice. Induction on the raises shows that
+$\sigma\ge\lambda$ pointwise for every solution $\sigma$. At termination,
+every inequality into a variable holds under $\lambda$. If $\lambda$
+satisfies $\Phi$, then $\Phi$ is satisfiable. Otherwise a violated
+inequality $t_1\le b$ has a constant right side and $\lambda(t_1)>b$; every
+solution $\sigma$ has $\sigma(t_1)\ge\lambda(t_1)>b$, so $\Phi$ is
+unsatisfiable. All steps take polynomial time.
+\end{proof}

@@ -1,0 +1,47 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=9mm,y=8mm,>=Stealth,
+    every node/.style={font=\small,inner sep=2pt},
+    filler/.style={font=\scriptsize,anchor=west}]
+  \node[anchor=east,font=\scriptsize] at (-0.5,0) {$f(\ldots)\le P_j$};
+  \node[anchor=east,font=\scriptsize] at (-0.5,-1.6) {$Q_j\le f(\ldots)$};
+  \node[anchor=east,font=\scriptsize] at (-0.5,-3.2) {$Y_j\le f(\ldots)$};
+  \node[anchor=east,font=\scriptsize] at (-0.5,-4.8) {$f(\ldots)\le W_j$};
+  \node at (0,0.7) {cut $0$};
+  \node at (1.8,0.7) {$j$};
+  \node at (3.8,0.7) {$j+1$};
+  \node at (6.1,0.7) {$m$};
+  \foreach \spinerow/\spiney/\spineroot/\spinesign/\spinenextsign/\spinefiller in
+    {P/0/x^+/p_j/p_{j+1}/B,
+     Q/-1.6/x^-/1\oplus p_j/1\oplus p_{j+1}/T,
+     Y/-3.2/y^+/p_j/p_{j+1}/T,
+     W/-4.8/y^-/1\oplus p_j/1\oplus p_{j+1}/B} {
+    \node (\spinerow0) at (0,\spiney) {$\spineroot$};
+    \node (\spinerow j) at (1.8,\spiney) {$\underset{[\spinesign]}{\spinerow_j}$};
+    \node (\spinerow next) at (3.8,\spiney) {$\underset{[\spinenextsign]}{\spinerow_{j+1}}$};
+    \draw[densely dotted] (\spinerow0) -- (\spinerow j);
+    \draw[->] (\spinerow j) -- node[above,font=\scriptsize] {$w[j]$} (\spinerow next);
+    \draw (\spinerow j.south) -- ++(0,-0.45) -- ++(0.4,0)
+      node[filler] {$\spinefiller^{\spinesign\oplus c(i)}\quad(i\ne w[j])$};
+  }
+  \node[anchor=west] (Pm) at (5.5,0) {$\underset{[p_m]}{P_m}=\Top$};
+  \node[anchor=west] (Qm) at (5.5,-1.6) {$\underset{[1\oplus p_m]}{Q_m}=\Bot$};
+  \node[anchor=west] (Ym) at (5.5,-3.2)
+    {$\underset{[p_m]}{Y_m}\le f(T^{p_m\oplus c(i)})_i$};
+  \node[anchor=west] (Wm) at (5.5,-4.8)
+    {$f(B^{1\oplus p_m\oplus c(i)})_i\le\underset{[1\oplus p_m]}{W_m}$};
+  \foreach \spinerow in {P,Q,Y,W} {\draw[densely dotted] (\spinerow next) -- (\spinerow m);}
+\end{tikzpicture}
+\caption{The four-spine extension along $w$, with $Q_j=\flip P_j$ and
+$W_j=\flip Y_j$. Brackets give node signs; the root signs are $0,1,0,1$.
+Each arrow reads the child $w[j]$. The $P,W$ links are lower constructor
+bounds, and the $Q,Y$ links are upper bounds, with the displayed off-path
+fillers. Dots abbreviate the other cuts. \Cref{ex:running-spines}
+instantiates the construction at $w=0$.}
+\Description{Four horizontal rows P, Q, Y, W run from their signed query
+roots through cuts j and j plus one to cut m. Every step reads the letter at position j and
+toggles the sign by its variance. P and W have bottom off-path fillers;
+Q and Y have top fillers. The final P is top and Q is bottom. Y ends with
+an upper constructor bound and W with a lower constructor bound.}
+\label{fig:four-spines}
+\end{figure}

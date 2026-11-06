@@ -1,0 +1,664 @@
+\section{Proof of the Cores Lemma}
+\label{app:cores}
+
+We prove \cref{lem:cores}. Let $w$ be nonempty with $m = \len{w}$, let $u_j$ and $\ell_j$ be its
+hierarchy and markers, and let $\mathit{core}_j(x)$ be the core of position $x$ of $u_j$.
+
+\paragraph{Part 1}
+The cores of $u_{j+1}$ are a new start core followed by the cores of the nonfinal occurrences
+of $\ell_j$ in $u_j$, in their order in $u_j$. By induction on $j$, the start cores of $u_j$
+therefore form an initial segment of pairwise distinct cores, the ordinary cores increase from
+left to right, and $\Cores_{j+1} \subseteq \Cores_j$. The start cores of $u_{j+1}$ are the new
+one and those inherited from the start segment of $u_j$, so there are at most $1 + j$ of
+them.
+
+\paragraph{Shifted Expansions}
+Let $\Gamma_0$ be the alphabet of $w$ and $\Gamma_{j+1} = (\Gamma_j \setminus \{\ell_j\})^*$, so that $u_j$ is a
+word over $\Gamma_j$. Define $\xi_0(a) = a$ and
+\[
+  \xi_{j+1}([X]) = \xi_j(\ell_j)\,\xi_j(X[0]) \cdots \xi_j(X[b-1])
+  \qquad\text{for } X = X[0]\cdots X[b-1].
+\]
+A set of nonempty words is a \emph{code} if every concatenation of its
+elements has a unique factorization into those elements; prefix-freeness
+is not required.
+\begin{enumerate}[label=(\alph*),leftmargin=*]
+\item \emph{$\xi_j$ is injective, and $\xi_j(\Gamma_j)$ is a code.}
+  At level zero, the image consists of one-letter words. For the induction step, the map
+  $[X] \mapsto \ell_j X$ has a code as its image, since each of its words starts with $\ell_j$
+  and contains no other $\ell_j$. The extension of $\xi_j$ to words is an injective
+  morphism because $\xi_j(\Gamma_j)$ is a code, and the image of a code under an injective
+  morphism is a code.
+\item \emph{Invariant.} Put $t_{-1} = m$. If $\Cores_j \ne \emptyset$, then every position
+  after an ordinary position of $u_j$ is ordinary; for every ordinary position $x$ of $u_j$
+  other than the last,
+  $\wsub{w}{\mathit{core}_j(x)}{\mathit{core}_j(x+1)} = \xi_j(u_j[x])$; and for the last
+  position, $\wsub{w}{t_j}{t_{j-1}} = \xi_j(\ell_j)$.
+
+  The case $j = 0$ is immediate. For the step, let $x_0 < \cdots < x_{h-1}$ be the positions of
+  $\ell_j$ in $u_j$, so that $x_{h-1}$ is its last position and position $i \ge 1$ of $u_{j+1}$
+  holds the block formed by the positions $x_{i-1}+1, \dots, x_i-1$ and has the core
+  $\mathit{core}_j(x_{i-1})$. If that core is ordinary, the positions $x_{i-1}, \dots, x_i - 1$
+  of $u_j$ are ordinary and not last, so by induction the factor of $w$ from
+  $\mathit{core}_j(x_{i-1})$ to $\mathit{core}_j(x_i)$ is
+  $\xi_j(\ell_j)\,\xi_j(u_j[x_{i-1}+1]) \cdots \xi_j(u_j[x_i - 1]) =
+  \xi_{j+1}(u_{j+1}[i])$. For $i < h-1$, the endpoint $\mathit{core}_j(x_i)$ is
+  $\mathit{core}_{j+1}(i+1)$; for $i = h-1$, it is $\mathit{core}_j(x_{h-1}) = t_j$, and the
+  letter $u_{j+1}[h-1]$ is the marker $\ell_{j+1}$.
+\end{enumerate}
+Write $r_j = \wsuf{w}{t_j}$ for the terminal core word of level $j$ and $r_{-1} = \eps$. By
+(b), $r_j = \xi_j(\ell_j)\, r_{j-1}$.
+
+\paragraph{Part 2}
+We show by induction on $j$ that, if $\Cores_j \ne \emptyset$, then
+$\Cores_{j+1} = \{s \mid s < t_j,\ r_j \pre \wsuf{w}{s}\}$. (If $\Cores_j = \emptyset$, then
+$\Cores_{j+1} = \emptyset$ by Part~1.)
+
+($\subseteq$) Let $s \in \Cores_{j+1}$. Then $s$ is the core of a nonfinal occurrence $x$ of
+$\ell_j$ in $u_j$, so $s < t_j$, and by (b) the factor of $w$ from $s$ to
+$\mathit{core}_j(x+1)$ is $\xi_j(\ell_j)$. For $j = 0$ this factor is $r_0$. For $j > 0$, the
+core $\mathit{core}_j(x+1)$ belongs to $\Cores_j$ and hence, by the induction hypothesis, is an
+occurrence of $r_{j-1}$. So $\wsuf{w}{s}$ starts with $\xi_j(\ell_j)\,r_{j-1} = r_j$.
+
+($\supseteq$) Let $s < t_j$ with $r_j \pre \wsuf{w}{s}$. For $j = 0$, $r_0 = \ell_0$ is the last
+letter of $w$, and $s$ is a nonfinal occurrence of it, so $s \in \Cores_1$. Let $j > 0$. By the
+induction hypothesis, the occurrences of $r_{j-1}$ in $w$ are exactly the elements of
+$\Cores_j \cup \{t_{j-1}\}$ (an occurrence $i$ satisfies $i \le t_{j-1}$, since
+$\len{r_{j-1}} = m - t_{j-1}$). As $t_j \in \Cores_j$, the word $r_{j-1}$ is a prefix of $r_j$,
+so $s$ is an occurrence of $r_{j-1}$ with $s < t_{j-1}$; thus $s \in \Cores_j$, say
+$s = \mathit{core}_j(x)$, and $x$ is not the last position because $s < t_j$. Inside the
+suffix $r_j$ of $w$, the occurrences of $r_{j-1}$ are at $t_j$ and $t_{j-1}$ only, because
+$t_j = \max \Cores_j$. Hence the word $r_j$ contains $r_{j-1}$ exactly at the offsets $0$ and
+$\varpi = t_{j-1} - t_j$. Consequently the occurrences of $r_{j-1}$ in $w$ that start in
+$[s, s+\varpi]$ are exactly $s$ and $s+\varpi$: an occurrence starting strictly between them
+ends before $s + \len{r_j}$ and would be a third occurrence inside the copy of $r_j$ at~$s$.
+Since $s + \varpi < t_{j-1}$, the next element of $\Cores_j$ after $s$ is $s + \varpi$, and by
+Part~1 it is $\mathit{core}_j(x+1)$. By (b),
+$\xi_j(u_j[x]) = \wsub{w}{s}{s+\varpi} = \wsub{w}{t_j}{t_{j-1}} = \xi_j(\ell_j)$, and
+injectivity gives $u_j[x] = \ell_j$. Since $x$ is not the last position, $s \in \Cores_{j+1}$.
+\qed
+
+\section{Details of the Bounded-Depth Compression}
+\label{app:search}
+
+We prove the dictionary normal form and the compression statements of \cref{sec:search}
+for an arbitrary lettered monitor with $N\ge1$ states. Its nonempty holes
+supply every marker used below; no finiteness assumption on the alphabet
+is needed. All dictionaries and tables considered here are finite.
+
+\subsection{Comparisons and Isolated Exchange}
+
+\begin{lemma}[Comparison-preserving maps]\label{lem:comparison-map}
+Let $v$ be a nonempty word and $\theta$ a letter map. Suppose that $\theta$ identifies
+no unequal predecessor pair of any comparison, including terminal ones:
+\[
+ 1\le s<e\le|v|,\quad v[e:]\pre v[s:],\quad
+ \theta(v[s-1])=\theta(v[e-1])\quad\Longrightarrow\quad v[s-1]=v[e-1].
+\]
+Then $v$ and $\theta(v)$ have exactly the same comparisons. Moreover, on the
+letters of $v$, $\theta(a)=\theta(\ell)$ implies $a=\ell$, where $\ell$ is the
+last letter of $v$.
+\end{lemma}
+\begin{proof}
+A letter map preserves every old comparison. If $(s,e)$ is a new one,
+choose the largest offset $t<|v|-e$ at which
+$v[s+t]\ne v[e+t]$. The remaining suffixes agree, so
+$(s+t+1,e+t+1)$ is an old comparison. Its unequal predecessors have equal
+images, contrary to the hypothesis. To prove the last assertion, an
+occurrence of $a$ before the final position gives a terminal comparison
+between the cuts following that occurrence and the last letter. Its
+predecessors cannot be identified unless they agree. The final occurrence
+itself is immediate.
+\end{proof}
+
+We first justify the state information used by the exchange types.
+The state set at level $i$ is $Q$ with $i$ successive symbolic states
+adjoined. Ordinary states form a closed copy of $Q$: at level zero this
+is immediate, and a derived transition from an ordinary state runs the
+previous monitor over $\ell X$, hence stays ordinary by induction.
+The shifted-run definition also identifies the entry state of a position
+with its core: an ordinary core $p$ carries the original state at cut $p$;
+a symbolic core carries the corresponding adjoined state. Indeed, the
+first block starts at the new symbolic state, and each later block starts
+at the entry state of its preceding marker. This is precisely the core
+recursion of \cref{lem:cores}. Thus all occurrences of an unprotected
+letter have ordinary entry states, and every entry state occurring in
+$u_i$ belongs to $Z_i$.
+
+\begin{proof}[Proof of \cref{lem:exchange-types}]
+The transition table has $N^N$ possibilities. The target table uses $N$
+bits, the two self tables $2N^2$ bits, the protected tables
+$4N\,|Z_i|\,|\Pi_i|$ bits, and the initial rows $2N$ bits. Hence the number
+of types is at most
+\[
+ N^N2^{2N^2+4N|Z_i||\Pi_i|+3N}.
+\]
+Using $|\Pi_i|\le s_i+1\le d+1$ and $|Z_i|\le N+s_i\le N+d$ gives the bound
+$\TyBound(N,d)$ of \eqref{eq:dictionary-constants}.
+\end{proof}
+
+For the local part of \cref{lem:isolated-exchange}, fix $i$, put $v=u_i$,
+and let $\theta$ identify $a$ with $a'$ and fix every other letter.
+An unequal predecessor pair identified by $\theta$ would be $(a,a')$ or
+$(a',a)$. A nonterminal such pair contradicts isolation; a terminal one
+would contain the protected marker. \Cref{lem:comparison-map} therefore
+preserves comparisons. Induction on positions preserves the full state
+run: the only changed transitions read $a$ at ordinary states, where its
+transition table equals that of $a'$. The final letter is protected and
+unchanged, so its entry state and target test are unchanged.
+
+For each comparison, consider its predecessor labels. If neither letter
+is $a$, the labels are unchanged. If both are $a$, the relevant self table
+preserves admission. If exactly one is $a$, the other is protected:
+for a nonterminal comparison this follows from isolation, and for a
+terminal comparison its later predecessor is the marker. The appropriate
+protected row, in the appropriate orientation, preserves either admission
+predicate. A comparison starting at zero uses the initial-label row;
+at positive levels this row is false. Protected letters at symbolic
+states are covered by the $Z_i$ columns. These cases cover all comparisons,
+so $\theta(v)$ is a hole of the same level-$i$ monitor. Expanding it with the
+markers of the original hierarchy below level $i$ gives a nonempty base hole
+by \cref{lem:der-holes}.
+It remains to prove the asserted structural properties of that expansion.
+
+\subsection{Induced Level Maps and Start Counts}
+
+Continue a hierarchy past its first unary level when discussing all
+levels; desubstitution preserves unary words. For a level map $\theta$ define
+$\theta_0=\theta$ and $\theta_{r+1}(X)=\theta_r^*(X)$, where the star denotes letterwise
+application to a block body.
+
+\begin{lemma}[Shape under a level map]\label{lem:level-maps}
+Let $w$ be a nonempty hole, and let $\theta$ map the dictionary of $u_i$ into
+itself. Suppose that it identifies no unequal predecessor pair, as in
+the hypothesis of \cref{lem:comparison-map}, fixes the
+start prefix $u_i[:s_i]$ letterwise, preserves the level-$i$ state run,
+and makes $\theta(u_i)$ a hole of $\mathcal M_i$. Expand $\theta(u_i)$ with the
+markers of the original hierarchy below level $i$ to obtain $w'$. Then $w'$
+is a hole, its markers below $i$ are unchanged, and its dictionaries below
+$i$ are subsets of the old ones. At every $r\ge0$,
+\[
+ u'_{i+r}=\theta_r(u_{i+r}),\qquad
+ \ell'_{i+r}=\theta_r(\ell_{i+r}),
+\]
+and $\theta_r$ identifies no unequal predecessor pair of a comparison of
+$u_{i+r}$. Every start count is unchanged, and exactly the same levels
+are unary. In particular, depth is preserved and no dictionary grows.
+\end{lemma}
+
+\begin{proof}
+Every image letter occurs in the old dictionary, so it has a valid
+expansion avoiding each lower marker. Expansion and cutting are inverse
+at every lower level: a block body avoids its marker and its following
+marker is present. Thus the decoded hierarchy reaches $f(u_i)$ exactly,
+with unchanged lower markers. Repeated use of \cref{lem:der-holes} proves
+holehood. Descending through these expansions also proves dictionary
+containment below $i$.
+
+We verify the upward induction. For any map $F$ satisfying
+the hypothesis of \cref{lem:comparison-map} on a word $u$ ending in $\ell$, \cref{lem:comparison-map} reflects the
+marker: no other letter maps to $F(\ell)$. Hence cutting at markers
+commutes with $F$. Write $V$ for the block word of $u$. The induced
+map $F^*$ on its letters identifies no unequal predecessor pair of an
+upper comparison. To see this, suppose the cuts following blocks $X,Y$
+form a comparison of $V$, and $F^*(X)=F^*(Y)$. In the image of $u$,
+the cuts at the beginnings of these blocks form a comparison: their
+first blocks agree and the following block suffixes compare.
+Comparison preservation by $F$ gives the same lower comparison before
+mapping. Since $X,Y$ avoid $\ell$, its first aligned markers force
+$X=Y$. This proves the required nonidentification property upstairs,
+including when the upper comparison is terminal. Induction gives the
+claimed level words, markers, and comparison sets at every higher level.
+
+We show that every start count is unchanged.
+For any nonempty hierarchy let $m_j=|u_j|$ and write
+$\#_{\ell}(v)$ for the number of occurrences of $\ell$ in $v$. The core
+recursion gives
+\begin{equation}\label{eq:start-count}
+ s_0=0,\qquad
+ s_{j+1}=\min\{1+\#_{\ell_j}(u_j[:s_j]),\ m_{j+1}\}.
+\end{equation}
+There is one new start core, followed by those inherited from nonfinal
+markers in the old start prefix. The minimum removes the final marker
+when that whole level is a start prefix. In particular, if $s_j=m_j$,
+then $s_{j+1}=m_{j+1}$, since $\#_{\ell_j}(u_j)=m_{j+1}$.
+At level $i$ the unchanged run and length give $s'_i=s_i$, and the
+start prefixes agree by hypothesis. Above $i$, marker reflection and
+the equal lengths of mapped words preserve both arguments of the minimum
+in \eqref{eq:start-count}; induction gives $s'_j=s_j$.
+
+Below level $i$ we argue as follows. Suppose two hierarchies have the same markers
+below $i$, equal start counts at $i$, and equal start prefixes there.
+Expanding that common prefix downwards gives, at every $j\le i$, a
+common prefix of length $\lambda_j$ with
+\[
+ s_j\le \lambda_j\le m_j,\qquad
+ j<i\ \Longrightarrow\ (s_j<\lambda_j\ \text{or}\ \lambda_j=m_j).
+\]
+To check these inequalities, if the upper start prefix is not the whole
+upper word, \eqref{eq:start-count} says it has one more block than the
+number of markers in the lower start prefix. Its full expansion therefore
+ends strictly after that lower prefix. If it is the whole word, its
+expansion is the whole lower word. Apply this observation inductively;
+expanding a longer common upper prefix only increases the lower length.
+Equal lower markers give equal derived monitors through level $i$, so
+runs coincide along each common prefix. Every old start position is
+therefore still a start position: $s'_j\ge s_j$.
+
+For $j<i$, if $s_j<m_j$, an excess $s'_j>s_j$ is impossible. The common prefix
+contains position $s_j$, which is ordinary in the old run and would be
+symbolic in the new one. The remaining case is the cap $s_j=m_j$.
+Assume $s'_j>s_j$. The old whole word is a prefix of the new one,
+and the new word is strictly longer. The old upper level is also wholly
+symbolic and is a common prefix of the new upper level. That upper level
+must be strictly longer too, since equal upper words with the same marker
+expand to equal lower words. The new start prefix contains the entire
+old lower word, hence at least $m_{j+1}$ markers. Formula
+\eqref{eq:start-count} now gives
+\[
+ s'_{j+1}\ge\min\{m_{j+1}+1,m'_{j+1}\}>m_{j+1}=s_{j+1}.
+\]
+The excess propagates to level $i$, contradicting $s'_i=s_i$.
+Thus no cap creates an extra start position, and all lower counts agree.
+
+Finally, marker reflection implies that a higher mapped word is unary
+iff the old word is unary: if every image letter equals the image marker,
+every old letter is the marker. If $u_i$ is nonunary, no lower word in
+either hierarchy is unary, since a unary word has only unary derived
+levels. If $u_i$ is unary, its dictionary is a singleton and $\theta$ maps
+it into itself, so decoding makes $w'=w$. This proves the claim at
+lower levels as well. Higher dictionaries are images of old dictionaries,
+so their sizes cannot increase.
+\end{proof}
+
+\begin{proof}[Completion of \cref{lem:isolated-exchange}]
+The local argument already proved comparison preservation, run preservation,
+and holehood at level $i$. The map fixes the start prefix and maps the
+dictionary into itself, because $a,a'$ occur and are unprotected.
+Apply \cref{lem:level-maps}. The new level-$i$ dictionary is the old
+one with $a$ removed, so its size strictly decreases. Write $|a|_0$ and
+$|a'|_0$ for the lengths of the ordinary level-zero expansions of $a$ and
+$a'$ with the markers of the original hierarchy. The decoded length changes by
+\[
+ \#_a(u_i)(|a'|_0-|a|_0).
+\]
+Both merge directions satisfy the hypotheses. Choose the direction with
+$|a'|_0\le|a|_0$ to make this difference nonpositive.
+\end{proof}
+
+The level maps establish hierarchy geometry, not agreement of all the
+higher derived predicates under noninjective maps. After decoding, derive
+the monitors again from the new word. Holehood in those monitors follows
+from \cref{lem:der-holes}. Protected sets, isolation, and exchange types
+are likewise computed afresh for the next merge.
+
+\subsection{Dictionary Normal Form, Boundary Pairs, and the Recurrence}
+
+\begin{proof}[Proof of \cref{lem:dictionary-normal-form}]
+Use the natural-number potential $\sum_{j=0}^{\Delta}g_j$, the total
+size of the dictionaries. Whenever dictionary normality fails, merge the offending
+isolated pair in the direction of smaller expansion. By
+\cref{lem:isolated-exchange}, depth stays $\Delta$, no dictionary grows,
+and one strictly shrinks, so the potential strictly decreases. The process
+terminates. Recompute the entire hierarchy and its types after every step;
+termination therefore means dictionary normality at every positive nonunary level
+of the final word simultaneously. Length and dictionary nonincrease and
+start-count equalities compose through the finite sequence of merges.
+\end{proof}
+
+\begin{proof}[Counting part of \cref{lem:dictionary-count}]
+Partition $\mathcal A_i$ into protected letters, isolated unprotected
+letters, and the remaining letters. The first part has size at most
+$d+1$. Dictionary normality injects the second part into the type space, so it has
+size at most $\TyBound(N,d)$. Each letter in the third part is a component of
+some ordered boundary pair with both components unprotected. The union
+of the two projections of $\operatorname{BP}_i$ has size at most $2b_i$.
+Adding gives $g_i\le \AlBound(N,d)+2b_i$.
+\end{proof}
+
+\begin{proof}[Propagation part of \cref{lem:dictionary-count}]
+For distinct blocks $X,Y$ avoiding a marker $\ell$, define
+$\mu_\ell(X,Y)$ as their first unequal letters when scanned from right
+to left, using $\ell$ when one body is exhausted. Equivalently, remove
+their longest common suffix; take the last remaining letter in each body,
+or $\ell$ for an empty remainder. These two letters are unequal.
+Set $\mu_\ell(X,X)=(\ell,\ell)$ to make the map total.
+
+The \emph{endpoint pairs} of level $i$ are the predecessor pairs of the
+left-maximal comparisons that end at the final cut:
+\[
+ \operatorname{EP}_i=\{(u_i[s-1],u_i[e-1]):
+       (s,e)\text{ is left maximal},\ e=|u_i|\}.
+\]
+Their second component is the marker $\ell_i$.
+
+Take a lower boundary pair witnessed by $(s,e)$ in the expansion of a
+block word $V$, with $e$ nonterminal. By \cref{lem:alignment}, the cuts
+lie in blocks $X=V[i_s]$ and $Y=V[i_e]$, with $i_s<i_e$, the same
+remaining body suffix, and an upper comparison $(i_s+1,i_e+1)$.
+Because $s\ge1$, the predecessor of a cut at a block's beginning is the
+preceding marker; a cut inside a body has its ordinary predecessor.
+The unequal lower predecessors are exactly $\mu_\ell(X,Y)$: the common
+suffix extends right to the marker and cannot extend one more letter left.
+In particular $X\ne Y$. Thus $(X,Y)$ belongs either to the upper
+nonterminal boundary pairs or to its endpoint pairs, and
+\[
+ \operatorname{BP}_i\subseteq
+ \mu_{\ell_i}(\operatorname{BP}_{i+1}\cup\operatorname{EP}_{i+1}).
+\]
+This also covers lower pairs with one component equal to $\ell_i$ and
+upper comparisons ending at the final cut. Every upper endpoint pair
+has the form $(a,\ell_{i+1})$ with $a\ne\ell_{i+1}$. There are at most
+$g_{i+1}-1$ such pairs. Taking cardinalities proves
+\eqref{eq:boundary-propagation}.
+\end{proof}
+
+\begin{proof}[Proof of \cref{lem:dictionary-bound}]
+All counts now refer to one fixed dictionary-normal hole; abbreviate
+$\AlBound=\AlBound(N,d)$. Its unary top has
+$g_\Delta=1$ and $b_\Delta=0$. If $\Delta\ge1$, propagation gives $b_{\Delta-1}=0$.
+For $1\le i<\Delta-1$, counting at level $i+1$ and propagation give
+\[
+ b_i\le b_{i+1}+g_{i+1}-1\le3b_{i+1}+\AlBound-1.
+\]
+Induct downwards from $\Delta-1$. If $r=\Delta-1-i$ and the bound holds at $i+1$,
+\[
+ 2b_i\le3(\AlBound-1)(3^{r-1}-1)+2(\AlBound-1)=(\AlBound-1)(3^r-1).
+\]
+The base case has both sides zero. Adding $\AlBound$ gives
+$g_i\le \AlBound+2b_i\le1+(\AlBound-1)3^r$, as claimed.
+Since $r\le d$ and $\AlBound\ge1$, this is at most $\DictBound(N,d)$.
+The unary dictionary has size one, also at most $\DictBound(N,d)$.
+Put an arbitrary hole in dictionary normal form using \cref{lem:dictionary-normal-form}
+to obtain the existential assertion. For $\Delta=0$ there are no positive
+levels to bound; for $\Delta=1$ only the unary dictionary is needed.
+\end{proof}
+
+\subsection{Unary and Column Shortening}
+Fix a lettered monitor $\mathcal M$ with state set $\mathcal Q$ and
+start state $\zeta_0$, and a marker $\ell$. Write
+$\mathit{lab}_0(\zeta)$ for the initial shifted-block label:
+$(\zeta,\ell)$ for any $\zeta\in\mathcal Q$, and
+$\triangleright$ at the fresh entry symbol $\star$.
+
+\paragraph{Unary Words}
+Let $v = z^L$ be a hole of $\mathcal{M}$, with states $\zeta_0, \zeta_1, \dots$ where
+$\zeta_{p+1} = \delta(\zeta_p,z)$. Since every pair of cuts of a unary word is a comparison, $v$ is a
+hole iff $\Tfin(\zeta_{L-1},z)$ holds, no label of a cut $s < L$ is related by $\Lfin$ to the
+last label, and no two labels of cuts $s < e < L$ are related by $\Lambda$. If
+$\zeta_i = \zeta_{i'}$ for some $i < i' \le L-1$, delete the letters between cuts $i$ and $i'$.
+The cut $p > i$ of the new word has the state and label of the cut $p + (i'-i)$ of $v$, so the
+labels of the new word form a subsequence of those of $v$ with the same last label. Every
+condition above is therefore preserved. Repeating, we obtain a unary hole of length at most
+$\len{\mathcal Q}$.
+
+\paragraph{The Column Automaton}
+Let $X_1,\dots,X_h$ be blocks avoiding $\ell$. The summary of \cref{sec:search} is a tuple of
+four functions, where $\mathbb{B}$ is the set of Boolean values:
+\begin{align*}
+  \mathit{exit}_a(\zeta) &\in \mathcal Q, &&\text{the exit state of the shifted block of } X_a
+                                 \text{ read from } \zeta,\\
+  \mathit{term}_a(\zeta,\zeta'') &\in \mathbb{B}, &&\text{whether some label of it is related by }
+                                 \Lfin \text{ to } (\zeta'',\ell),\\
+  \mathit{eq}(a,b) &\in \mathbb{B}, &&\text{whether } X_a = X_b,\\
+  \mathit{adm}(a,b,\zeta,\zeta') &\in \mathbb{B}, &&\text{whether } \Lambda_\ell \text{ relates }
+                                 (\zeta,X_a) \text{ and } (\zeta',X_b),
+\end{align*}
+for blocks $a,b$, states $\zeta,\zeta' \in \mathcal Q \sqcup \{\star\}$, and states $\zeta'' \in \mathcal Q$. Its number
+of values is the function $\mathit{col}(\len{\mathcal Q},h)$ of \eqref{eq:col}.
+
+Right-align the blocks, pad them on the left, and read the resulting word of columns, each an
+$h$-tuple of optional letters, from left to right (\cref{fig:columns}). The tuple of $h$ empty blocks has
+the initial summary with $\mathit{exit}_a(\zeta) = \delta(\zeta,\ell)$ for $\zeta \in \mathcal Q$ and
+$\mathit{exit}_a(\star) = \zeta_0$, with $\mathit{term}_a(\zeta,\zeta'') =
+\Lfin(\mathit{lab}_0(\zeta),(\zeta'',\ell))$, with all blocks equal, and with
+$\mathit{adm}(a,b,\zeta,\zeta') = \Lambda(\mathit{lab}_0(\zeta),\mathit{lab}_0(\zeta'))$. Reading a column
+$\gamma$ updates all components simultaneously, using the old values on the right-hand sides. If $\gamma_a$ is absent, block $a$ has not started and its
+components are unchanged. If $\gamma_a = z$, then
+\[
+  \mathit{exit}'_a(\zeta) = \delta(\mathit{exit}_a(\zeta),z),\qquad
+  \mathit{term}'_a(\zeta,\zeta'') = \mathit{term}_a(\zeta,\zeta'') \vee
+     \Lfin\bigl((\mathit{exit}_a(\zeta),z),(\zeta'',\ell)\bigr).
+\]
+Equality is updated to $\mathit{eq}(a,b) \wedge \gamma_a = \gamma_b$. For the admission bit, if
+$\gamma_a = z$ and $\gamma_b = z'$ are both present,
+\[
+  \mathit{adm}'(a,b,\zeta,\zeta') =
+  \Lambda\bigl((\mathit{exit}_a(\zeta),z),(\mathit{exit}_b(\zeta'),z')\bigr)
+  \;\vee\; \bigl(z = z' \wedge \mathit{adm}(a,b,\zeta,\zeta')\bigr).
+\]
+If only $\gamma_a=z$ is present, set
+\[
+ \mathit{adm}'(a,b,\zeta,\zeta')=
+ \Lambda\bigl((\mathit{exit}_a(\zeta),z),\mathit{lab}_0(\zeta')\bigr).
+\]
+If only $\gamma_b=z'$ is present, set
+\[
+ \mathit{adm}'(a,b,\zeta,\zeta')=
+ \Lambda\bigl(\mathit{lab}_0(\zeta),(\mathit{exit}_b(\zeta'),z')\bigr).
+\]
+In these cases the absent track is still empty, so only the empty common
+suffix is possible and no old admission bit is retained. If both entries
+are absent, retain the old admission bit. The update is correct because $\Lambda_\ell$ compares positions at the \emph{same
+distance from the ends} of the two blocks, with equal letters after them: appending a column
+either relates the two new last positions, or extends the common suffix of an earlier related
+pair by the letter $z = z'$. This is why the blocks are aligned at their right ends.
+
+\paragraph{Shortening}
+A word of columns is \emph{valid} if each track consists of absent entries followed by
+letters. Deleting the columns between two cuts with the same summary preserves validity,
+since a subsequence of a valid word is valid, and preserves the final summary. Hence every
+tuple of blocks can be replaced by one with the same summary and all lengths below
+$\mathit{col}(\len{\mathcal Q},h)$.
+
+The summary determines the derived transition $\delta_\ell$, the target predicate
+$\Tfin_\ell$, both derived relations on the labels with these letters, and the equalities
+between the letters; that is, it determines the restriction of $\mathcal{M}_\ell$ to the letters
+in use up to renaming. Replacing the blocks
+therefore maps holes of $\mathcal{M}_\ell$ to holes. Since the replacement is injective on the
+letters in use and preserves marker avoidance, it keeps a unary level of the canonical
+hierarchy unary.
+
+
+\subsection{Agreement Under Derivation}
+For lettered monitors $\mathcal U,\mathcal V$ with the same state set,
+a finite letter support $\mathcal E$, and a map $\rho$ from $\mathcal E$ into the alphabet
+of $\mathcal V$, write $\mathcal U\equiv_{\mathcal E,\rho}\mathcal V$ for
+\emph{agreement}: their start states coincide, $\rho$ is injective on
+$\mathcal E$, and, for every $a\in \mathcal E$ and every state $\zeta$,
+\begin{equation}\label{eq:monitor-agreement}
+\begin{aligned}
+\delta_{\mathcal V}(\zeta,\rho(a))&=\delta_{\mathcal U}(\zeta,a),\\
+\Tfin_{\mathcal V}(\zeta,\rho(a))&\iff\Tfin_{\mathcal U}(\zeta,a),\\
+\Lambda_{\mathcal V}(\widehat\rho L,\widehat\rho L')&\iff
+  \Lambda_{\mathcal U}(L,L'),\\
+\Lfin_{\mathcal V}(\widehat\rho L,\widehat\rho L')&\iff
+  \Lfin_{\mathcal U}(L,L').
+\end{aligned}
+\end{equation}
+The last two lines range over all labels whose letters lie in $\mathcal E$, as
+well as the start label. Here $\widehat\rho(\triangleright)=\triangleright$
+and $\widehat\rho(\zeta,a)=(\zeta,\rho(a))$; states are not renamed.
+Agreement preserves runs, labels up to $\widehat\rho$, and holes of words
+over $\mathcal E$. Indeed, induction gives the same state at every cut; injectivity
+preserves both equality and inequality of letters, hence every comparison;
+and \eqref{eq:monitor-agreement} preserves the target and all admissions.
+Agreements compose: if $\mathcal U\equiv_{\mathcal E,\rho}\mathcal V$ and
+$\mathcal V\equiv_{\rho(\mathcal E),\rho'}\mathcal W$, then
+$\mathcal U\equiv_{\mathcal E,\rho'\circ\rho}\mathcal W$.
+
+\begin{lemma}[Agreement under derivation]\label{lem:agreement-derivative}
+Suppose $\mathcal U\equiv_{\mathcal E,\rho}\mathcal V$ and $\ell\in \mathcal E$.
+For any finite family $F$ of blocks over $\mathcal E$ avoiding $\ell$, the
+letterwise map $\rho^*$ gives
+\[
+ \mathcal U_\ell\equiv_{F,\rho^*}\mathcal V_{\rho(\ell)}.
+\]
+The image blocks avoid $\rho(\ell)$.
+\end{lemma}
+\begin{proof}
+Injectivity on $\mathcal E$ implies injectivity on words over $\mathcal E$ and preserves
+marker avoidance. The shifted runs start in the same state: for an
+ordinary entry state, use agreement on the marker before the block;
+for $\star$, use equality of start states. Induction on the block gives
+equal exits and labels related by $\widehat\rho$ at every position.
+A common-suffix decomposition maps to one after renaming. Conversely,
+any common suffix of two renamed blocks pulls back to equal suffixes,
+by injectivity. Thus both directions of the derived $\Lambda$ agree.
+The terminal-comparison test ranges over the same positions and the same
+exit states, so its truth is preserved by the last line of
+\eqref{eq:monitor-agreement}. This proves preservation of both the
+derived target and terminal relation. Relations involving the derivative
+start label are false in both monitors.
+\end{proof}
+
+Fix a base monitor $\mathcal M_0$ with $N$ states and markers
+$\boldsymbol\ell=(\ell_0,\ldots,\ell_{j-1})$. They determine a tower
+$\mathcal M^{\boldsymbol\ell}_0=\mathcal M_0$ and
+$\mathcal M^{\boldsymbol\ell}_{i+1}
+=(\mathcal M^{\boldsymbol\ell}_i)_{\ell_i}$.
+A finite family of level-$j$ letters is \emph{valid for the markers}
+if every block avoids its level's marker and its ordinary expansion,
+recursively, uses valid lower-level letters. Write
+$\operatorname{Exp}_{\boldsymbol\ell,j}(a)$ for the level-zero word
+obtained by expanding a single level-$j$ letter, with each marker
+placed after its block. At level zero this is the one-letter word $a$.
+
+\begin{lemma}[Supported simultaneous compression]\label{lem:simultaneous-compression}
+Fix a nonempty word $w$, its original hierarchy and markers
+$\boldsymbol\ell$, and $j\le d$. Suppose $|\mathcal A_i|\le g$ for
+$1\le i\le j$. Put $K=\mathit{col}(N+d+1,g)$. For a finite set
+$\mathcal E_j\subseteq\mathcal A_j$, there are new markers
+$\widetilde{\boldsymbol\ell}$ and an injective renaming $\rho_j$ on $\mathcal E_j$
+such that
+\[
+ \mathcal M^{\boldsymbol\ell}_j
+ \equiv_{\mathcal E_j,\rho_j}\mathcal M^{\widetilde{\boldsymbol\ell}}_j,
+ \qquad
+ |\operatorname{Exp}_{\widetilde{\boldsymbol\ell},j}(\rho_j(a))|
+ \le K^j\quad(a\in \mathcal E_j).
+\]
+The image family is valid for the new markers. Every recursive support
+is a set contained in its original dictionary; at level zero there is no
+cardinality assumption. Agreement is at every state, not only states
+visited by the fixed word.
+\end{lemma}
+\begin{proof}
+Induct on $j$, keeping $w$, its dictionaries, and $d,g$ fixed. At zero,
+take the identity map and old markers. A letter has expansion size
+$1=K^0$, regardless of the size of $\mathcal E_0$.
+
+For the step from $j$ to $j+1$, the set $\mathcal E_{j+1}$ has at most $g$ elements.
+Let $K_j=\mathit{col}(N+j,g)$ and
+$\mathcal U=\mathcal M^{\boldsymbol\ell}_j$.
+The column construction, with empty padding tracks if necessary,
+replaces every $X\in \mathcal E_{j+1}$ by a subsequence $\tau(X)$ of length less
+than $K_j$. Equality bits make $\tau$ injective on $\mathcal E_{j+1}$; the other fields
+preserve transitions, target, and both admissions at every entry state.
+Thus
+\[
+ \mathcal U_{\ell_j}\equiv_{\mathcal E_{j+1},\tau}\mathcal U_{\ell_j}.
+\]
+Form the set
+\[
+ \mathcal E_j = \{\ell_j\}\cup\bigcup_{X\in \mathcal E_{j+1}}\operatorname{alph}(\tau(X)).
+\]
+The marker belongs to $\mathcal A_j$. Each $X\in\mathcal A_{j+1}$
+is an original block body of $u_j$, so all its letters belong to
+$\mathcal A_j$. Since $\tau(X)$ is a subsequence of $X$, this proves
+$\mathcal E_j\subseteq\mathcal A_j$. Counting distinct letters ensures
+$|\mathcal E_j|\le g$ whenever $j\ge1$. At $j=0$ the
+identity base case applies without such a bound.
+
+Apply the induction hypothesis to $\mathcal E_j$, obtaining lower markers,
+a monitor $\mathcal V=\mathcal M^{\widetilde{\boldsymbol\ell}}_j$,
+and $\rho_j$ with agreement on $\mathcal E_j$ and expansion bound $K^j$.
+Set
+\[
+ \widetilde\ell_j=\rho_j(\ell_j),\qquad
+ \rho_{j+1}(X)=\rho_j^*(\tau(X)).
+\]
+Changing marker $j$ does not affect the monitors through level $j$.
+By \cref{lem:agreement-derivative}, lower agreement lifts to agreement
+on the shortened blocks between $\mathcal U_{\ell_j}$ and
+$\mathcal V_{\widetilde\ell_j}$. Composition with column agreement
+proves the displayed invariant at level $j+1$.
+
+Both the marker and all body letters lie in $\mathcal E_j$. Injectivity therefore
+preserves marker avoidance; validity at smaller levels follows from the
+induction hypothesis. Each body followed by its marker has at most
+$K_j$ letters. Formula \eqref{eq:col} is increasing in its positive state
+argument, so $K_j\le K$. Expanding these letters gives at most
+$K_jK^j\le K^{j+1}$ base letters. This proves agreement, validity,
+containment, and the expansion bound together. No dictionary or normality
+property of an intermediate compressed word was used.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:search}]
+Convert the reader to its lettered monitor, or start with any lettered
+monitor. Put the given nonempty hole in dictionary normal form. By
+\cref{lem:dictionary-bound}, its positive dictionaries through its first
+unary level $\Delta\le d$ are bounded by $g=\DictBound(N,d)$. Keep this word
+fixed as the original hierarchy for \cref{lem:simultaneous-compression}, and put
+$K=\mathit{col}(N+d+1,g)$.
+The unary argument gives a hole $z^L$ of its level-$\Delta$ monitor with
+$1\le L\le N+\Delta$. Compress $\mathcal E_\Delta=\{z\}$ using the lemma. Agreement makes
+$\rho_\Delta(z)^L$ a hole of the new level-$\Delta$ monitor. Validity allows exact
+expansion by \cref{lem:der-holes}, yielding a nonempty base hole.
+Cutting that expansion recovers the renamed unary word at level $\Delta$,
+so its depth is at most $\Delta$. Its length is bounded by
+\[
+ LK^\Delta\le(N+\Delta)K^\Delta\le(N+d+1)K^d=\holeBound(N,d).
+\]
+Here $K\ge1$ since $N\ge1$. This also proves the depth-zero case,
+where the expansion is the identity.
+\end{proof}
+
+\subsection{Closed-Form Estimate}
+\begin{lemma}[Elementary estimate]\label{lem:elementary-estimate}
+Put
+\[
+ \Xi(N,d)=3N^2+4N(N+d)(d+1)+3N+3d+4.
+\]
+Then $\DictBound(N,d)\le2^{\Xi(N,d)}$ and
+$\holeBound(N,d)\le2^{2^{5\Xi(N,d)+3}}$.
+For $d_N=2N(4N-1)-1$ and $N\ge1$,
+\begin{equation}\label{eq:elementary-closed}
+ \holeBound(N,d_N)\le2^{2^{1280(N+1)^5}}.
+\end{equation}
+\end{lemma}
+\begin{proof}
+Write $\Xi=\Xi(N,d)$ and
+$\Xi_0=3N^2+4N(N+d)(d+1)+3N$.
+The inequality $N\le2^N$ gives
+$\TyBound(N,d)\le2^{\Xi_0}$. For nonnegative $p,q$, the sum of quantities
+bounded by $2^p,2^q$ is at most $2^{p+q+1}$. Since
+$d+1\le2^{d+1}$, we obtain $\AlBound(N,d)\le2^{\Xi_0+d+2}$.
+Using $3^d\le2^{2d}$ gives
+$\DictBound(N,d)=2+\AlBound(N,d)3^d\le2^{\Xi_0+3d+3}\le2^\Xi$.
+
+Put $M=N+d+1$, $g=\DictBound(N,d)$, and $P=2^\Xi$. We have $M+1\le \Xi$,
+so $M,M+1,d,g\le P$. Replacing $M$ by $2^M$ in the first factor
+of \eqref{eq:col} yields
+\[
+ \mathit{col}(M,g)
+ \le2^{2M(M+1)g+g^2+(M+1)^2g^2}
+ \le2^{4P^4}=2^{2^{4\Xi+2}}.
+\]
+Therefore
+\[
+ \holeBound(N,d)\le2^{\Xi+d2^{4\Xi+2}}
+ \le2^{2^{5\Xi+3}},
+\]
+because $d\le2^\Xi$ and $\Xi\le2^\Xi\le2^{5\Xi+2}$.
+
+For the specialization, $d_N=8N^2-2N-1$, so $d_N\le8N^2$, $N+d_N\le8N^2$, and
+$d_N+1\le8N^2$. Consequently
+\[
+ 4N(N+d_N)(d_N+1)\le256N^5,
+ \qquad \Xi(N,d_N)\le256N^5+27N^2+3N+4.
+\]
+Hence $5\Xi(N,d_N)+3\le1280N^5+135N^2+15N+23\le1280(N+1)^5$, because
+$1280(N+1)^5-1280N^5\ge12800N^2+6400N+1280$.
+Monotonicity of exponentiation proves \eqref{eq:elementary-closed}.
+\end{proof}

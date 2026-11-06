@@ -1,0 +1,125 @@
+%% Decidability of non-structural subtype entailment.
+%% ACM PACMPL (POPL) format; build with `make`.
+%% Double-blind submission: the author block below is hidden by `anonymous'.
+%% Remove `anonymous' (and keep the rest) for the camera-ready or arXiv version.
+\documentclass[acmsmall,screen,review,anonymous,nonacm]{acmart}
+
+\input{macros}
+
+%% Anonymous review copy: suppress placeholder publication dates and metadata.
+\setcopyright{none}
+\acmJournal{PACMPL}
+\acmVolume{11}
+\acmNumber{POPL}
+\acmArticle{1}
+\acmDOI{}
+\citestyle{acmauthoryear}
+
+\begin{document}
+
+\title{Non-Structural Subtype Entailment Is Decidable}
+
+\author{Yaoyu Zhao}
+\email{yaoyu.zhao@epfl.ch}
+\affiliation{%
+  \institution{EPFL}
+  \country{Switzerland}
+  }
+
+\begin{abstract}
+Subtype entailment asks whether every solution of a finite system of subtype
+constraints satisfies a further inequality. It underlies constraint
+simplification in type inference. We prove decidability for non-structural
+subtyping with bottom, top, and one constructor of any finite arity that is
+covariant or contravariant in each argument, over arbitrary, regular, and
+finite trees. This answers TLCA Problem~16, which Jakob Rehof posed in 1996
+for a binary constructor of unspecified variance, for every binary variance
+and each tree domain, including the covariant reading used in the
+literature.
+
+When the constraints have a solution, a failure of entailment is witnessed
+by a finite path, written as a word over argument positions. Such a word is
+a counterexample exactly when a finite-state reader built from the
+constraints rejects it and the word has none of the periodic comparisons
+between its suffixes that the reader forbids. Shortening a word can create
+such comparisons, so ordinary pumping does not bound the shortest
+counterexample. For the readers that arise from subtype constraints, every
+forbidden comparison ends no later than the point at which the reader first
+rejects the word. This yields a counterexample whose part after the first
+rejection is short, and hence whose hierarchy of repeated blocks is
+shallow. Bounding the number of distinct blocks at each level and shortening
+all blocks of a level at once then bounds the length of a counterexample
+triply exponentially in the number of variables. Countermodel transfers extend the procedure to
+regular and finite trees. A search that keeps only a finite summary of one
+level of the hierarchy at a time places entailment in 2-EXPSPACE and
+3-EXPTIME in each domain, and in PSPACE for a unary constructor. For a
+covariant constructor of each fixed arity at least two, entailment is
+PSPACE-hard in each domain, and shortest counterexamples can be
+exponentially long in the number of variables. For flat constraints, the
+three decision procedures, their correctness, and the combinatorial content
+of the complexity bounds are mechanized in Lean~4.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+<concept>
+<concept_id>10003752.10003766</concept_id>
+<concept_desc>Theory of computation~Formal languages and automata theory</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+<concept>
+<concept_id>10003752.10003790.10011740</concept_id>
+<concept_desc>Theory of computation~Type theory</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+<concept>
+<concept_id>10003752.10003790.10003794</concept_id>
+<concept_desc>Theory of computation~Automated reasoning</concept_desc>
+<concept_significance>300</concept_significance>
+</concept>
+</ccs2012>
+\end{CCSXML}
+\ccsdesc[500]{Theory of computation~Formal languages and automata theory}
+\ccsdesc[500]{Theory of computation~Type theory}
+\ccsdesc[300]{Theory of computation~Automated reasoning}
+
+\keywords{subtyping, subtype constraints, entailment, non-structural subtyping,
+variance, word equations, periodicity, decidability, mechanized proof}
+
+\maketitle
+
+\input{sections/intro}
+\input{sections/background}
+\input{sections/signed}
+\input{sections/spines}
+\input{sections/holes}
+\input{sections/tail}
+\input{sections/depth}
+\input{sections/search}
+\input{sections/decision}
+\input{sections/complexity}
+\input{sections/mechanization}
+\input{sections/related}
+\input{sections/experience}
+\input{sections/future}
+\input{sections/disclaimer}
+\label{page:main-end}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{refs}
+
+\appendix
+\crefalias{section}{appendix}
+\crefalias{subsection}{appendix}
+\clearpage
+\label{page:appendix-start}
+\input{sections/appendix-spines}
+\input{sections/appendix}
+\input{sections/appendix-domains}
+\input{sections/appendix-complexity}
+\input{sections/appendix-lower}
+\input{sections/appendix-lean}
+\input{sections/appendix-history}
+\input{sections/appendix-np03}
+
+\end{document}

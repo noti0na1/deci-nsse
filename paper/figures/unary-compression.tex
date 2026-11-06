@@ -1,0 +1,34 @@
+\begin{figure}[tbp]
+\centering
+\begin{tikzpicture}[>=Stealth,font=\small,
+  stage/.style={draw,rounded corners=2pt,align=center,text width=32mm,
+    minimum height=14mm,inner sep=3pt}]
+  \node[stage] (unary) at (0,0)
+    {unary hole at level $\Delta$\\$z^L$, $1\le L\le N+\Delta$};
+  \node[stage] (compressed) at (4.45,0)
+    {renamed letter $\rho_\Delta(z)$,\\same monitor values\\$\rho_\Delta(z)^L$};
+  \node[stage] (expanded) at (8.9,0)
+    {level-$0$ hole $v$\\$|v|\le L\,K^\Delta$\\$\le\holeBound(N,d)$};
+  \draw[->] (unary) -- (compressed)
+    node[midway,above=8mm,font=\footnotesize] {compress};
+  \draw[->] (compressed) -- (expanded)
+    node[midway,above=8mm,font=\footnotesize] {expand};
+  \node[below=4mm of compressed,align=center,font=\footnotesize]
+    {one distinct letter to preserve at level $\Delta$;\\
+     shorten its blocks and their letters recursively down to level $0$};
+\end{tikzpicture}
+\caption{Unary top level and compression. First shorten the unary power by
+deleting repeated-state loops, giving $L\le N+\Delta$. Compression then renames
+its single letter by the injective renaming $\rho_\Delta$ of
+\cref{lem:simultaneous-compression}, under which the new level-$\Delta$ monitor
+agrees with the original one: it has the same transition, target, and admission
+values on the renamed letter. This preserves the run, target, and admissions of the power.
+With the dictionary-normal hierarchy unchanged and
+$K=\mathit{col}(N+d+1,\DictBound(N,d))$, supported block compression bounds
+that letter's expansion by $K^\Delta$, giving
+$|v|\le LK^\Delta\le\holeBound(N,d)$. At $\Delta=0$ the expansion is the identity.}
+\Description{Three boxes show a unary hole with at most N plus Delta copies of one
+letter, an injective renaming preserving monitor agreement, and expansion to a
+level-zero hole of length at most L times the Delta-th power of the fixed column bound.}
+\label{fig:unary-compression}
+\end{figure}

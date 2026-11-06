@@ -1,0 +1,177 @@
+\section{Related Work}
+\label{sec:related}
+
+\Cref{tab:results} summarizes selected results on subtype entailment.
+
+\begin{table}[tbp]
+\caption{Selected results on subtype entailment. Earlier non-structural rows concern a
+covariant constructor; our decidability result allows arbitrary variance and arity.
+The complexity bounds for our results are proved in \cref{sec:complexity};
+\cref{sec:mechanization} states which parts of them are mechanized.}
+\label{tab:results}
+\small\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.29\linewidth}>{\raggedright\arraybackslash}p{0.18\linewidth}>{\raggedright\arraybackslash}p{0.20\linewidth}>{\raggedright\arraybackslash}p{0.27\linewidth}@{}}
+\toprule
+Problem & Trees & Result & Reference \\
+\midrule
+Structural entailment & finite & coNP-complete & \citet{HengleinRehof97} \\
+Structural entailment & arbitrary & PSPACE-complete & \citet{HengleinRehof98} \\
+Structural, first-order theory & finite & decidable & \citet{KuncakRinard03} \\
+\NSSE, $\ftree$ unary & finite, regular, arbitrary & decidable & \citet{NiehrenPriesnitz03} \\
+\NSSE, $\ftree$ binary, no literals $x = \Bot$, $x = \Top$ & finite, arbitrary & PSPACE-complete & \citet{NiehrenPriesnitz99} \\
+\NSSE, $\ftree$ binary & finite, arbitrary & PSPACE-hard & \citet[Theorems~1--2]{HengleinRehof98} \\
+\NSSE, any arity and variance & finite, regular, arbitrary & decidable; in 2-EXPSPACE (stronger for $n\le1$, \cref{app:small-arity}) & this paper \\
+\NSSE, $\ftree$ covariant, any fixed arity $n\ge2$ & finite, regular, arbitrary & PSPACE-hard & this paper \\
+Non-structural, first-order theory & finite, regular, arbitrary & undecidable & \citet{SuAikenNiehrenPriesnitzTreinen02} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Subtype Entailment and Constraint Simplification}
+Subtype constraints arise in type inference with subtyping
+\citep{Mitchell91,FuhMishra90,AikenWimmers93,EifrigSmithTrifonov95,PalsbergWandOKeefe97},
+and the size of inferred constraint sets made simplification a central practical concern
+\citep{Pottier96,Pottier98thesis,Pottier01,TrifonovSmith96}. Sound but incomplete
+entailment tests based on syntactic closure are used in practice; \citet{Pottier01} discusses
+their limits. Satisfiability of subtype
+constraints is comparatively well understood
+\citep{Tiuryn92,PrattTiuryn96,Frey97,KozenPalsbergSchwartzbach94,PalsbergOKeefe95,PalsbergWandOKeefe97,Simonet03,NiehrenPriesnitzSu05}.
+Closure-based satisfiability characterizations are classical.
+\citet{KozenPalsbergSchwartzbach94} treat a language with $\Top$ but
+without $\Bot$; related characterizations appear in
+\citet{PalsbergOKeefe95,PalsbergWandOKeefe97}.
+Here the additional ingredients are a common least shape under variable flip
+and polarity selection for variance. Subtyping between recursive types without variables
+is also well understood
+\citep{AmadioCardelli93,KozenPalsbergSchwartzbach95}. For entailment, \citet{HengleinRehof97} proved coNP-completeness for structural subtyping over
+finite trees and \citet{HengleinRehof98} PSPACE-completeness over arbitrary trees. Their Theorems~1 and~2 establish
+non-structural PSPACE-hardness using a binary covariant constructor, over
+arbitrary and finite trees, respectively; this is the scope recorded in
+\cref{tab:results}. \Cref{thm:cx-hard} gives a different reduction, from
+universality of nondeterministic automata, with a uniform proof for all three
+domains and every fixed arity $n\ge2$. \citet{Rehof97,Rehof98thesis} studies
+minimal typings and the complexity of atomic and structural subtyping.
+\citet{KuncakRinard03} show that the full first-order theory of structural subtyping of
+non-recursive types is decidable.
+
+\paragraph{Non-Structural Subtype Entailment}
+\citet{NiehrenPriesnitz99} proved PSPACE-completeness for the fragment in which the
+constraints contain no literals $x = \Bot$ and $x = \Top$ (the constants may still occur in
+solutions), by a reduction to universality of finite automata; they introduced P-automata to
+explain why the nonregular sets of paths that arise in general can be ignored in this
+fragment. \citet{NiehrenPriesnitz01,NiehrenPriesnitz03} introduced cap
+automata and cap set expressions, proved decidability of the unary case,
+and identified the role of word equations in the general problem. Their
+forward reduction from entailment to cap-automaton universality motivates
+our use of periodic suffix comparisons. \Cref{sec:errata} discusses the
+proof dependencies of their converse reduction and arity equivalence.
+Priesnitz's theses \citep{Priesnitz00,Priesnitz04} develop the automata
+approach further.
+\citet{SuAikenNiehrenPriesnitzTreinen02} proved that the first-order theory
+of non-structural subtyping is undecidable. This does not settle entailment,
+which is a restricted universal implication. They and \citet{Su02} also
+proposed a reduction of entailment to constrained tree automata on tuples of
+trees, whose emptiness problem is undecidable in general \citep{Treinen00};
+an extended version of the paper develops this reduction further
+\citep{SuEtAl06}. A preprint
+claimed membership in PSPACE for the finite and regular cases \citep{Schubert21}; it was
+withdrawn by its author because of an error in a key lemma. The
+problem has been described as open in work on intersection types and on type inference
+\citep{DudenhefnerMartensRehof17,JiangCuiOliveira25}.
+
+\subsection{The Published Characterization}
+\label{sec:errata}
+Proposition~16 of NP03 is false as stated:
+\cref{app:np03} gives a six-state complete restricted cap automaton that
+rejects $11$, whereas the left automaton of its back-translated judgment
+accepts $11$ under either finality convention for Table~3. The judgment
+is moreover a satisfiable entailment. Theorem~4 and the converse
+reduction underlying Theorem~1 rely on Proposition~16.
+Corollary~1 (equivalence of arities at least two and of tree classes)
+also relies on that converse, and its arity part on Proposition~17.
+Theorem~4, Theorem~1, and Corollary~1 themselves are not refuted;
+only their published proofs are incomplete. No defect in Proposition~17
+is claimed here. The forward characterization
+(Theorem~2, with Propositions~8 and~11) is unaffected: it is
+all that NP03's unary decidability result and the earlier binary proof
+in \cref{sec:earlier} use.
+The proofs of Propositions~12 and~14 treat states ready by the bottom,
+top, or reflexivity rule as final. Table~3 must be read with that
+convention: read literally, it rejects the path $1$ of NP03's unary
+example $\judg{z=\Top\wedge f(z)\le y}{x}{y}$ (Section~4), which NP03
+shows to be both left safe and right safe. \Cref{app:np03} gives the
+acceptance details.
+Our present proof uses neither the forward characterization nor any of
+these converse or alphabet reductions.
+
+\subsection{Other Connections}
+\paragraph{Set Constraints and Feature Trees}
+Entailment has been studied for neighboring constraint languages. Entailment of atomic set
+constraints is PSPACE-complete over infinite signatures \citep{NiehrenMullerTalbot99}.
+Ordering constraints over feature trees admit efficient entailment tests under an
+assumption of infinitely many features \citep{MullerNiehrenPodelski00}, while their full
+first-order theory is undecidable \citep{MullerNiehrenTreinen98}. Componential set-based
+analysis uses entailment of set constraints for simplification \citep{FlanaganFelleisen99}.
+
+\paragraph{Type Inference Without General Entailment}
+Several modern approaches to type inference with subtyping avoid general entailment by
+changing the type language or the semantics. Algebraic subtyping
+\citep{Dolan16,DolanMycroft17,Parreaux20} interprets types in an algebraic model rather than
+as ground trees, and infers principal types by biunification on polarized types, treating
+subsumption between inferred types separately. MLstruct extends this approach to a Boolean
+algebra of structural types \citep{ParreauxChau22}, and \citet{ParreauxEtAl24} retain
+subtyping constraints in polymorphic types. Semantic subtyping interprets types as sets of
+values and decides subtyping between types, including with polymorphism
+\citep{CastagnaXu11,GesbertGenevesLayaida15}. Orthologic type systems obtain efficient
+entailment for an open-world semantics \citep{GuilloudKuncak25}. These approaches use different type languages or semantic models, so their
+decidability results do not directly decide the ground-tree entailment
+problem studied here.
+
+\paragraph{Word Equations and Periodicity}
+Satisfiability of word equations is decidable \citep{Makanin77} and in PSPACE
+\citep{Plandowski04}, but the positive $\forall\exists^3$ fragment is undecidable
+\citep{Durnev95}. \citet[Corollary~2]{NiehrenPriesnitz03} express \NSSE in the positive
+$\forall\exists^*$ fragment with regular constraints. Existential word-equation algorithms do not
+directly decide this quantified formulation. Undecidability of the ambient
+fragment leaves open the restricted instances arising from \NSSE, which
+our reader construction and compression argument decide.
+The periodicity arguments use the principle that sufficiently long agreement
+between two periods forces agreement between their residue classes
+\citep{FineWilf65}. \Cref{lem:rotation} proves the special case it needs
+directly, and in \cref{lem:truncation}, equality over one full period
+propagates along the periodic tail. These are instances of classical
+periodic-word reasoning \citep{Lothaire02}, without a general word-equation
+algorithm.
+
+\paragraph{Back-References}
+A cap repeats a root word that is chosen during the run, which resembles a back-reference in
+an extended regular expression. For extended regular expressions, universality is
+undecidable even with a single variable \citep{Freydenberger11}. Cap set expressions are a
+much weaker mechanism: the only repetition is the prefix closure of the powers of one word,
+and that word must be followed to the end of the path. Even so, universality of unrestricted
+cap automata was left open by \citet[Section~10]{NiehrenPriesnitz03};
+our decision procedure applies to readers satisfying the rejected-path property
+and does not settle that question.
+
+\paragraph{Desubstitution}
+Cutting a sequence at the occurrences of a word and recoding the blocks between them is the
+idea behind \emph{return words} and \emph{derived sequences} in symbolic dynamics
+\citep{Durand98}, and the question whether such decompositions are unique is the subject of
+recognizability theory \citep{Mosse92}. Our hierarchy cuts a finite word at its last letter,
+and \cref{lem:cores} identifies the retained positions with the occurrences of a terminal
+word. The connection is the recoding of intervals between repeated
+occurrences. Here the chosen marker directly delimits the blocks, so unique
+parsing needs no recognizability theorem. We use the hierarchy as a measure of the
+complexity of a hole whose levels can be bounded (\cref{thm:depth}) and compressed
+(\cref{thm:search}).
+
+\paragraph{Automata with Constraints}
+Our problem resembles emptiness for automata with equality and disequality constraints, where
+pumping must preserve the constraints. For tree automata with constraints between brothers
+\citep{BogaertTison92}, reduction automata \citep{DauchetCaronCoquide95}, and global constraints
+\citep{TATA,ComonJacquemard03,FiliotTalbotTison10,BargunoEtAl10}, emptiness proofs replace
+subterms \emph{simultaneously} while preserving states and equality patterns, rather than
+pumping one subterm at a time. The column summaries of \cref{sec:search} follow the same
+principle for the blocks of one hierarchy level. The new difficulty in \NSSE is that the
+constraints compare suffixes of a single word at unbounded offsets; the admission cone
+and the depth bound are what reduce it to a setting where simultaneous replacement suffices.

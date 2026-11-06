@@ -1,0 +1,424 @@
+% appendix-lower: proofs for the lower bounds of the complexity section
+\section{Proofs of the Lower Bounds}
+\label{app:lower}
+
+All trees in this appendix are covariant, and $n\ge2$. We use the notation
+of \cref{sec:complexity-lower}. For a word $v$, $\pr(v)$ denotes the set of its
+prefixes, including $v$; $\pr(v)$ is finite and prefix closed.
+
+\subsection{Top-Free Trees}
+
+\begin{proof}[Proof of \cref{lem:cx-topfree}]
+We first note that $\widehat t(w)=f$ iff $w\in\Pos(t)$, for every tree $t$ at
+positive arity. If $w\in\operatorname{dom}(t)$, then every proper prefix of $w$
+is labeled $f$ by \eqref{eq:g2}, so the walk along $w$ reaches its end and
+$\widehat t(w)=t(w)$. Otherwise, the longest prefix of $w$ in
+$\operatorname{dom}(t)$ is a leaf by \eqref{eq:g2}, and a leaf is labeled $\bot$ or
+$\top$.
+
+(1) For a top-free tree, leaves are labeled $\bot$, so by the remark
+$\widehat t(w)=\bot$ for $w\notin\Pos(t)$. For top-free $t,u$ both leaf extensions
+take values in $\{\bot,f\}$, so by \eqref{eq:g11} $t\le u$ holds iff
+$\widehat t(w)=f$ implies $\widehat u(w)=f$ for every $w$, that is, iff
+$\Pos(t)\subseteq\Pos(u)$.
+
+(2) The set $\{\eps\}\cup P\cup P\Dir$ contains the root and is prefix closed,
+because $P$ is. For a word $w$ in it and $i\in\Dir$, the word $wi$ belongs to it
+iff $w\in P$: if $wi\in P$, then $w\in P$ by prefix closure. So labeling $P$ by
+$f$ and the other words by $\bot$ satisfies \eqref{eq:g2}, and $\Pos(T_P)=P$.
+A top-free tree $t$ is determined by $\Pos(t)$, since by \eqref{eq:g2} its
+domain is $\{\eps\}\cup\Pos(t)\cup\Pos(t)\Dir$; hence $T_P$ is unique. The
+domain is finite iff $P$ is, since $\Dir$ is finite.
+
+(3) Write $u=\sigma(g)$ and $s=f(u,u,\Bot,\ldots,\Bot)$, using $\sigma(b)=\Bot$.
+Then $\widehat s(\eps)=f$, $\widehat s(iw)=\widehat u(w)$ for $i\in\{0,1\}$, and
+$\widehat s(iw)=\bot$ for $2\le i<n$. Since $u\le s$, \eqref{eq:g11} gives
+$\widehat u(w)\le\widehat s(w)$ for every $w$. By induction on $|w|$ we show that
+$\widehat u(w)\ne\top$, and that $w\in\Pos(u)$ implies $w\in\{0,1\}^*$. For
+$w=\eps$, $\widehat u(\eps)\le f$. For a word $iw$ with $i\ge2$,
+$\widehat u(iw)\le\bot$, so $\widehat u(iw)=\bot$ and $iw\notin\Pos(u)$. For
+$i\in\{0,1\}$, $\widehat u(iw)\le\widehat u(w)\ne\top$; if moreover $iw\in\Pos(u)$,
+then $f=\widehat u(iw)\le\widehat u(w)$ forces $\widehat u(w)=f$, so $w\in\Pos(u)$
+and, by induction, $iw\in\{0,1\}^*$. A node labeled $\top$ at $w$ would give
+$\widehat u(w)=\top$, so $u$ is top free. For $t\le s$, the same comparison gives
+$\widehat t(w)\le\widehat s(w)\ne\top$ for every $w$, so $t$ is top free; and if
+$iw\in\Pos(t)$, then $f\le\widehat s(iw)$ forces $i\in\{0,1\}$ and
+$\widehat u(w)=f$, so $iw\in\{0,1\}\Pos(u)\subseteq\{0,1\}^*$.
+
+(4) Following a word $w$ in $T_P^m$ gives
+\[
+ \widehat{T_P^m}(w)=
+ \begin{cases}
+ \top,&\len w\ge m\text{ and }\wpre wm\in P,\\
+ f,&\len w<m\text{ and }w\in P,\\
+ \bot,&\text{otherwise}.
+ \end{cases}
+\]
+Let $s=f(t_0,\ldots,t_{n-1})$. By \eqref{eq:g11} it suffices to show
+$\widehat s(w)\le\widehat{T_P^m}(w)$ for every $w$. At $\eps$ both sides are
+$f$, since $\eps\in P$ and $m\ge1$. At $iv$ with $i\ne a$ the left side is
+$\bot$. At $av$ the left side is $\widehat{T_{P'}^m}(v)$. If it is $\top$, then
+$\len v\ge m$ and $\wpre vm\in P'$, so $a\wpre vm\in P$, hence
+$\wpre{(av)}m\in P$ by prefix closure, and the right side is $\top$. If it is
+$f$, then $\len v<m$ and $av\in P$; the right side is $f$ if $\len{av}<m$, and
+$\top$ if $\len{av}=m$. Otherwise the left side is $\bot$.
+\end{proof}
+
+\subsection{The Counter Automaton}
+
+\begin{proof}[Proof of \cref{lem:cx-counter}]
+\emph{A token automaton.} Let $\mathcal N_\beta$ be the nondeterministic
+automaton over the token alphabet $\mathbb T$ with the following states and transitions; a transition that
+is not listed does not exist. Bits are the letters $0,1$.
+\begin{itemize}[leftmargin=*]
+\item $\mathsf E$ loops on every letter.
+\item $\mathsf F_0,\ldots,\mathsf F_\beta$ check the format: $\mathsf F_i$ goes on a
+  bit to $\mathsf F_{i+1}$ if $i<\beta$ and to $\mathsf E$ if $i=\beta$; on $\#$ to
+  $\mathsf F_0$ if $i=\beta$ and to $\mathsf E$ otherwise; and on $\$$ to $\mathsf E$
+  if $i<\beta$.
+\item $\mathsf I$ checks that the first block is zero: it goes on $0$ to
+  $\mathsf I$ and on $1$ to $\mathsf E$.
+\item $\mathsf C_\gamma$, for a carry $\gamma\in\{0,1\}$, tracks the carry of an
+  increment and spawns checkers: on a bit $a$ it goes both to
+  $\mathsf C_{\gamma\wedge a}$ and to $\mathsf V_{a\oplus\gamma,\beta}$, and on $\#$ to
+  $\mathsf C_1$.
+\item $\mathsf V_{a,j}$, for $a\in\{0,1\}$ and $0\le j\le\beta$, waits for the
+  corresponding bit of the next block: for $j>0$ it goes on every letter other
+  than $\$$ to $\mathsf V_{a,j-1}$, and $\mathsf V_{a,0}$ goes on the bit $1-a$ to
+  $\mathsf E$.
+\item $\mathsf O_o$, for $o\in\{0,1\}$, records whether the current block is all
+  ones so far: on a bit $a$ it goes to $\mathsf O_{o\wedge a}$; on $\#$ to
+  $\mathsf E$ if $o=1$ and to $\mathsf O_1$ if $o=0$; and $\mathsf O_0$ goes on $\$$
+  to $\mathsf E$.
+\end{itemize}
+The initial states are $\mathsf F_0$, $\mathsf I$, $\mathsf C_1$, and $\mathsf O_1$, and
+there are $3\beta+9$ states, all final. The following table summarizes the
+roles of the state families.
+\begin{center}
+\small
+\begin{tabular}{@{}lp{.36\linewidth}p{.36\linewidth}@{}}
+\toprule
+States & Error detected & Behavior on a prefix of $\mathsf H_\beta$\\
+\midrule
+$\mathsf E$ & none; records an error found earlier & never reached\\
+$\mathsf F_0,\ldots,\mathsf F_\beta$ & a block with other than $\beta$ bits & counts the bits of each block; dies at $\$$\\
+$\mathsf I$ & a bit $1$ in the first block & reads the first block; dies at the first $\#$\\
+$\mathsf C_0,\mathsf C_1$ & none; spawns the checkers & tracks the carry of the increment; dies at $\$$\\
+$\mathsf V_{a,j}$ & a wrong bit $\beta+1$ tokens after the bit that spawned it & dies on reading the predicted bit, or at $\$$\\
+$\mathsf O_0,\mathsf O_1$ & $\#$ after the all-ones block, or $\$$ after another block & dies at $\$$\\
+\bottomrule
+\end{tabular}
+\end{center} We show that the words with a run of
+$\mathcal N_\beta$ are exactly the words of $\mathbb T^*\setminus\mathsf H_\beta\mathbb T^*$. Write
+$\mathsf H=\mathsf H_\beta$; the bit of $\cxbin j$ at offset $p<\beta$ is at
+position $j(\beta+1)+p$ of $\mathsf H$.
+
+No branch reaches $\mathsf E$ while reading a prefix of $\mathsf H$. The format
+is correct. The first block is $0^\beta$. Along $\mathsf H$ the carry branch is
+deterministic: after the bits of $\cxbin j$ at offsets below $p$, it is in
+$\mathsf C_\gamma$ with $\gamma$ the carry into offset $p$ when $1$ is added to
+$j$. On the bit $a$ at offset $p$ it therefore spawns
+$\mathsf V_{a\oplus\gamma,\beta}$. For $j<2^\beta-1$, the bit $a\oplus\gamma$ is
+the bit of $\cxbin{j+1}$ at offset $p$. That bit lies $\beta+1$ positions later,
+so the checker reads it in state $\mathsf V_{a\oplus\gamma,0}$ and has no
+transition on it. A $\#$ follows only blocks that are not all ones, and $\$$
+follows the all-ones block $\cxbin{2^\beta-1}$. After $\mathsf H$, no state remains:
+$\mathsf F_\beta$, the states $\mathsf C_\gamma$, and $\mathsf O_1$ have no
+transition on $\$$, $\mathsf I$ has none on the first $\#$, the checkers of
+earlier blocks have died as just shown, and a checker spawned at offset $p$ of
+the last block reads $\$$ in state $\mathsf V_{a,p+1}$, which has no transition
+on $\$$. So no word of $\mathsf H\mathbb T^*$ has a run.
+
+Every proper prefix of $\mathsf H$ has a run through the format states. Let
+$u\notin\mathsf H\mathbb T^*$ be no prefix of $\mathsf H$, and let $i<\len{\mathsf H}$ be
+the first position with $u[i]\ne\mathsf H[i]$. Some branch that is active after
+$\wpre ui=\wpre{\mathsf H}i$ reaches $\mathsf E$ on $u[i]$:
+\begin{itemize}[leftmargin=*]
+\item if $\mathsf H[i]$ is the bit at offset $p$ of $\cxbin j$ and $u[i]$ is
+  $\#$ or $\$$, the format branch is in $\mathsf F_p$ with $p<\beta$;
+\item if $u[i]$ is the other bit, then for $j=0$ the branch $\mathsf I$ reads
+  $1$, and for $j\ge1$ the checker spawned at offset $p$ of $\cxbin{j-1}$ is in
+  $\mathsf V_{\mathsf H[i],0}$;
+\item if $\mathsf H[i]=\#$, a bit leads $\mathsf F_\beta$ to $\mathsf E$, and $\$$
+  leads $\mathsf O_0$ to $\mathsf E$, since the block before is not all ones;
+\item if $\mathsf H[i]=\$$, a bit leads $\mathsf F_\beta$ to $\mathsf E$, and $\#$
+  leads $\mathsf O_1$ to $\mathsf E$.
+\end{itemize}
+Since $\mathsf E$ loops, $u$ has a run, which proves the claim.
+
+\emph{Binary words.} Let $\mathcal B_\beta$ have the states $q$, $(q,0)$, and
+$(q,1)$ for every state $q$ of $\mathcal N_\beta$, all final, the initial states
+of $\mathcal N_\beta$, a transition on the bit $a$ from $q$ to $(q,a)$, and a
+transition on the bit $a'$ from $(q,a)$ to every successor of $q$ in
+$\mathcal N_\beta$ on the token encoded by $aa'$. It has $9\beta+27$
+states. By induction on the number of encoded letters, the states of the form
+$q$ reachable on the token encoding of a word $z\in\mathbb T^*$ are the states of
+$\mathcal N_\beta$ reachable on $z$, and after one further bit $a$ the reachable
+states are the $(q,a)$ for these $q$; this set is nonempty iff the former is.
+So a binary word $u$ has a run iff the word $z\in\mathbb T^*$ encoded by the longest
+prefix $u'$ of $u$ of even length has a run of $\mathcal N_\beta$, that is, iff
+$z\notin\mathsf H\mathbb T^*$. As $\mathsf W_\beta$ has even length and the encoding uses
+blocks of two bits, $z\in\mathsf H\mathbb T^*$ iff $u'\in\mathsf W_\beta\{0,1\}^*$ iff
+$u\in\mathsf W_\beta\{0,1\}^*$. The construction is explicit and takes time
+polynomial in $\beta$.
+\end{proof}
+
+\subsection{The Embedding of Binary Trees}
+
+The proof of \cref{prop:cx-length} for $n\ge3$ compares the systems
+$\Phi_\beta^{(n)}$ with $\Phi_\beta$ by an embedding of binary trees. Let
+$n\ge3$, let $f$ be covariant of arity $n$, and let $f_2$ be binary and
+covariant. For a binary tree $t$, let $\cxlift(t)$ be the tree over $\Dir$
+with domain $\operatorname{dom}(t)\cup\{wi:w\in\Pos(t),\ 2\le i<n\}$, the
+labels of $t$ on $\operatorname{dom}(t)$ with $f_2$ renamed to $f$, and $\Bot$
+elsewhere. For a tree $t'$ over $\Dir$, let $\cxproj(t')$ be its restriction to
+$\operatorname{dom}(t')\cap\{0,1\}^*$ with $f$ renamed to $f_2$. For a binary
+tree, $\Pos$ collects the positions labeled $f_2$, and leaf extensions of
+trees over the two signatures are compared with $f_2$ identified with $f$.
+For a flat system $\chi$ over $f_2$ and a variable $o$, either with the
+literal $o=\Bot$ in $\chi$ or fresh, let $\chi^{(n)}$ replace every
+$f_2(a_0,a_1)$ by $f(a_0,a_1,\bar o)$ and contain the literal $o=\Bot$.
+
+\begin{proposition}[Embedding binary trees]\label{prop:cx-embedding}
+Let $n\ge3$, and let $f$, $f_2$, $\cxlift$, $\cxproj$, and $\chi^{(n)}$ be as
+above.
+\begin{enumerate}[leftmargin=*]
+\item $\cxproj\circ\cxlift$ is the identity, $\cxlift$ and $\cxproj$ are
+  monotone and preserve finite and regular trees, and
+  $\widehat{\cxlift(t)}(w)=\widehat t(w)$ and
+  $\widehat{\cxproj(t')}(w)=\widehat{t'}(w)$ for every $w\in\{0,1\}^*$.
+\item In each domain, $\cxlift\circ\sigma$, extended by $o\mapsto\Bot$, solves
+  $\chi^{(n)}$ whenever $\sigma$ solves $\chi$, and $\cxproj\circ\sigma'$ solves
+  $\chi$ whenever $\sigma'$ solves $\chi^{(n)}$. Hence $\chi$ and $\chi^{(n)}$
+  are satisfiable in the same domains, and for every query $x\le y$ a word
+  in $\{0,1\}^*$ is left (right) unsafe for $\chi$ iff it is left (right)
+  unsafe for $\chi^{(n)}$.
+\item If $\chi$ contains $g\le f_2(g,g)$ and $x\le f_2(g,g)$, then no word is
+  left unsafe for $(\chi^{(n)},x,y)$, and every right-unsafe word lies in
+  $\{0,1\}^*$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}[Proof of \cref{prop:cx-embedding}]
+As above, $f_2$ is identified with $f$ whenever labels or leaf
+extensions of trees over the two signatures are compared.
+
+(1) For a binary tree $t$, the domain of $\cxlift(t)$ is prefix closed and
+contains $\eps$. It satisfies \eqref{eq:g2}: for $w\in\operatorname{dom}(t)$, a
+child $wi$ with $i\in\{0,1\}$ belongs to it iff $t(w)=f_2$; a child $wi$ with
+$2\le i<n$ belongs to it iff $w\in\Pos(t)$; and the added nodes are labeled
+$\bot$ and have no children. Similarly, $\operatorname{dom}(t')\cap\{0,1\}^*$
+satisfies \eqref{eq:g2} for $f_2$, so $\cxproj(t')$ is a binary tree. As
+$\operatorname{dom}(\cxlift(t))\cap\{0,1\}^*=\operatorname{dom}(t)$,
+$\cxproj\circ\cxlift$ is the identity. For $w\in\{0,1\}^*$, the walk along $w$
+visits the same nodes, with the same labels up to renaming, in $t$ and
+$\cxlift(t)$, and in $t'$ and $\cxproj(t')$, so the leaf extensions agree at
+$w$. For monotonicity use \eqref{eq:g3}: the common positions of $\cxlift(t)$ and $\cxlift(u)$ in
+$\{0,1\}^*$ are common positions of $t$ and $u$ with the same labels, and the
+others end in a letter $i\ge2$ and are labeled $\bot$ in both; the common
+positions of $\cxproj(t')$ and $\cxproj(u')$ are common positions of $t'$ and
+$u'$ with the same labels. Both maps preserve finite domains. Every subtree of
+$\cxlift(t)$ is the image of a subtree of $t$ or is $\Bot$, and every subtree of
+$\cxproj(t')$ is the image of a subtree of $t'$, so both maps preserve
+regularity.
+
+(2) Both maps fix $\Bot$ and $\Top$, and
+\[
+ \cxlift(f_2(t_0,t_1))=f(\cxlift t_0,\cxlift t_1,\Bot,\ldots,\Bot),\qquad
+ \cxproj(f(t_0,\ldots,t_{n-1}))=f_2(\cxproj t_0,\cxproj t_1).
+\]
+Let $\sigma$ solve $\chi$. Applying the monotone map $\cxlift$ to a literal
+$f_2(\sigma a_0,\sigma a_1)\le\sigma z$ gives
+\[
+ f(\cxlift\sigma a_0,\cxlift\sigma a_1,\Bot,\ldots,\Bot)\le\cxlift\sigma z,
+\]
+which is the translated literal under $\cxlift\circ\sigma$ with $o\mapsto\Bot$; if $o$ is
+a variable of $\chi$, then $\sigma(o)=\Bot$ and $\cxlift(\Bot)=\Bot$. Upper and
+constant literals are treated in the same way, and $o=\Bot$ holds. Conversely,
+applying $\cxproj$ to a translated literal under a solution $\sigma'$ of
+$\chi^{(n)}$ deletes the arguments $2,\ldots,n-1$ and gives the original literal
+under $\cxproj\circ\sigma'$. By~(1), both maps preserve each domain. For a binary
+word $w$, the leaf extensions at $w$ are preserved by~(1), so a solution that
+witnesses $w$ as left or right unsafe for one system is mapped to a solution
+that witnesses the same for the other.
+
+(3) Let $\sigma'$ solve $\chi^{(n)}$. The literals $o=\Bot$,
+$g\le f(g,g,\bar o)$, and $x\le f(g,g,\bar o)$ and \cref{lem:cx-topfree}(3), with
+$o$ in the role of $b$, show that $\sigma'(x)$ is top free with
+$\Pos(\sigma'(x))\subseteq\{0,1\}^*$. Hence $\widehat{\sigma'(x)}(w)\ne\top$ for
+every $w$, and if $\widehat{\sigma'(x)}(w)\ne\bot$ then
+$w\in\Pos(\sigma'(x))\subseteq\{0,1\}^*$ by \cref{lem:cx-topfree}(1).
+\end{proof}
+
+\subsection{Exponentially Long Holes}
+
+\begin{proof}[Proof of \cref{prop:cx-length}]
+Let $n=2$ first, and let $L_q$ be the set of words accepted from $q$, for
+$q\in Q\cup\{q_{\mathrm{in}}\}$; it is prefix closed because all states are final. By
+\cref{lem:cx-counter}, $L_{q_{\mathrm{in}}}=\{0,1\}^*\setminus\mathsf W_\beta\{0,1\}^*$.
+
+\emph{Claim A.} Every solution $\sigma$ of $\Phi_\beta$ has $\sigma(x)$ top
+free with $\Pos(\sigma(x))\subseteq\{0,1\}^*$, and
+$\widehat{\sigma(Y_q)}(v)\ne\bot$ for every $q\in Q\cup\{q_{\mathrm{in}}\}$ and
+$v\in L_q$. The first part is \cref{lem:cx-topfree}(3). For the second, use
+induction on $v$. For $v=\eps$, the literal $f(b,b)\le Y_q$ and
+\eqref{eq:g11} give $\widehat{\sigma(Y_q)}(\eps)\ge f$. For $v=av'$, some
+transition $q\xrightarrow{a}q'$ has $v'\in L_{q'}$. The corresponding
+literal, say $f(Y_{q'},b)\le Y_q$ for $a=0$, and \eqref{eq:g11} give
+$\widehat{\sigma(Y_q)}(0v')\ge\widehat{\sigma(Y_{q'})}(v')$, which is not $\bot$
+by induction; the case $a=1$ is symmetric.
+
+(2) By Claim A, $\widehat{\sigma(x)}(w)\ne\top$ for every solution $\sigma$ and
+every $w$, so no word is left unsafe. If $w$ is right unsafe, witnessed by
+$\sigma$, then $\widehat{\sigma(x)}(w)\ne\bot$, so
+$w\in\Pos(\sigma(x))\subseteq\{0,1\}^*$ by \cref{lem:cx-topfree}(1), and
+$\widehat{\sigma(y)}(w)=\bot$, so $w\notin L_{q_{\mathrm{in}}}$ by Claim A. Hence
+$w\in\mathsf W_\beta\{0,1\}^*$. Conversely, let
+$w\in\mathsf W_\beta\{0,1\}^*$ and $m=\len w+1$, and put
+\[
+ \sigma_w(b)=\Bot,\qquad \sigma_w(g)=T_{\{0,1\}^{<m}},\qquad
+ \sigma_w(x)=T_{\pr(w)},\qquad \sigma_w(Y_q)=T_{L_q}^m\ \ (q\in Q\cup\{q_{\mathrm{in}}\}).
+\]
+These trees are finite. The literal $b=\Bot$ holds. By
+\cref{lem:cx-topfree}(1), $g\le f(g,g)$ holds because
+$\{0,1\}^{<m}\subseteq\{\eps\}\cup\{0,1\}\{0,1\}^{<m}$, and $x\le f(g,g)$ holds
+because $\pr(w)\subseteq\{0,1\}^{\le m}$. Each lower literal holds by
+\cref{lem:cx-topfree}(4): $\eps\in L_q$, the literal $f(b,b)\le Y_q$ is the case
+$P'=\varnothing$, and $q\xrightarrow{a}q'$ gives $aL_{q'}\subseteq L_q$. Thus
+$\sigma_w$ solves $\Phi_\beta$. Finally $\widehat{\sigma_w(x)}(w)=f$, while
+$\len w<m$ and $w\notin L_{q_{\mathrm{in}}}$ give $\widehat{\sigma_w(y)}(w)=\bot$ by the
+formula in the proof of \cref{lem:cx-topfree}(4). So $w$ is right unsafe.
+
+(1) The solution $\sigma_{\mathsf W_\beta}$ is finite, hence regular, and lies in
+each domain. By \eqref{eq:g11}, $\widehat{\sigma(x)}(\mathsf W_\beta)=f>\bot=
+\widehat{\sigma(y)}(\mathsf W_\beta)$ gives $\sigma(x)\not\le\sigma(y)$ for
+$\sigma=\sigma_{\mathsf W_\beta}$.
+
+(3) The system is satisfiable, so by \cref{thm:holes} the holes of each
+label reader are exactly the unsafe words of its side, and~(2) identifies them. The
+search of \cref{fig:algorithm} returns its answer from such a hole in each
+domain: by~(1), the finite-satisfiability test succeeds.
+
+For $n\ge3$, read the binary constructor of $\Phi_\beta$ as $f_2$. Then the
+system $\Phi_\beta^{(n)}$ is $(\Phi_\beta)^{(n)}$ in the notation of
+\cref{prop:cx-embedding}, with $o=b$. By \cref{prop:cx-embedding}(2), the
+finite assignment $\cxlift\circ\sigma_w$ solves $\Phi_\beta^{(n)}$, and the unsafe words
+in $\{0,1\}^*$ of the two systems coincide. By \cref{prop:cx-embedding}(3),
+every unsafe word of $\Phi_\beta^{(n)}$ is right unsafe and lies in $\{0,1\}^*$.
+So~(1)--(3) carry over.
+
+For every $n\ge2$ there are $k=9\beta+31$ variables, so $\beta+1=(k-22)/9$ and
+$\lambda_\beta=(\beta+1)2^{\beta+1}\ge2^{(k-22)/9}$.
+\end{proof}
+
+\subsection{PSPACE-Hardness}
+
+\begin{proof}[Proof of \cref{thm:cx-hard}]
+Let $\mathcal A=(Q,q_0,F,\delta)$ and $\mathcal A'=(Q',q_0,\{q_{\mathrm f}\},\delta')$
+be as in \cref{sec:complexity-lower}. From $Q$, the automaton $\mathcal A'$
+reads $0$ into a middle state or, from a final state, $1$ into $q_{\mathrm f}$; a
+middle state of $(q,a,q')$ reads only $a$, into $q'$; and $q_{\mathrm f}$ has no
+transition. Since $q_{\mathrm f}$ is the only final state, the accepting runs
+from $q_0$ are exactly those that read $0a_10a_2\cdots0a_t1$ through states
+$q_0,\mu_1,q_1,\ldots,\mu_t,q_t,q_{\mathrm f}$, where $\mu_i$ is the middle state
+of the transition $(q_{i-1},a_i,q_i)$ and $q_0,\ldots,q_t$ is an accepting run
+of $\mathcal A$ on $a_1\cdots a_t$. Hence $\mathcal A'$ accepts exactly
+$\cxcode(L(\mathcal A))$. Let $P=\{e(u),e(u)0:u\in\{0,1\}^*\}$ be the set of proper prefixes of codes and
+$C=\cxcode(\{0,1\}^*)$ the set of codes. The set $P$ is prefix closed and
+contains $\eps$. If $\pi\in P$ and $\pi a\notin P$ for a letter $a\in\Dir$, then
+$a\ge2$ or $\pi a\in C$, since $e(u)0\in P$ and $e(u)0a'=e(ua')\in P$ for
+$a'\in\{0,1\}$.
+
+\emph{Universal automata.} Let $\mathcal A$ be universal, and let $\sigma$ be a
+solution of $\chi(\mathcal A')$, in any domain.
+
+First, $\widehat{\sigma(r)}(\pi)\in\{f,\top\}$ for every $\pi\in P$. Let
+$\mathsf s(\pi)=r$ for $\pi=e(u)$ and $\mathsf s(\pi)=r'$ for $\pi=e(u)0$. We show
+by induction on $\pi\in P$ that $\widehat{\sigma(r)}(\pi)=\top$, or
+$\pi\in\operatorname{dom}(\sigma(r))$ and $\sigma(\mathsf s(\pi))\le\sigma(r)|_\pi$,
+where $t|_\pi$ is the subtree at $\pi$. This holds at $\eps$. Let $\pi=\pi'a\in P$
+with $\pi'\in P$. If $\widehat{\sigma(r)}(\pi')=\top$, then also
+$\widehat{\sigma(r)}(\pi)=\top$. Otherwise the lower literal of $\mathsf s(\pi')$
+puts a constructor below $\sigma(r)|_{\pi'}$, so the label of $\sigma(r)$ at $\pi'$
+is $f$ or $\top$. If it is $\top$, then $\widehat{\sigma(r)}(\pi)=\top$. If it is
+$f$, decomposing at the child $a$ gives the claim: for $\mathsf s(\pi')=r$, the
+only child in $P$ is $a=0$, $\mathsf s(\pi)=r'$, and
+$f(\sigma r',\Bot,\ldots,\Bot)\le\sigma(r)|_{\pi'}$ gives $\sigma(r')\le\sigma(r)|_\pi$;
+for $\mathsf s(\pi')=r'$, $a\in\{0,1\}$, $\mathsf s(\pi)=r$, and
+$f(\sigma r,\sigma r,\Bot,\ldots,\Bot)\le\sigma(r)|_{\pi'}$ gives
+$\sigma(r)\le\sigma(r)|_\pi$. In the second alternative, the lower literal of
+$\mathsf s(\pi)$ makes the label of $\sigma(r)$ at $\pi$ at least $f$.
+
+Second, let $w\in(P\cup C)\cap\operatorname{dom}(\sigma(x))$. Then
+$\sigma(x)(w)\ne\top$; if $w\in P$ and $\sigma(x)(w)=f$, then $\sigma(x)(wi)=\bot$
+for $2\le i<n$; and if $w\in C$, then $\sigma(x)(w)=\bot$. Indeed, $w$ is a prefix
+of a code $v$, which is accepted because $\mathcal A$ is universal; take an
+accepting run $p_0=q_0,p_1,\ldots,p_{|v|}=q_{\mathrm f}$ of $\mathcal A'$ on $v$.
+By induction on $j\le\len w$, if $\wpre wj\in\operatorname{dom}(\sigma(x))$ then
+$\sigma(x)|_{\wpre wj}\le\sigma(X_{p_j})$. This holds for $j=0$, as $x=X_{q_0}$. If
+$\wpre w{j+1}\in\operatorname{dom}(\sigma(x))$, then $\sigma(x)$ has the label $f$ at
+$\wpre wj$, and the transition from $p_j$ to $p_{j+1}$ on the letter $w[j]$ gives a
+literal $X_{p_j}\le f(\ldots)$ with $X_{p_{j+1}}$ in the argument $w[j]$. So
+$\sigma(X_{p_j})$ lies between two trees with the root label $f$ and has this root
+label itself, and decomposing both inequalities at the child $w[j]$ gives
+$\sigma(x)|_{\wpre w{j+1}}\le\sigma(X_{p_{j+1}})$. At $j=\len w$: if
+$w\in P$, then $p_{|w|}$ has a transition on $v[\len w]$, whose literal bounds
+$\sigma(x)|_w$ by a constructor tree with the children $\sigma(b)=\Bot$ in the
+arguments $2,\ldots,n-1$; if $w\in C$, then $p_{|w|}=q_{\mathrm f}$ and
+$\sigma(x)|_w\le\sigma(X_{q_{\mathrm f}})=\Bot$.
+
+Now let $w$ be a common position of $\sigma(x)$ and $\sigma(r)$. If $w\in P$, the
+two facts give $\sigma(x)(w)\le f\le\sigma(r)(w)$. Otherwise, let $\pi a$ be the
+shortest prefix of $w$ outside $P$, with $\pi\in P$. Then $\pi a$ is a position
+of $\sigma(x)$ with $a\ge2$ or $\pi a\in C$, so $\sigma(x)(\pi a)=\bot$ by the
+second fact. A leaf has no children, so $w=\pi a$ and
+$\sigma(x)(w)=\bot\le\sigma(r)(w)$. By \eqref{eq:g3}, $\sigma(x)\le\sigma(r)$. Thus
+$\chi(\mathcal A')\models_{\mathcal D}x\le r$ in each domain.
+
+\emph{Rejecting automata.} Let $\mathcal A$ reject $w_0$, and put
+$c_0=\cxcode(w_0)$. A prefix of $c_0$ accepted by $\mathcal A'$ would be a
+code, hence equal to $c_0$ by prefix freeness; but $c_0$ is not accepted, since
+$w_0\notin L(\mathcal A)$ and the code is injective. For $q\in Q'$ let $J_q$ be
+the set of cuts $j\le\len{c_0}$ such that $q$ is reachable from $q_0$ on
+$\wpre{c_0}j$, and put $P_q=\bigcup_{j\in J_q}\pr(\wsuf{c_0}j)$. Define
+\[
+ \sigma(X_q)=T_{P_q},\qquad \sigma(z)=\Top,\qquad \sigma(b)=\Bot,\qquad
+ \sigma(r)=r_m,\qquad \sigma(r')=r'_m,\qquad m=\len{c_0},
+\]
+where $r_0=r'_0=\Top$, $r_{j+1}=f(r'_j,\Bot,\ldots,\Bot)$, and
+$r'_{j+1}=f(r_j,r_j,\Bot,\ldots,\Bot)$. All these trees are finite. We check the
+literals. No prefix of $c_0$ is accepted, so $J_{q_{\mathrm f}}=\varnothing$ and
+$\sigma(X_{q_{\mathrm f}})=T_\varnothing=\Bot$. For a transition $q\xrightarrow0q'$
+with $P_q\ne\varnothing$, the tree $T_{P_q}$ has the label $f$ at its root, its
+children in the arguments $i\ge2$ are $\Bot$ because $P_q\subseteq\{0,1\}^*$, its
+child $1$ lies below $\sigma(z)=\Top$, and its child $0$ is $T_{P'}$ with
+$P'=\bigcup\{\pr(\wsuf{c_0}{j+1}):j\in J_q,\ j<\len{c_0},\ c_0[j]=0\}$. Each
+such $j$
+has $j+1\in J_{q'}$, so $P'\subseteq P_{q'}$, and $T_{P'}\le T_{P_{q'}}$ by
+\cref{lem:cx-topfree}(1). Hence $\sigma(X_q)\le f(\sigma X_{q'},\sigma z,\Bot,\ldots,\Bot)$;
+for $P_q=\varnothing$ this is immediate. The letter $1$ is symmetric. The
+literal $b=\Bot$ holds. By induction, $r_{j+1}\le r_j$ and $r'_{j+1}\le r'_j$:
+both hold at $j=0$ against $\Top$, and the constructor is monotone. So
+$f(r'_m,\Bot,\ldots,\Bot)=r_{m+1}\le r_m$ and
+$f(r_m,r_m,\Bot,\ldots,\Bot)=r'_{m+1}\le r'_m$.
+
+It remains to refute the query. Since $0\in J_{q_0}$, we have $c_0\in\Pos(\sigma(x))$.
+For $u\in\{0,1\}^*$ and $j\ge2\len u+1$, the tree $r_j$ has the label $f$ along
+$e(u)$, and its subtree at $e(u)$ is $r_{j-2\len u}$, because $r_i$ has the child
+$r'_{i-1}$ at $0$ and $r'_i$ has the child $r_{i-1}$ at $0$ and at $1$, for
+$i\ge1$. With $m=2\len{w_0}+1$, the subtree of $r_m$ at $e(w_0)$ is
+$r_1=f(\Top,\Bot,\ldots,\Bot)$, so $c_0=e(w_0)1$ is a common position at which
+$\sigma(x)$ has the label $f$ and $\sigma(r)$ has $\bot$. By \eqref{eq:g3},
+$\sigma(x)\not\le\sigma(r)$. This finite countermodel lies in every domain.
+
+\emph{The reduction.} The assignment with $X_q=z=b=\Bot$ and $r=r'=\Top$ solves
+$\chi(\mathcal A')$, so the system is satisfiable. It has $\len{Q'}+4$ variables
+with $\len{Q'}=\len Q+\len\delta+1$, and $2\len\delta+\len F+4$ literals, each
+containing at most $n+1$ variable occurrences, and it is computed in polynomial
+time for fixed $n$. Universality of nondeterministic automata over $\{0,1\}$
+with one initial state is PSPACE-hard
+\citep[Theorem~3]{KrotzschMasopustThomazo16}, as explained before
+\cref{thm:cx-hard}. Hence entailment is PSPACE-hard in each domain.
+The covariant instances are instances of the problem with the variance as
+part of the input, so that problem is PSPACE-hard as well.
+\end{proof}

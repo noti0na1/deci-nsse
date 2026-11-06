@@ -1,0 +1,143 @@
+%% Packages -----------------------------------------------------------------
+\usepackage{mathtools}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{placeins}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{automata,positioning,arrows.meta,decorations.pathreplacing,calc,fit,backgrounds}
+\usepackage[capitalise,nameinlink]{cleveref}
+
+%% Theorem-like environments --------------------------------------------
+%% Defined here, after cleveref, so that references name environments that
+%% share the theorem counter correctly (acmart skips environments that exist).
+\theoremstyle{acmplain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{conjecture}[theorem]{Conjecture}
+\theoremstyle{acmdefinition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+\theoremstyle{acmplain}
+%% acmart's amsthm setup hides the environment name from cleveref when the
+%% counter is shared; alias the counter inside each environment instead.
+\usepackage{etoolbox}
+\newcommand{\crefenv}[1]{\AtBeginEnvironment{#1}{\crefalias{theorem}{#1}}}
+\crefenv{proposition}\crefenv{lemma}\crefenv{corollary}\crefenv{conjecture}
+\crefenv{example}\crefenv{definition}\crefenv{remark}
+\crefname{figure}{Figure}{Figures}
+\crefname{remark}{Remark}{Remarks}
+\crefname{example}{Example}{Examples}
+\crefname{definition}{Definition}{Definitions}
+\crefname{lemma}{Lemma}{Lemmas}
+\crefname{theorem}{Theorem}{Theorems}
+\crefname{corollary}{Corollary}{Corollaries}
+\crefname{proposition}{Proposition}{Propositions}
+\crefname{appendix}{Appendix}{Appendices}
+
+%% Lean identifiers: typewriter, breakable at dots and underscores --------
+\DeclareUrlCommand\lean{\urlstyle{tt}}
+\makeatletter
+\g@addto@macro\UrlBreaks{\do\_\do\.}
+\makeatother
+
+%% Lean listings (pdflatex: map the Unicode characters used) ---------------
+\lstdefinelanguage{lean}{
+  morekeywords={def,theorem,structure,class,where,inductive,instance,abbrev,
+    import,namespace,end,open,variable,fun,match,with,if,then,else,let,by,Prop,Type},
+  sensitive=true,
+  morecomment=[l]{--},
+  morecomment=[s]{/-}{-/},
+  morestring=[b]",
+}
+\lstset{
+  language=lean,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries,
+  commentstyle=\color{black!60},
+  columns=fullflexible,
+  keepspaces=true,
+  xleftmargin=1em,
+  aboveskip=4pt,
+  belowskip=4pt,
+  inputencoding=utf8,
+  extendedchars=true,
+  literate=
+    {ϕ}{{$\phi$}}1 {ρ}{{$\rho$}}1 {σ}{{$\sigma$}}1 {ℕ}{{$\mathbb{N}$}}1
+    {≤}{{$\le$}}1 {∀}{{$\forall$}}1 {∃}{{$\exists$}}1 {→}{{$\to$}}1
+    {↔}{{$\leftrightarrow$}}1 {¬}{{$\neg$}}1 {∧}{{$\wedge$}}1 {∨}{{$\vee$}}1
+    {∈}{{$\in$}}1 {∉}{{$\notin$}}1 {ᶜ}{{${}^{\mathsf{c}}$}}1 {⊥}{{$\bot$}}1
+    {⊤}{{$\top$}}1 {·}{{$\cdot$}}1 {×}{{$\times$}}1 {²}{{${}^2$}}1
+    {∘}{{$\circ$}}1 {⟨}{{$\langle$}}1 {⟩}{{$\rangle$}}1 {≠}{{$\ne$}}1
+    {π}{{$\pi$}}1 {μ}{{$\mu$}}1 {ν}{{$\nu$}}1 {κ}{{$\kappa$}}1 {Λ}{{$\Lambda$}}1
+    {ℓ}{{$\ell$}}1 {≥}{{$\ge$}}1 {⊆}{{$\subseteq$}}1 {∅}{{$\emptyset$}}1
+    {₁}{{${}_1$}}1 {₂}{{${}_2$}}1 {α}{{$\alpha$}}1 {β}{{$\beta$}}1,
+}
+
+%% Notation -----------------------------------------------------------------
+\newcommand{\NSSE}{NSSE\xspace}
+\def\Bot{\bot}
+\def\Top{\top}
+\newcommand{\Dir}{\mathbb{D}}                 % child alphabet Fin n
+\newcommand{\Sig}{\Sigma}
+\newcommand{\ftree}{f}
+\newcommand{\Vars}{\mathcal{V}}
+\newcommand{\entails}{\models}
+\newcommand{\judg}[3]{#1 \models^{?} #2 \le #3}
+\newcommand{\supp}{\vdash}
+\newcommand{\pre}{\preceq}
+\newcommand{\pr}{\operatorname{pr}}
+\newcommand{\pedge}{\rightsquigarrow}
+\newcommand{\Lang}{\mathcal{L}}
+\newcommand{\Adm}{\mathsf{Adm}}               % admitted pairs of reader states
+\newcommand{\Rej}{\mathsf{Rej}}               % rejected states of a reader
+\newcommand{\eps}{\varepsilon}
+\newcommand{\wsub}[3]{#1[#2{:}#3]}             % factor w[i:j]
+\newcommand{\wpre}[2]{#1[{:}#2]}               % prefix w[:i]
+\newcommand{\wsuf}[2]{#1[#2{:}]}               % suffix w[i:]
+\newcommand{\len}[1]{\lvert #1\rvert}
+\newcommand{\Hole}{\mathsf{Hole}}
+\newcommand{\depth}{\operatorname{depth}}
+\newcommand{\Cores}{C}
+\newcommand{\Supp}{\mathcal S}
+\newcommand{\holeBound}{\mathsf{Len}}
+\newcommand{\ie}{i.e.,\xspace}
+\newcommand{\eg}{e.g.,\xspace}
+\newcommand{\cf}{cf.\xspace}
+\newcommand{\wrt}{w.r.t.\xspace}
+
+%% Long identifiers: allow slightly looser lines instead of overfull boxes.
+\setlength{\emergencystretch}{2em}
+
+%% Lettered monitors (bounded-depth search): final-target and final-admission relations.
+\newcommand{\Tfin}{T^{\mathrm{fin}}}
+\newcommand{\Lfin}{\Lambda^{\mathrm{fin}}}
+
+%% General signature, signed constraints, and label readers.
+\newcommand{\Trees}{\mathcal{T}}
+\newcommand{\flip}{\iota}
+\newcommand{\Sat}{\operatorname{Sat}}
+\newcommand{\Up}{\mathsf{Up}}
+\newcommand{\Lo}{\mathsf{Lo}}
+\newcommand{\ready}{\mathsf{ready}}
+\newcommand{\childtest}{\mathsf{child}}
+\newcommand{\emb}{\operatorname{emb}}
+
+%% Complexity lower bounds: constructor positions, codes, counters, arity embedding.
+\newcommand{\Pos}{\operatorname{Pos}}        % constructor positions of a tree
+\newcommand{\cxcode}{\operatorname{code}}    % prefix-free binary code of a word
+\newcommand{\cxbin}[1]{\langle #1\rangle}    % binary expansion of a block number
+\newcommand{\cxlift}{\operatorname{lift}}    % embedding of binary trees into arity n
+\newcommand{\cxproj}{\operatorname{proj}}    % projection of n-ary trees to binary trees
+%% Bound constants of the compression (Section 8), named to avoid clashes
+%% with the cores C_j, the onset A and the rejected graph G.
+\newcommand{\TyBound}{\mathsf{Ty}}     % number of normal exchange types, formerly C(N,d)
+\newcommand{\AlBound}{\mathsf{Al}}     % allowance, formerly A(N,d)
+\newcommand{\DictBound}{\mathsf{Dict}} % dictionary bound, formerly G(N,d)
+\newcommand{\insize}[1]{\|#1\|}        % size of the explicit input

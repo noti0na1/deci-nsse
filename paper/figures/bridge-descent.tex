@@ -1,0 +1,25 @@
+\begin{figure}[tbp]
+\centering
+\begin{tikzpicture}[x=12mm,y=9mm,>=Stealth,every node/.style={font=\small}]
+\node (ra) at (0,0) {$R_\alpha$};
+\node (v) at (3,0) {$v$ old};
+\node (zg) at (6,0) {$Z_\gamma$};
+\node (rj) at (0,-1.6) {$R_j$};
+\node (zj) at (6,-1.6) {$Z_{j'}$};
+\draw[->] (ra) -- node[above] {$D$} (v);
+\draw[->] (v) -- node[above] {$D$} (zg);
+\draw[->] (ra) -- node[left] {$w[\alpha:j]$} (rj);
+\draw[->] (zg) -- node[right] {$w[\gamma:j']$} (zj);
+\draw[->,thick] (rj) -- node[above] {$D$} (zj);
+\node[font=\footnotesize] at (3,-2.3) {$w[\alpha:j]=w[\gamma:j']$};
+\end{tikzpicture}
+\caption{A bridge in \cref{lem:bridge}. The old variable belongs to
+$U^R_\alpha\cap L^Z_\gamma$. Horizontal arrows are closure pairs;
+vertical arrows descend through distinguished children along the same
+factor. Decomposition propagates the top-row pair $D(R_\alpha,Z_\gamma)$ to $D(R_j,Z_{j'})$.
+The common factor may be empty.}
+\Description{A lower spine root connects through an old variable to an
+upper spine root. Parallel descent along equal factors yields a closure
+pair between the two later spine nodes.}
+\label{fig:bridge-descent}
+\end{figure}

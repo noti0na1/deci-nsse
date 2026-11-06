@@ -1,0 +1,141 @@
+\section{Deciding Entailment in the Three Domains}
+\label{sec:decision}
+
+This section assembles the three bounds into decision procedures: a finite
+search for holes, a procedure for arbitrary trees built on it
+(\cref{fig:algorithm}), and transfers to regular and finite trees.
+
+\begin{theorem}[Finite search for holes]\label{thm:hole-decision}
+For an $N$-state reader, over any finite alphabet, that satisfies the
+rejected-path property, put
+\begin{equation}\label{eq:bounds}
+ B=4N-2,\qquad d=2N(B+1)-1,\qquad H=\holeBound(N,d).
+\end{equation}
+A hole exists iff a hole of length at most $H$ exists, where $\holeBound$
+is given by \eqref{eq:holebound}. Moreover,
+$H\le2^{2^{1280(N+1)^5}}$.
+\end{theorem}
+\begin{proof}
+By \cref{thm:brt}, choose a hole with tail at most $B$. If it is empty,
+it already meets the bound. Otherwise, \cref{thm:depth} bounds its depth by
+$d$ in the original $N$-state reader. Applying \cref{thm:search} gives a
+hole of length at most $H$. For an empty alphabet only
+$\eps$ exists, so no nonempty hierarchy is required. The reverse implication
+is immediate. The closed-form estimate is \cref{lem:elementary-estimate}.
+Each candidate can be checked by computing its run and
+examining the finitely many pairs $s<e\le |w|$.
+\end{proof}
+
+\begin{figure}[t]
+\small
+\begin{minipage}{0.94\linewidth}
+\textbf{Input:} arity $n$, variance $c$, a flat system $\phi$ on $k$ variables,
+and query $x\le y$.\\
+\textbf{Output:} whether $\phi\models_c x\le y$.
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item Form $\psi=\phi^\pm$, compute its closure, and test for a label clash.
+If a clash exists, return \emph{yes}.
+\item Instantiate the reader of \cref{sec:label-reader} on $\psi,(x^+,y^+)$
+and on $\psi^{\mathfrak d},(y^+,x^+)$.
+Use $N=2\cdot4^{2k}$ and compute $B,d,H$ from \eqref{eq:bounds}.
+\item Enumerate all words in $\Dir^*$ of length at most $H$, including
+$\eps$. If either reader has a hole, return \emph{no}; otherwise return
+\emph{yes}. (\Cref{sec:complexity} replaces this enumeration by the
+summary search of \cref{prop:summary-search}.)
+\end{enumerate}
+For regular trees, use the same answer. For finite trees, first test finite
+satisfiability; if it fails, return \emph{yes}, otherwise use the same answer.
+\end{minipage}
+\caption{The decision procedure for flat constraints and a variable query.}
+\Description{A satisfiability test followed by two bounded searches for label-reader holes, with domain transfers for regular and finite trees.}
+\label{fig:algorithm}
+\end{figure}
+
+\begin{theorem}[Correctness]\label{thm:correct}
+The procedure of \cref{fig:algorithm} decides arbitrary-tree entailment.
+\end{theorem}
+\begin{proof}
+By \cref{lem:selector}, \eqref{eq:g19}, and \cref{thm:sat}, step~1 returns yes exactly
+when no solution exists. Otherwise, \eqref{eq:g13} and \cref{thm:holes} give
+\[
+ \phi\models_c x\le y\quad\Longleftrightarrow\quad
+ \text{neither label reader has a hole}.
+\]
+Both readers satisfy the rejected-path property. By
+\cref{thm:hole-decision}, the bounded search finds a hole whenever one exists.
+Thus each answer is correct, and the finite enumeration terminates.
+\end{proof}
+
+\subsection{Regular and Finite Transfers}
+Finite trees need one test beyond the label clash. A \emph{cycle clash} of
+a covariant system $\chi$ is a nonempty word $\eta$ together with
+variables $a,b$ such that
+\begin{equation}\label{eq:g55}
+ \Lo(\eta,a,a),\qquad D_\chi(a,b),\qquad \Up(\eta,b,b).
+\end{equation}
+In every solution $\sigma$ they give
+$\emb_\bot(\eta,\sigma(a))\le\sigma(a)\le\sigma(b)\le\emb_\top(\eta,\sigma(b))$
+by \eqref{eq:g23}. Iterating the two self-bounds forces constructor paths
+along every power of $\eta$, so a cycle clash excludes finite solutions.
+
+\begin{proposition}[Transfer]\label{prop:transfer}
+For every arity and variance,
+\begin{align}
+ \phi\models_{\mathrm{reg},c}x\le y
+ &\quad\Longleftrightarrow\quad\phi\models_c x\le y,\label{eq:g7}\\
+ \phi\models_{\mathrm{fin},c}x\le y
+ &\quad\Longleftrightarrow\quad
+ \neg\Sat_{\mathrm{fin},c}(\phi)\ \lor\ \phi\models_c x\le y,\label{eq:g8}\\
+ \Sat_{\mathrm{reg},c}(\phi)
+ &\quad\Longleftrightarrow\quad\Sat_c(\phi).\label{eq:sat-reg}
+\end{align}
+Finite satisfiability is decidable.
+\end{proposition}
+
+\begin{proof}
+The least shape is the unfolding of a finite graph of pairs of upper
+and lower supporting-variable sets. Selection and decoding are realized
+by graph products with polarity bits. Applying these operations to the
+same four-spine extension as in \cref{thm:four-spine} gives a regular
+countermodel whenever an arbitrary countermodel exists; the reverse
+implication is immediate. The same operations applied to $\psi$ itself, without
+spines, give a regular solution whenever a solution exists, which proves
+\eqref{eq:sat-reg}.
+The full graph construction and its equality
+with the pruned least shape are proved in \cref{thm:shape-graph,thm:regular-transfer}.
+
+For finite satisfiability, a covariant system must have neither a label
+clash nor a cycle clash \eqref{eq:g55}. These conditions are sufficient by
+\cref{thm:finite-sat}. Without a cycle clash the least shape has depth at
+most $k_\chi^2+1$ for $k_\chi$ covariant variables; a longer constructor
+path repeats a pair of supporting variables and yields a cycle clash.
+A finite graph on such pairs decides the cycle test. Selection preserves
+the finite domain, and decoding gives the finite signed correspondence
+of \cref{lem:finite-signed}.
+
+Finally, suppose the base has a finite solution and an arbitrary
+countermodel. Its unsafe word has a clash-free four-spine extension.
+Sources and sinks are separated. Assign old variables rank zero, new
+spine variables their cut indices, and fillers rank $|w|+1$; ranks increase
+along new constructor edges, so every cycle clash would reflect to the
+base. The finite solution is used only to exclude cycle clashes in the
+base. The extension preserves that exclusion, and its least shape can
+therefore be reconstructed independently with bounded depth. Its selected fixed solution restricts and decodes to a
+finite countermodel with the same unsafe word. This gives the finite
+entailment equivalence, including the stated vacuity case; all rank and
+depth details are proved in \cref{thm:finite-transfer}.
+\end{proof}
+
+The finite vacuity case is necessary: at positive arity the constraint
+$f(x,\ldots,x)\le x\le f(x,\ldots,x)$ forces the infinite constructor
+tree. It has no finite solution. For $n=0$, the reader search examines only
+$\eps$, and the terminal child test still checks for a constructor bound.
+Together with \cref{thm:correct}, the transfer proves \cref{thm:main}.
+
+The effective graph-size and finite-depth bounds are collected in
+\cref{sec:countermodel-bounds}.
+
+The enumeration of \cref{fig:algorithm} establishes decidability.
+\Cref{sec:complexity} implements its hole search differently: the summary
+search (\cref{prop:summary-search}) stores one level of the block hierarchy
+instead of a word and yields the space bound (\cref{thm:complexity}).

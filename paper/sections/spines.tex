@@ -1,0 +1,786 @@
+\section{Closure and Spine Clashes}
+\label{sec:spines}
+
+This section turns unsafety of a fixed word $w$ into a syntactic test on
+the constraints. By \cref{lem:fixed-witness}, $w$ is unsafe on a side
+exactly when the signed system of that side has a solution that is fixed by
+the assignment involution $S$ and satisfies two prefix conditions along $w$.
+We encode these conditions, together with their sign duals, by an extension
+$\Psi^4_w$ with four chains of fresh variables, the spines
+(\cref{sec:spine}). Two facts are needed before the spines, and they fix
+the order of this section. First, a covariant system is satisfiable exactly
+when it has no label clash, a condition on its finite closure
+(\cref{sec:closure,sec:least}). Second, a clash-free system that is
+flip-closed and sign coherent has a solution fixed by $S$, obtained by
+polarity selection on its least shape (\cref{sec:selector}). Together they
+reduce unsafety of $w$ to the absence of a label clash in $\Psi^4_w$
+(\cref{thm:four-spine}). We then express the closure of $\Psi^4_w$ through
+the closure of the original system and two sets $U_j,L_j$ of old variables
+at each cut (\cref{sec:bridge-formula}). Classifying the clashes in these
+terms (\cref{sec:events}) yields tests at single cuts and tests on suffix
+comparisons. \Cref{sec:holes} packages these tests as a finite reader with
+the rejected-path property.
+
+\subsection{Closure and Supported Path Bounds}\label{sec:closure}
+For this subsection, let $\chi$ be any finite covariant constraint system over a
+finite variable set $\Vars$. Its \emph{closure} $D_\chi$ is the least reflexive and
+transitive relation satisfying, for every $i\in\Dir$,
+
+\begin{equation}\label{eq:g21}
+\frac{f(\vec a)\le u\in\chi\qquad D_\chi(u,v)\qquad
+ v\le f(\vec b)\in\chi}{D_\chi(a_i,b_i)}.
+\end{equation}
+
+Repeatedly adding reflexive, transitive, and decomposition consequences
+computes $D_\chi$: there are only $|\Vars|^2$ pairs. Induction on a derivation
+proves soundness, $D_\chi(u,v)\Rightarrow \sigma(u)\le \sigma(v)$ for every solution.
+For the decomposition step use the constructor case of \eqref{eq:g4}.
+
+Define \emph{supported upper and lower path bounds} by
+
+\begin{equation}\label{eq:g22}
+\begin{aligned}
+ \Up(\eps,u,v)&\iff D_\chi(u,v),\\
+ \Up(i\eta,u,v)&\iff
+ \exists z,\vec b\ [D_\chi(u,z)\land z\le f(\vec b)\in\chi
+ \land\Up(\eta,b_i,v)],\\
+ \Lo(\eps,u,v)&\iff D_\chi(u,v),\\
+ \Lo(i\eta,u,v)&\iff
+ \exists\vec a,z\ [f(\vec a)\le z\in\chi\land D_\chi(z,v)
+ \land\Lo(\eta,u,a_i)].
+ \end{aligned}
+\end{equation}
+
+In every solution, $\Up(\eta,u,v)$ says that the subtree of $u$ at
+$\eta$, when present, is below $v$; $\Lo(\eta,u,v)$ says that $u$ is
+below the subtree of $v$ there. The variable arguments follow the order of
+the inequality: the path is on the first variable for $\Up$ and on the
+last for $\Lo$.
+To state soundness without assuming the path exists, let
+$\emb_b(\eta,t)$ embed $t$ at $\eta$, putting the constant
+tree $b$ in every off-path child. Then
+
+\begin{lemma}[Path rules]\label{lem:path-rules}
+In every solution of $\chi$,
+\begin{equation}\label{eq:g23}
+\begin{aligned}
+ \Up(\eta,u,v)&\Longrightarrow
+ \sigma(u)\le\emb_{\top}(\eta,\sigma(v)),\\
+ \Lo(\eta,u,v)&\Longrightarrow
+ \emb_{\bot}(\eta,\sigma(u))\le \sigma(v).
+ \end{aligned}
+\end{equation}
+
+Composition and factorization, including empty factors, satisfy
+\begin{equation}\label{eq:path-factors}
+\begin{aligned}
+\Up(\eta\tau,u,v)&\iff\exists a\;[\Up(\eta,u,a)\land\Up(\tau,a,v)],\\
+\Lo(\eta\tau,u,v)&\iff\exists a\;[\Lo(\tau,u,a)\land\Lo(\eta,a,v)].
+\end{aligned}
+\end{equation}
+At an empty factor the path judgment retains the closure relation
+$D_\chi$, rather than requiring equality of its endpoints.
+For later use, cancellation of a common path gives
+
+\begin{equation}\label{eq:g24}
+\begin{aligned}
+ \Lo(\eta,a,z)\land
+ \Up(\eta\tau,z,b)
+ &\Longrightarrow\Up(\tau,a,b),\\
+ \Lo(\eta\tau,a,z)\land
+ \Up(\eta,z,b)
+ &\Longrightarrow\Lo(\tau,a,b).
+ \end{aligned}
+\end{equation}
+
+\end{lemma}
+\begin{proof}
+Induction on \eqref{eq:g22}, using \eqref{eq:g21} and the extreme
+off-path fillers, proves \eqref{eq:g23}. Induction on the length of
+$\eta$ proves both directions of \eqref{eq:path-factors}; closure
+transitivity absorbs the intermediate pairs at empty factors.
+For cancellation, when $\eta=\eps$, this is transitivity. For $\eta=i\eta'$, the first
+lower and upper constructor bounds $f(\vec a')\le z'$ and
+$z''\le f(\vec b')$, with their intervening closure pairs,
+give $D_\chi(a'_i,b'_i)$ by \eqref{eq:g21}; apply the induction hypothesis to $\eta'$.
+This proves both formulas and supplies the claimed factor and cancellation
+rules in all arities. \end{proof}
+
+A signed variable set has a sign map $\operatorname{sg}$ and a
+fixed-point-free variable flip $\flip$ complementing signs. A system is
+\emph{flip-closed} if reversing inequalities, flipping variables, and
+exchanging constants preserves its literals. It is \emph{sign coherent}
+if every constructor child $a_i$ of root $z$ has sign
+$\operatorname{sg}(z)\oplus c(i)$, in either inequality orientation.
+
+Return now to $\psi=\phi^{\pm}$; everything below also holds for its order
+dual $\psi^{\mathfrak d}$ with the query $(y^+,x^+)$, the right side system
+of \cref{sec:fixed-witness}. The literals of $\psi$ are closed under reversing
+inequalities, flipping all signs, and exchanging constants. Induction on
+\eqref{eq:g21} and \eqref{eq:g22} therefore proves
+
+\begin{equation}\label{eq:g25}
+\begin{aligned}
+ D_\psi(u,v)&\iff D_\psi(\flip v,\flip u),\\
+ \Lo(\eta,v,\flip u)
+ &\iff\Up(\eta,u,\flip v).
+ \end{aligned}
+\end{equation}
+
+The signed translation is sign coherent by its defining table.
+\begin{lemma}[Sign purity]\label{lem:sign-purity}
+In a sign-coherent system, closure pairs have equal signs. In either
+path judgment along $\eta$, the endpoint signs differ by $p(\eta)$.
+\end{lemma}
+\begin{proof}
+Reflexivity and transitivity preserve equality of signs. Decomposition
+compares children at the same position, so both signs toggle by $c(i)$.
+Induction on \eqref{eq:g22} proves the path assertion.
+\end{proof}
+In particular, a path from a positive query variable along $\eta$ has
+its other endpoint of sign $p(\eta)$.
+
+\subsection{Label Clashes and the Least Shape}\label{sec:least}
+A supported lower root label at $z$ is $f$ if some
+$f(\vec a)\le u\in\chi$ has $D_\chi(u,z)$, and is $\top$ if some
+$u=\top\in\chi$ has $D_\chi(u,z)$. Dually, an upper root label is
+$f$ or $\bot$ if it is supplied by $v\le f(\vec b)$ or
+$v=\bot$, with $D_\chi(z,v)$. A \emph{label clash} is a supported pair
+$(\top,\bot)$, $(\top,f)$, or $(f,\bot)$. Equivalently, it is a
+lower literal and an upper literal with a closure pair between their roots,
+where the root label of the lower literal exceeds that of the upper one.
+
+
+Define the three support predicates by
+\begin{equation}\label{eq:shape-supports}
+\begin{aligned}
+\ell_f(z,\eta)&\iff\exists v,\vec a\;[\Lo(\eta,v,z)\land f(\vec a)\le v\in\chi],\\
+u_f(z,\eta)&\iff\exists v,\vec b\;[\Up(\eta,z,v)\land v\le f(\vec b)\in\chi],\\
+u_\bot(z,\eta)&\iff\exists v\;[\Up(\eta,z,v)\land v=\bot\in\chi].
+\end{aligned}
+\end{equation}
+We retain a constructor when lower and upper constructor support force
+one. Otherwise, we choose an extreme label compatible with the upper
+bounds. A prescribed top needs no separate branch: in a clash-free
+system it excludes the upper supports that could select another label.
+Define
+\begin{equation}\label{eq:g27}
+ h(z,\eta)=
+ \begin{cases}
+ f,&\ell_f(z,\eta)\land u_f(z,\eta),\\
+ \bot,&\neg\ell_f(z,\eta)\land(u_\bot(z,\eta)\lor u_f(z,\eta)),\\
+ \top,&\text{otherwise}.
+ \end{cases}
+\end{equation}
+The \emph{least-shape assignment} $\sigma_{\mathrm{sh}}$ retains this
+label exactly at paths whose proper prefixes all have label $f$.
+The root is retained, and a child is retained exactly when its parent is
+labeled $f$, so this defines trees even when their domains are infinite.
+Here ``least'' refers to the set of constructor positions, as proved
+below, rather than to order-leastness: for binary covariant $f(a,a)\le a$
+the rule gives $\top$, while the least solution is the infinite constructor tree.
+
+The construction makes the least constructor shape explicit; its
+common shape under the assignment involution enables the polarity
+selection in \cref{lem:selector}.
+
+\begin{theorem}[Least shape and satisfiability]\label{thm:sat}
+If $\chi$ has no label clash, $\sigma_{\mathrm{sh}}\models\chi$. Hence
+\begin{equation}\label{eq:g26}
+ \Sat(\chi)\quad\Longleftrightarrow\quad
+ \chi\text{ has no label clash}.
+\end{equation}
+\end{theorem}
+\begin{proof}
+First, the label rule is monotone in lower constructor support and
+antitone in both upper supports. More precisely, if lower support at
+$(v,\eta)$ implies that at $(v',\eta')$, and each upper support at
+$(v',\eta')$ implies its counterpart at $(v,\eta)$, then
+$h(v,\eta)\le h(v',\eta')$. For $h(v',\eta')=\top$, this is
+automatic. For $h(v',\eta')=f$, upper constructor support at $(v,\eta)$ gives
+$h(v,\eta)\le f$. For $h(v',\eta')=\bot$, absence of lower constructor support
+transfers to $(v,\eta)$, as does the upper support causing bottom, so
+$h(v,\eta)=\bot$.
+
+For $f(\vec a)\le z$, the root supports a lower constructor, so
+$f\le h(z,\eps)$. At a common child path $i\eta$, lower support at
+$(a_i,\eta)$ propagates to $(z,i\eta)$ by \eqref{eq:g22}, and upper
+support propagates in the reverse direction by \eqref{eq:g24}.
+The monotonicity just proved gives the required comparison. For
+$z\le f(\vec b)$, upper constructor support gives the root comparison;
+cancellation transports lower support from $(z,i\eta)$ to $(b_i,\eta)$,
+and the path rule transports upper support back. Thus this inequality
+also holds at every common path. Pruning changes no label on common paths.
+A prescribed bottom has upper bottom support and cannot have lower
+constructor support without a clash, so the rule selects bottom.
+A prescribed top excludes both upper supports and hence selects top.
+This verifies every literal. Conversely, closure soundness excludes a
+solution in the presence of an incompatible pair of supported labels.
+\end{proof}
+
+\begin{lemma}[Minimal constructor positions]\label{lem:minimal-shape}
+If $\chi$ has no label clash, every constructor position of
+$\sigma_{\mathrm{sh}}(z)$ is a constructor position of every solution's
+value at $z$.
+\end{lemma}
+\begin{proof}
+Induct along a retained path. At each constructor position $\eta$,
+\eqref{eq:g27} supplies both constructor supports. By \eqref{eq:g23},
+together with their supporting literals, they bound the solution
+between $\emb_\bot(\eta,f(\sigma(a_i))_i)$ and
+$\emb_\top(\eta,f(\sigma(b_i))_i)$ for suitable children. Both
+embeddings have label $f$ at $\eta$. At the root the solution's label is therefore $f$; at subsequent
+positions the induction hypothesis ensures the path exists, and the
+same sandwich forces its label to be $f$. Since \cref{thm:sat} makes
+$\sigma_{\mathrm{sh}}$ a solution, its constructor set is least by inclusion.
+\end{proof}
+
+\subsection{Polarity Selection}\label{sec:selector}
+Use the assignment involution $S$ of \cref{lem:signed} on any signed
+variable set. The signed translation and its order dual are flip-closed
+and sign coherent.
+The proofs of \eqref{eq:g25} and sign purity apply to every such system;
+flip closure also implies $\sigma\models\chi\Rightarrow S\sigma\models\chi$
+by evaluating each flipped literal and reversing its tree inequality.
+
+\begin{lemma}[Common shape and selection]\label{lem:selector}
+For a flip-closed system, $\sigma_{\mathrm{sh}}$ and
+$S\sigma_{\mathrm{sh}}$ have the same domains and constructor positions.
+If it is also sign coherent and has no label clash, the assignment
+\begin{equation}\label{eq:g60}
+ \sigma_{\mathrm{sel}}(z)(\eta)=
+ \begin{cases}
+ \sigma_{\mathrm{sh}}(z)(\eta),&\operatorname{sg}(z)\oplus p(\eta)=0,\\
+ (S\sigma_{\mathrm{sh}})(z)(\eta),&\operatorname{sg}(z)\oplus p(\eta)=1
+ \end{cases}
+\end{equation}
+on this common domain satisfies $\chi$, is fixed by $S$, and preserves
+that domain and its constructor positions exactly.
+\end{lemma}
+\begin{proof}
+Variable flip exchanges lower and upper constructor support at $(z,\eta)$ and
+$(\flip z,\eta)$. Thus \eqref{eq:g27} labels one by $f$ iff it labels the
+other by $f$. Their proper-prefix pruning predicates coincide. Tree duality
+preserves domains and constructor labels, giving the common shape.
+Both assignments solve $\chi$ by \cref{thm:sat} and flip closure.
+Selecting between them retains exactly their constructor positions,
+so it gives a well-formed tree on their common domain.
+
+At a constructor-literal root either input has the required comparison
+with $f$. At a path $i\eta$, selection on the root side uses the bit
+$\operatorname{sg}(z)\oplus c(i)\oplus p(\eta)$, the same bit used on
+the child side at $\eta$, by coherence. Both labels therefore come from
+one satisfying assignment. This proves either orientation of the literal.
+Both inputs have the prescribed leaf at a constant literal.
+Finally, at $\flip z$ the choice bit is complemented. If the bit at $z$
+is zero, the selected label at $\flip z$ is the dual of the first input
+at $z$; if it is one, the selected label there is the first input at
+$\flip z$. Applying tree duality in either case gives the selected label
+at $z$. Common domains prove the same equality at absent paths, so
+$S\sigma_{\mathrm{sel}}=\sigma_{\mathrm{sel}}$.
+\end{proof}
+
+In particular, normalization in one direction and selection followed by
+decoding in the other prove
+\begin{equation}\label{eq:g19}
+ \Sat_c(\phi)\quad\Longleftrightarrow\quad\Sat(\phi^\pm).
+\end{equation}
+Together with the finite closure test, this decides satisfiability.
+
+\begin{example}[Selecting on the least shape]\label{ex:running-selection}
+The running signed system of \cref{ex:running-signed} has identity closure
+and no label clash. Both constructor bounds occur at $x^+$ and $x^-$;
+their children have no constructor or constant bounds. Hence
+\eqref{eq:g27} gives
+\[
+\begin{array}{c|cccc}
+ v&x&y&a&b\\\hline
+ \sigma_{\mathrm{sh}}(v^+)&f(\Top,\Top)&\Bot&\Top&\Top\\
+ \sigma_{\mathrm{sh}}(v^-)&f(\Top,\Top)&\Top&\Top&\Top
+\end{array}
+\]
+This solution is not fixed: at $x^+$ its image under $S$ is $f(\Bot,\Bot)$.
+The domains nevertheless agree. Selection at $x^+$ takes the domain
+leaf from $S\sigma_{\mathrm{sh}}$ and the codomain leaf from
+$\sigma_{\mathrm{sh}}$, as in \cref{fig:polarity-selection}. In full, it gives
+\[
+\begin{array}{c|cccc}
+ v&x&y&a&b\\\hline
+ \sigma_{\mathrm{sel}}(v^+)&f(\Bot,\Top)&\Bot&\Top&\Top\\
+ \sigma_{\mathrm{sel}}(v^-)&f(\Top,\Bot)&\Top&\Bot&\Bot
+\end{array}
+\]
+Decoding gives another solution of $\phi$: $x=f(\Top,\Top)$,
+$y=\Bot$, and $a=b=\Top$.
+\end{example}
+
+\input{figures/polarity-selection}
+
+\subsection{The Four-Spine Extension}\label{sec:spine}
+Throughout \cref{sec:spine,sec:bridge-formula,sec:events}, $\psi$ may be any
+flip-closed, sign-coherent system on a signed variable set, and $x^+,y^+$
+any two positive variables, with $x^-=\flip x^+$ and $y^-=\flip y^+$.
+In particular, this includes both side systems
+$(\psi_\theta,X_\theta,Y_\theta)$ of \cref{sec:fixed-witness}.
+
+Fix $w=w[0]\cdots w[m-1]$ and $p_j=p(w[:j])$.
+To enforce the two fixed-witness conditions and their sign duals, we seek
+\begin{equation}\label{eq:g29}
+\begin{aligned}
+ \emb_\bot(w,\top)&\le\sigma(x^+),&
+ \sigma(x^-)&\le\emb_\top(w,\bot),\\
+ \sigma(y^+)&\le\emb_\top(w,f(\top)_i),&
+ \emb_\bot(w,f(\bot)_i)&\le\sigma(y^-).
+\end{aligned}
+\end{equation}
+The four families flatten these bounds along $w$:
+\begin{center}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+Spine & Bound direction & Intended condition along $w$ & Sign-dual partner\\
+\midrule
+$P$ & lower & $x^+$ has a top prefix & $Q$\\
+$Q$ & upper & $x^-$ has a bottom prefix & $P$\\
+$Y$ & upper & $y^+$ has no top prefix & $W$\\
+$W$ & lower & $y^-$ has no bottom prefix & $Y$\\
+\bottomrule
+\end{tabular}
+\end{center}
+The families $P$ and $Q$ start at the two signed copies $x^+$ and $x^-$
+of the query root $x$, and $Y$ and $W$ at $y^+$ and $y^-$. Thus $Q$ and
+$W$ are the sign duals of $P$ and $Y$: flipping signs exchanges $P$ with
+$Q$ and $Y$ with $W$.
+The spines $P$ and $Y$ express the fixed-witness conditions. Their
+sign-dual partners make the extension flip-closed, so selection yields a
+fixed solution.
+
+Set
+$P_0=x^+$, $Q_0=x^-$, $Y_0=y^+$, $W_0=y^-$.
+For $1\le j\le m$ introduce fresh base variables $x_j,y_j$, which carry the
+spines of $x$ and $y$ at cut $j$, and name
+\[
+ P_j=x_j^{p_j},\quad Q_j=x_j^{1\oplus p_j},\qquad
+ Y_j=y_j^{p_j},\quad W_j=y_j^{1\oplus p_j}.
+\]
+Two further base variables $o_0,o_1$, for the off-path fillers, supply four
+signed fillers
+$B^0=o_0^0$, $T^1=o_0^1$, $T^0=o_1^0$, $B^1=o_1^1$.
+Thus $\flip B^q=T^{1-q}$, $\flip P_j=Q_j$, and $\flip Y_j=W_j$.
+The variables with positive index and the fillers are fresh. The cut-zero
+names $P_0=x^+$, $Q_0=x^-$, $Y_0=y^+$, $W_0=y^-$ are old variables;
+$P_0=Y_0$ and $Q_0=W_0$ when $x=y$.
+There are $2k+4m+4$ signed variables.
+For $R\in\{P,W\}$ and $Z\in\{Q,Y\}$ put
+\[
+ a^{R,j}_i=\begin{cases}R_{j+1}&i=w[j],\\B^{\operatorname{sg}(R_j)\oplus c(i)}&i\ne w[j],\end{cases}
+ \qquad
+ b^{Z,j}_i=\begin{cases}Z_{j+1}&i=w[j],\\T^{\operatorname{sg}(Z_j)\oplus c(i)}&i\ne w[j].\end{cases}
+\]
+The extension $\Psi^4_w$ consists of $\psi$ and
+\begin{equation}\label{eq:g28}
+\begin{array}{ll}
+ f(a^{P,j}_i)_i\le P_j,&f(a^{W,j}_i)_i\le W_j\quad(0\le j<m),\\
+ Q_j\le f(b^{Q,j}_i)_i,&Y_j\le f(b^{Y,j}_i)_i\quad(0\le j<m),\\
+ P_m=\top,&Q_m=\bot,\\
+ Y_m\le f(T^{p_m\oplus c(i)})_i,&f(B^{1\oplus p_m\oplus c(i)})_i\le W_m,\\
+ B^q=\bot,&T^q=\top\quad(q=0,1).
+\end{array}
+\end{equation}
+It is sign coherent: the distinguished child uses
+$p_{j+1}=p_j\oplus c(w[j])$, and all other children, including terminal
+children, have the prescribed sign by definition. It is flip-closed:
+flip pairs the $P$ and $Q$ links, the $W$ and $Y$ links, the terminal
+constants, the terminal constructor bounds, and the opposite-sign filler
+constants. These identities also hold at cut zero and when $m=0$.
+
+\Cref{fig:four-spines} displays the four parallel families of bounds;
+the arrows indicate the distinguished child, not closure pairs.
+\input{figures/four-spines}
+
+\begin{example}[One contravariant step]\label{ex:running-spines}
+For the running query and $w=0$, the root signs of $(P,Q,Y,W)$ are
+$(0,1,0,1)$, and their signs at cut $1$ are $(1,0,1,0)$.
+The new links and terminal bounds are exactly
+\[
+\begin{array}{ll}
+ f(P_1,B^0)\le x^+,&x^-\le f(Q_1,T^1),\\
+ y^+\le f(Y_1,T^0),&f(W_1,B^1)\le y^-,\\
+ P_1=\Top,\quad Q_1=\Bot,&
+ Y_1\le f(T^0,T^1),\quad f(B^1,B^0)\le W_1,
+\end{array}
+\]
+together with $B^q=\Bot$ and $T^q=\Top$ for $q=0,1$.
+Extend the fixed witness of \cref{ex:running-signed} by
+\[
+ \sigma(P_1)=\Top,\quad \sigma(Q_1)=\Bot,\qquad
+ \sigma(Y_1)=f(\Top,\Top),\quad \sigma(W_1)=f(\Bot,\Bot).
+\]
+With the prescribed fillers this is a fixed solution of the extension,
+which therefore has no label clash.
+\end{example}
+
+\begin{lemma}[Spine extension]\label{lem:spine}
+An assignment $\sigma\models\psi$ extends to a solution of $\Psi^4_w$ iff
+\begin{equation}\label{eq:g18}
+\begin{array}{ll}
+ \widehat{\sigma(x^+)}(w)=\top,&\widehat{\sigma(x^-)}(w)=\bot,\\
+ \widehat{\sigma(y^+)}(w)\ne\top,&\widehat{\sigma(y^-)}(w)\ne\bot.
+\end{array}
+\end{equation}
+\end{lemma}
+\begin{proof}
+Composing the links gives \eqref{eq:g29}.
+The first bound forces a top at or before the final cut: an earlier bottom
+violates the on-spine constructor bound, while reaching the end forces top.
+Conversely, a top prefix satisfies the bound; all off-path bottom comparisons
+are automatic. Duality proves the second equivalence. The third excludes
+a top at every cut through the end, since the upper bound has constructors
+there. A bottom ends comparison harmlessly; otherwise the terminal label
+is at most $f$. Duality gives the fourth equivalence.
+For sufficiency, assign, for each $1\le j\le m$,
+\[
+\begin{aligned}
+\sigma(P_j)&=\emb_\bot(w[j:],\top),&
+\sigma(Q_j)&=\emb_\top(w[j:],\bot),\\
+\sigma(Y_j)&=\emb_\top(w[j:],f(\top)_i),&
+\sigma(W_j)&=\emb_\bot(w[j:],f(\bot)_i).
+\end{aligned}
+\]
+These are assignments to distinct fresh signed variables, so they impose
+no extra condition on the old assignment, even when it is not fixed by
+$S$. Assign each filler its prescribed constant.
+For $m\ge1$, internal links and terminal literals hold with equality, and the root links
+are the four bounds \eqref{eq:g29}; all newly assigned trees are finite,
+so the extension stays in each of the three domains.
+For $m=0$ the terminal literals themselves are those bounds at the old roots.
+\end{proof}
+
+\begin{theorem}[Four-spine unsafe-word criterion]\label{thm:four-spine}
+On either side, $w$ is unsafe iff the four-spine extension of that side's
+system and query has no label clash. No satisfiability assumption is needed.
+\end{theorem}
+\begin{proof}
+For the left side, an unsafe word gives a fixed witness by
+\cref{lem:fixed-witness}. Fixedness supplies the opposite-sign conditions
+in \eqref{eq:g18}, so \cref{lem:spine} extends it to a solution and excludes
+a clash. Conversely, apply \cref{lem:selector} to the whole clash-free
+extension \eqref{eq:g28}. The selected least shape is a fixed solution;
+restriction to the old variables preserves satisfaction and fixedness,
+and \cref{lem:spine} supplies all four prefix conditions. Its first and
+third conditions give the fixed witness and hence unsafety.
+For the right side use $\psi^{\mathfrak d}$ and $(y^+,x^+)$.
+Order duality preserves flip closure and coherence, since child signs do
+not depend on inequality orientation. Conclude by \cref{lem:fixed-witness}
+for $\theta=\mathsf r$.
+\end{proof}
+
+\begin{lemma}[Separation]\label{lem:separation}
+Partition the variables into old variables and the two fresh classes
+\[
+ \text{sources }\{P_j,W_j:1\le j\le m\}\cup\{B^0,B^1\},\qquad
+ \text{sinks }\{Q_j,Y_j:1\le j\le m\}\cup\{T^0,T^1\}.
+\]
+Then
+
+\begin{equation}\label{eq:g30}
+\begin{array}{ll}
+ D_{\Psi^4_w}(a,s),\ s\text{ a source}&\Longrightarrow a=s,\\
+ D_{\Psi^4_w}(t,b),\ t\text{ a sink}&\Longrightarrow b=t,\\
+ a,b\text{ old}:\quad D_{\Psi^4_w}(a,b)&\Longleftrightarrow D_\psi(a,b).
+ \end{array}
+\end{equation}
+
+\end{lemma}
+
+\begin{proof} Induct simultaneously on closure derivations.
+An upper constructor literal has only old or sink children, never source
+children; hence decomposition cannot have a source as its right endpoint.
+Dually, a lower constructor literal has only old or source children, so
+decomposition cannot have a sink as its left endpoint. This proves the
+first two assertions, with transitivity collapsing the intervening identity.
+For an old-to-old transitivity step, a fresh middle variable would be a source
+or a sink and contradict these assertions. For an old-to-old decomposition
+step, both bounding literals must be old: every new lower literal has only
+source children, and every new upper literal has only sink children.
+Apply induction to their old root pair. The other implication follows by
+including the original derivation. Constants add no closure rule. \end{proof}
+
+The classification here is by provenance of a literal, not the class of its
+root: a new literal can be rooted at an old variable at cut zero.
+
+\subsection{The Bridge Formula}\label{sec:bridge-formula}
+Write $D=D_{\Psi^4_w}$ for the closure of the four-spine extension.
+All path judgments in this subsection are in the base system $\psi$. Define
+
+\begin{equation}\label{eq:g31}
+U^R_j=\{v:\Up(w[:j],R_0,v)\},\qquad
+ L^Z_j=\{v:\Lo(w[:j],v,Z_0)\},
+\end{equation}
+
+where $R\in\{P,W\}$ and $Z\in\{Q,Y\}$. Put $U_j=U^P_j$ and $L_j=L^Y_j$. By \eqref{eq:g25}, we have
+$L^Q_j=\flip U_j$ and $U^W_j=\flip L_j$, where $\flip\mathcal U=\{\flip v:v\in\mathcal U\}$.
+The sets $U^R_j$ are upward closed under $D_\psi$, and $L^Z_j$ are
+downward closed. At cut zero,
+$U^R_0=D_\psi\mathord\uparrow R_0$ and
+$L^Z_0=D_\psi\mathord\downarrow Z_0$, where
+$D_\psi\mathord\uparrow z=\{v:D_\psi(z,v)\}$ and
+$D_\psi\mathord\downarrow z=\{v:D_\psi(v,z)\}$.
+
+These sets already show why a clash can relate two different cuts. Take
+cuts $s<e$ and $v\in U_e\cap L_s$. Where the subtrees exist, the path
+bounds read
+\[
+ \sigma(x^+)|_{w[:e]}\le\sigma(v)\le\sigma(y^+)|_{w[:s]}.
+\]
+The upper embedding bound excludes a top leaf of $x^+$ before cut $e$.
+If $x^+$ has a top leaf along $w$, its remaining path is therefore a
+prefix of $w[e:]$, and the same bound forces a top prefix of $v$ there.
+The lower embedding bound then forces a top leaf of
+$y^+$ along $w[:s]w[e:]$. When $w[e:]\pre w[s:]$, this word is a prefix
+of $w$, contradicting the target condition. The embedding formulation
+handles an earlier top leaf of $y^+$ as well. In the extension, the old
+variable $v$ links the $P$-spine at cut $e$ to the $Y$-spine at cut $s$,
+and the equal suffixes carry this link down to the final cut. The bridge
+formula describes all such links.
+
+\begin{lemma}[Exact bridge formula]\label{lem:bridge}
+For every old $v$, both lower names $R$, both upper names $Z$, and all $0\le j,j'\le m$,
+
+\begin{equation}\label{eq:g32}
+D_{\Psi^4_w}(R_j,v)\iff v\in U^R_j,
+ \qquad D_{\Psi^4_w}(v,Z_{j'})\iff v\in L^Z_{j'},
+\end{equation}
+
+\begin{equation}\label{eq:g33}
+\begin{split}
+ D_{\Psi^4_w}(R_j,Z_{j'})\iff
+ \exists \alpha\le j,\ \gamma\le j'\quad&
+ U^R_\alpha\cap L^Z_\gamma\ne\varnothing,\\
+ &j-\alpha=j'-\gamma,\qquad w[\alpha:j]=w[\gamma:j'].
+ \end{split}
+\end{equation}
+
+\end{lemma}
+
+The bridge consists of an old-variable intersection followed by parallel
+descent through equal word factors (\cref{fig:bridge-descent}).
+\input{figures/bridge-descent}
+
+\begin{proof}\emph{Right to left.} At zero, \eqref{eq:g32} follows from \cref{lem:separation}. Factor
+an upper path along $w[:j]$ at its last letter. By induction the upper path along $w[:j-1]$
+gives a closure pair from $R_{j-1}$ to the root of an old upper literal;
+decompose against the $R$-link at position $w[j-1]$, then use the
+terminal closure of the path judgment. This gives the right-to-left direction
+of the first equivalence in \eqref{eq:g32}. The lower-path argument with a $Z$-link proves the second.
+For \eqref{eq:g33}, choose $v\in U^R_\alpha\cap L^Z_\gamma$. By \eqref{eq:g32}, we have
+$D(R_\alpha,v)$ and $D(v,Z_\gamma)$. Their composite is $D(R_\alpha,Z_\gamma)$.
+Decompose the two spine links successively along the common factor
+$w[\alpha:j]=w[\gamma:j']$. This gives $D(R_j,Z_{j'})$.
+
+\emph{Left to right.} Strengthen the induction on a closure
+derivation to four simultaneous obligations: old-to-old reflection in \eqref{eq:g30},
+the two implications \eqref{eq:g32} for each lower or upper name at positive indices,
+and \eqref{eq:g33} for each of the four name pairs when both indices are
+positive. Pairs with a bottom filler on the left or a top filler on the
+right carry no additional obligation; such pairs can occur.
+
+For transitivity, an intermediate source forces its incoming pair to
+be an identity, and an intermediate sink forces its outgoing pair to be
+an identity, by \eqref{eq:g30}. An old intermediate variable joins the
+two path memberships, producing the intersection in \eqref{eq:g33}.
+Decomposition advances both spines along the same letter; empty factors
+retain closure, so the invariant also covers cut-zero aliases.
+The remaining rule cases and zero endpoints are detailed in
+\cref{app:spine-proofs}.
+\end{proof}
+
+\subsection{Exact Clash Analysis}\label{sec:events}
+Let $\mathsf{Bot}=\{v:v=\bot\in\psi\}$ and
+$\mathsf{Top}=\{v:v=\top\in\psi\}$. Define
+
+\begin{equation}\label{eq:g34}
+\begin{aligned}
+ \operatorname{bot}(U)&\iff U\cap\mathsf{Bot}\ne\varnothing,\\
+ \operatorname{top}(L)&\iff L\cap\mathsf{Top}\ne\varnothing,\\
+ \operatorname{refl}(U,L)&\iff U\cap L\ne\varnothing,\\
+ \ready(U,L)&\iff
+ \operatorname{bot}(U)\lor\operatorname{top}(L)\lor
+ \operatorname{refl}(U,L),\\
+ \childtest(U)&\iff
+ \exists v\in U,\vec b\quad v\le f(\vec b)\in\psi.
+ \end{aligned}
+\end{equation}
+
+At cut $j$, bot-readiness bounds $x^+$ by bottom along $w[:j]$,
+excluding a top prefix along $w$. Top-readiness forces a top prefix of
+$y^+$ by cut $j$. Reflexivity readiness bounds $x^+$ by $y^+$ at the
+same cut, so any remaining top prefix transfers to $y^+$.
+These readings use the embedding bounds \eqref{eq:g23}, and thus also
+cover trees that terminate before the cut. The child test at the terminal
+cut bounds $x^+$ by a constructor along all of $w$, excluding a top
+prefix there. It does not depend on a next letter: it asks only whether
+$U$ contains the root of an upper constructor bound.
+
+The two-cut events concern the following pairs of cuts.
+
+\begin{definition}[Comparison]\label{def:comparison}
+A \emph{comparison} of a word $w$ of length $m$ is a pair of cuts $(s,e)$
+satisfying
+\begin{equation}\label{eq:g35}
+0\le s<e\le m,\qquad w[e:]\preceq w[s:].
+\end{equation}
+Its \emph{period} is $\varpi=e-s$, and its \emph{root} is the factor
+$w[s:e]$. A comparison is \emph{terminal} if $e=m$.
+\end{definition}
+
+\Cref{sec:holes} interprets comparisons as periodic suffixes and gives
+examples. A comparison of $w$ is \emph{cross-admitted} if
+$L_s\cap U_e\ne\varnothing$, and \emph{self-admitted}
+if $U_s\cap\flip U_e\ne\varnothing$.
+
+\begin{theorem}[Exact clash analysis]\label{thm:clashes}
+For either side system, its four-spine extension $\Psi^4_w$ has a label
+clash iff the side system $\psi$ has a label clash or at least one of the
+following events occurs:
+
+\begin{equation}\label{eq:g36}
+\begin{array}{ll}
+ \text{(a)}&\exists j\le m\quad\ready(U_j,L_j),\\
+ \text{(b)}&\childtest(U_m),\\
+ \text{(c)}&\exists s<e\le m\quad w[e:]\preceq w[s:]\ \land\
+ [L_s\cap U_e\ne\varnothing\ \lor\ U_s\cap\flip U_e\ne\varnothing].
+ \end{array}
+\end{equation}
+
+\end{theorem}
+
+Readiness (a) rules out a fixed witness at a single cut, and the child event
+(b) rules it out at the final cut. A cross event in (c) transfers a top
+prefix from $x^+$ to $y^+$ across two cuts. A self event makes
+the top-prefix requirement on $x^+$ incompatible with the bottom-prefix
+requirement on $x^-$.
+
+\begin{center}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Lower bound $\backslash$ upper bound & old & $Q_{j'}$ & $Y_{j'}$ & $B^q$\\
+\midrule
+old & inherited clash & bot / child & top & impossible\\
+$P_j$ & bot / child & self & refl / cross & impossible\\
+$W_j$ & top & refl / cross & none ($f/f$) & impossible\\
+$T^q$ & impossible & impossible & impossible & impossible\\
+\bottomrule
+\end{tabular}
+\end{center}
+The entries classify incompatible labels only; a closure pair between
+compatible constructor labels is not a clash. Here bot, top, and refl
+are the three readiness kinds, and child is the terminal event.
+
+\begin{proof}Suppose first that a clash occurs. Express the clash by its two
+bounding literals and a closure pair between their roots. The only relevant
+new lower bounds are the $P_j$-bounds, with label $f$ for $j<m$
+and $\top$ for $j=m$, the $W_j$-bounds, all labeled $f$ (including $j=m$), and the bounds $T^q=\top$. The relevant new
+upper bounds are the $Q_{j'}$-bounds, labeled $f$ for $j'<m$ and
+$\bot$ for $j'=m$, the $Y_{j'}$-bounds, all labeled $f$, and
+$B^q=\bot$. The fillers cannot participate: a pair out of $T^q$, or into
+$B^q$, is an identity by \eqref{eq:g30}, and neither has an opposite incompatible
+bound. Classify the remaining bounds by whether their literals belong to
+$\psi$ or were added in \eqref{eq:g28}.
+
+If both are old, separation gives an inherited clash in $\psi$. If the lower bound is a $P_j$-bound and the upper bound
+is old, an upper bottom yields $\operatorname{bot}(U_j)$ by \eqref{eq:g32}.
+An upper constructor clashes only against $P_m=\top$, and yields
+$\childtest(U_m)$.
+
+The remaining old/new cases are their sign duals or give top-readiness; see \cref{app:spine-proofs}.
+
+For a new $P$-bound against a new $Y$-bound, the $Y$-bound has label $f$,
+so the lower endpoint must be $P_m$. Apply \eqref{eq:g33} to $D(P_m,Y_{j'})$. Its cuts satisfy
+$m-\alpha=j'-\gamma$, so $\alpha\ge \gamma$. If $\alpha=\gamma$, the intersection
+$U_\alpha\cap L_\alpha$ gives reflexivity readiness. If $\alpha>\gamma$, set
+$s=\gamma,e=\alpha$. The factor equality reads
+$w[e:m]=w[s:s+m-e]$; this is exactly \eqref{eq:g35}, and the intersection is
+the cross admission $L_s\cap U_e\ne\varnothing$.
+
+The $W$/$Q$ case is the sign dual of this cross case; $W$/$Y$ labels are compatible.
+
+For a $P$-bound against a $Q$-bound, at least one endpoint is terminal:
+$j=m$ or $j'=m$. The cuts $\alpha,\gamma$ given by \eqref{eq:g33} have
+$U_\alpha\cap\flip U_\gamma\ne\varnothing$. Purity excludes $\alpha=\gamma$, since
+$U_\alpha$ and $\flip U_\alpha$ have opposite signs. If $\alpha<\gamma$, the equation
+$j-\alpha=j'-\gamma$ forces $j'>j$, hence $j'=m$; set $s=\alpha,e=\gamma$.
+If $\alpha>\gamma$, it forces $j>j'$, hence $j=m$; set $s=\gamma,e=\alpha$ and
+replace a common element $v$ by $\flip v$. In both cases the
+equal factors give \eqref{eq:g35} and the intersection is
+$U_s\cap\flip U_e\ne\varnothing$. These two orientations are both
+needed. All other new/new pairs either have equal constructor labels or
+cannot supply a lower and an upper incompatible label. This exhausts the
+clashes, including literals rooted at old variables when $m=0$.
+
+Conversely, an inherited clash persists. Readiness and child events
+produce the clashes in the table, as detailed in \cref{app:spine-proofs}.
+For a cross admission choose $v\in U_e\cap L_s$. The bridge yields
+$D(P_e,Y_s)$. By \eqref{eq:g35}, descend $m-e$ matching letters to obtain
+$D(P_m,Y_{s+m-e})$, a top/constructor clash with $P_m=\top$. For a self admission
+choose $v\in U_s\cap\flip U_e=U_s\cap L^Q_e$. Descend from
+$D(P_s,Q_e)$ to $D(P_{s+m-e},Q_m)$. Since $s<e$, the left index
+is strictly less than $m$, so this is a constructor/bottom clash.
+When $e=m$, no descent is needed, and the same clashes remain valid. \end{proof}
+
+\begin{remark}[Special cases of the clash analysis]\label{rem:clash-cases}
+\leavevmode
+\begin{itemize}[leftmargin=*]
+\item For satisfiable $\psi$, inherited clashes are absent, so the events
+  (a)--(c) are exactly the extension clashes.
+\item Purity shows that a self-admitted comparison must have
+  $p(w[s:e])=1$: its two upper sets must have opposite signs. Thus
+  self-admissions disappear in the fully covariant case, but cannot be
+  discarded for general variance.
+\item When $x=y$, reflexivity puts $x^+$ in $U_0\cap L_0$, so readiness at
+  zero excludes every unsafe word.
+\item When $m=0$, only readiness and the terminal child test remain; the
+  zero-cut bridge formulas cover all aliases.
+\item At arity zero, the constructor $f()$ still supplies a genuine
+  terminal bound and is detected by the child test.
+\item Child is tested only at the terminal cut; readiness is tested at
+  every cut, including zero and the terminal cut.
+\end{itemize}
+\end{remark}
+
+\begin{example}[A cross event]\label{ex:cross-event}
+Replace the running system by $\phi=\{x\le f(a,y),\ y\le f(a,b)\}$,
+keeping $c=(1,0)$ and the query $x\le y$. Its signed literals with positive
+roots are $x^+\le f(a^-,y^+)$ and $y^+\le f(a^-,b^+)$; the other two are
+their sign duals, and the closure is the identity. Along $w=11$, the upper sets are $\{x^+\},\{y^+\},\{b^+\}$ and
+the lower sets are $\{y^+\},\varnothing,\varnothing$. No cut is ready, the
+terminal child test fails, and there is no self event. The only event is
+the comparison $(0,1)$, with $w[1:]=1\pre11=w[0:]$, which is cross-admitted
+because $y^+\in U_1\cap L_0$. \Cref{fig:cross-event} shows the resulting
+clash. The shared variable $y^+$ supplies the bridge $D(P_1,Y_0)$ between
+two different cuts, and the matching suffix transports it one letter down
+to $D(P_2,Y_1)$, where $P_2=\top$ meets the upper constructor bound of $Y_1$.
+\end{example}
+\input{figures/cross-event}
+
+\begin{example}[A self event]\label{ex:self-event}
+Keep the arrow variance $c=(1,0)$ and take $\phi=\{x\le f(x,b)\}$, that is,
+$x\le x\to b$, with the query $x\le y$ and $y$ unconstrained. The signed
+literals are $x^+\le f(x^-,b^+)$ and $f(x^+,b^-)\le x^-$, and the closure is
+the identity. Along $w=0$, the upper sets are $U_0=\{x^+\}$ and
+$U_1=\{x^-\}$, and the lower sets are $L_0=\{y^+\}$ and $L_1=\varnothing$.
+There are no constant literals and $U_j\cap L_j=\varnothing$, so neither cut
+is ready, and $\childtest(U_1)$ fails because $x^-$ roots no upper constructor
+bound. The terminal comparison $(0,1)$ is not cross-admitted, since
+$L_0\cap U_1=\varnothing$, but it is self-admitted:
+$U_0\cap\flip U_1=\{x^+\}$. The self event alone shows that $w=0$ is not
+left unsafe. Semantically, $x\le_c x\to b$ excludes $x=\top$, so a top prefix
+of $x^+$ along $0$ needs a bottom domain leaf, $x=f(\bot,t)$; but then
+$x\le_c x\to b$ forces $x\le_c\bot$, which is impossible.
+In the extension, $P_0=x^+$, $Q_0=x^-$, $P_1=\top$, and $Q_1=\bot$, with the
+new links $f(P_1,B^0)\le x^+$ and $x^-\le f(Q_1,T^1)$. Decomposing the old
+lower literal $f(x^+,b^-)\le x^-$ against the new upper link gives
+$D(P_0,Q_1)$, and the new lower constructor bound on $P_0$ clashes with
+$Q_1=\bot$. This is the terminal self case of \cref{thm:clashes}.
+\end{example}

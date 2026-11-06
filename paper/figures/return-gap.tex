@@ -1,0 +1,43 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=9mm,y=7mm,>=Stealth,font=\small]
+  \node[anchor=east] at (-0.3,0) {$w$};
+  \fill[black!12] (3,-0.16) rectangle (6,0.16);
+  \draw[thick] (0,0) -- (12,0);
+  \foreach \x/\lab in {0/0,3/s,6/e,12/m} {
+    \draw (\x,-0.16) -- (\x,0.16);
+    \node[below] at (\x,-0.16) {$\lab$};
+  }
+  \node[above] at (1.5,0.15) {$\wpre{w}{s}$};
+  \node[above] at (4.5,0.15) {delete};
+  \node[above] at (9,0.15) {$\wsuf{w}{e}$};
+  \draw[<->] (3,1.1) -- (6,1.1)
+    node[midway,above] {$q_s=q_e$};
+  \node[anchor=east] at (12,1.55) {$\wsuf{w}{e}\pre\wsuf{w}{s}$};
+  \draw[->,dashed] (6,-0.8) -- (3,-2.05);
+  \draw[->,dashed] (12,-0.8) -- (9,-2.05);
+  \node[anchor=east] at (-0.3,-2.3) {$\wpre{w}{m-(e-s)}$};
+  \draw[thick] (0,-2.3) -- (9,-2.3);
+  \foreach \x in {0,3,9} {\draw (\x,-2.46) -- (\x,-2.14);}
+  \node[below] at (1.5,-2.45) {$\wpre{w}{s}$};
+  \node[below] at (6,-2.45) {$\wsuf{w}{e}$};
+  \node[anchor=west,align=left,font=\footnotesize] at (9.2,-2.3)
+    {$q_{m-(e-s)}=q_m$\\$\in\Rej$};
+  \draw[dotted] (7,-2.1) -- (7,-3.9);
+  \node[above,font=\footnotesize] at (7,-2.05) {$J$};
+  \draw[<->] (7,-3.65) -- (9,-3.65);
+  \node[below,font=\footnotesize] at (7,-3.85) {first rejected cut};
+  \node[anchor=east,font=\footnotesize] at (5.3,-3.8)
+    {$J\le m-(e-s)\quad\Longrightarrow\quad e-s\le m-J=r$};
+\end{tikzpicture}
+\caption{The return gap (\cref{lem:return-gap}). A comparison makes loop deletion
+produce the prefix $\wpre{w}{s}\wsuf{w}{e}=\wpre{w}{m-(e-s)}$.
+Equal states at $s$ and $e$ preserve the final rejected state, so the shortened
+prefix cannot end before $J$. The position of $J$ relative to $s,e$ is schematic;
+only $J\le m-(e-s)$ is asserted.}
+\Description{A word with cuts s, e, and m, and equal reader states at s and e.
+Deleting the shaded interval from s to e moves the suffix to s, yielding a
+shorter prefix in the same final rejected state. Its end is at or after the
+first rejected cut J, bounding the deleted length by the rejected tail.}
+\label{fig:return-gap}
+\end{figure}

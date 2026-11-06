@@ -1,0 +1,109 @@
+\section{Discussion and Open Problems}
+\label{sec:future}
+
+Non-structural subtype entailment with one constructor of any arity and
+variance is decidable over arbitrary, regular, and finite trees. The proof
+reduces non-entailment to holes of finite readers, uses the rejected-path
+property of these readers to bound the rejected tail and hence the depth of
+a block hierarchy, and then shortens all blocks of each level
+simultaneously. The questions below concern the cost of this procedure, the
+role of the rejected-path property, and richer signatures and conclusions.
+
+\subsection{Complexity and Sufficient Tests}
+\Cref{sec:complexity} places entailment in 2-EXPSPACE for every arity and
+variance, in each domain, and for a covariant constructor of each fixed arity
+$n\ge2$ it is PSPACE-hard (\cref{thm:cx-hard}). Three questions remain open.
+First, whether entailment for $n\ge2$ is in PSPACE, or at least below
+2-EXPSPACE. Second, whether the PSPACE bound at arity one
+(\cref{app:small-arity}) is tight. Third, whether a left or right label
+reader that has a hole always has one of length singly exponential in its
+state count $N$. The long holes of \cref{prop:cx-length} do not settle the
+third question: their length $2^{\Omega(k)}$ is only polynomial in
+$N=2^{4k+1}$, whereas the length bound $H$ is triply exponential in $k$.
+In the fully covariant case, self events vanish, but the dictionary bound
+does not exploit this to improve the estimate. Reducing the depth,
+sharpening the dictionary bound, or using the label readers' stronger
+restrictions on admission (\cref{sec:interface}) may narrow the gap between
+PSPACE and 2-EXPSPACE.
+
+The sufficient test of \cref{lem:branching} could also serve as an early
+non-entailment test in a simplifier; its cost is polynomial in the explicit
+reader graph, which can itself be exponential in the input.
+
+\subsection{The General Hole Problem}\label{sec:general-holes}
+For arbitrary readers, the remaining question can be stated precisely:
+is there a computable function $B(N)$ such that every $N$-state reader over
+any finite alphabet with a hole has one with rejected tail at most $B(N)$?
+Under the rejected-path property, $B(N)=4N-2$ works (\cref{thm:brt}).
+The depth and compression theorems hold for every reader, so such a
+function would decide hole existence by searching to
+$\holeBound(N,2N(B(N)+1)-1)$. Conversely, a decision procedure for hole
+existence would give such a function, even uniformly over finite alphabets.
+
+The uniformity rests on an alphabet reduction. There are at most $N^N$
+letter transitions $Q\to Q$, and for hole existence it suffices to retain
+at most two letters with each transition. Indeed, let $w$ be a hole. If no
+letter of $w$ shares its transition with another letter of the alphabet,
+$w$ already uses only retained letters. Otherwise, consider the last
+position whose letter shares its transition. Replace every letter by the
+first retained letter with the same transition, except at that position,
+where a second letter with that transition serves as a marker occurring
+nowhere else. The run is unchanged. The marker excludes every nonterminal
+comparison ending at or before the marked position. Every comparison ending
+after it compares segments made of letters with unique transitions, which
+the replacement leaves unchanged, so it already existed in $w$ with the same
+states. The new word is therefore a hole with the same rejected tail.
+Conversely, injecting the retained alphabet into the original one preserves
+holes. Up to renaming, there are thus finitely many $N$-state readers to
+consider, each with at most $2N^N$ letters. Given a hole-existence decision
+procedure, decide which of them have holes, enumerate a hole for each
+positive answer, and take the maximum rejected-tail length, or zero if
+there are none. This maximum is a computable bound for every $N$-state
+reader. Thus decidability of hole existence for all finite readers and the
+computable-tail question are equivalent. The linear bound of \cref{thm:brt}
+answers the question only under the rejected-path property.
+
+Hole languages need not be regular, even for label readers. Take the
+binary covariant constructor, the single literal $f(y,x)\le y$, and the
+query $x\le y$ from \cref{sec:intro}. A word is right unsafe exactly when it
+has the form $0^i1z$ with $z\not\pre(0^i1)^\omega$. Indeed, let $\sigma$ be a
+solution in which $\sigma y$ has a bottom prefix on $0^i1z$. Since $\sigma y$
+lies below its $0$-child, its nodes on $0^i$ are constructors, each lying
+below its own $0$-child, so its subtree at $0^i1$ lies above $\sigma x$. The
+bottom prefix lies at $0^i1u$ with $u\pre z$, and then $\sigma x$ has a
+bottom prefix on $u$. If $z\pre(0^i1)^\omega$, then $u$ and $0^i1z$ prefix
+the same infinite word, so $u\pre 0^i1z$ and the word is not right unsafe.
+Conversely, let $\sigma x$ have constructors exactly at the prefixes of
+$w=0^i1z$ and bottom leaves elsewhere, and let $\sigma y=f(\sigma y,\sigma
+x)$. Then $\sigma y$ has a constructor at $w$ iff $z\pre 0^i1z$, that is,
+iff $z\pre(0^i1)^\omega$; otherwise it has a bottom prefix on $w$. The
+system is satisfiable, so by \cref{thm:holes} these words are exactly the
+holes of the right label reader
+$(\mathcal{M}_{\mathsf r},\Adm_{\mathsf r},\Rej_{\mathsf r})$. Their
+intersection with $0^*10^*$ is $\{0^i10^j: j>i\}$, which is not regular.
+Our finite search decides existence under the rejected-path property
+without constructing an automaton for the whole hole language.
+
+\subsection{Several Constructors}
+With several constructor labels, the label order need no longer be the
+chain $\Bot<f<\Top$: different constructors may be incomparable.
+The label-clash analysis must then distinguish incompatible constructors,
+and a least-shape construction must choose a compatible constructor as
+well as decide where a constructor is needed. Path polarity depends on
+which constructor occurs at each node, and available child positions depend
+on that constructor's arity. The normalization and path decompositions
+would have to track this additional information.
+
+Two parts of the present proof may transfer more readily. Signed
+translation with polarity selection is a general device for variance:
+solve a covariant system on two copies of each variable, then select a
+solution satisfying the required relation between the copies. The
+alphabet-generic word bounds remain available for any semantic reduction
+that produces finite readers with the rejected-path property, for instance
+from string constraints or automata with equality constraints that yield
+suffix-periodicity conditions. The unresolved part is obtaining such a
+reduction. Several nullary base types together with one binary constructor
+form a natural next case for type inference; no result for that signature
+is claimed here.
+
+\input{sections/conclusion}

@@ -1,0 +1,72 @@
+\section{Mechanization}
+\label{sec:mechanization}
+
+The artifact, a development in Lean~4 \citep{MouraUllrich21} with Mathlib
+\citep{Mathlib20}, contains decision procedures for all three domains that
+search for holes in three ways: by bounded enumeration
+(\cref{fig:algorithm}), by the summary search of
+\cref{sec:complexity-upper}, and, at arity one, by the single-word test of
+\cref{app:small-arity}. Their correctness is mechanized end to end for flat
+constraints. The development covers arbitrary arity and variance, signed
+constraints, satisfiability, the semantic reduction, the alphabet-generic
+hole bounds, and both domain transfers. The hole-bound modules include
+isolated exchange, induced level maps, normal forms, boundary-pair
+propagation, and compression within fixed original dictionaries. The
+artifact also contains a certifying solver whose answers are checked by
+proved checkers. Lean and Mathlib are both pinned to \texttt{v4.35.0}.
+
+The trusted statement consists of the definitions of trees, the variance
+order, flat constraints, satisfaction, and entailment in each domain.
+A characterization module connects the path-based order to the greatest
+fixed point of the constructor rule and shows that the finite and regular
+representations denote the intended tree classes. The kernel checks the
+proof terms establishing equivalence with finite search. The procedures
+are computable definitions. The proof dependencies and commands for
+checking them appear in \cref{app:lean-artifact}.
+
+The final bounds are parameterized by the original reader-state count $N$,
+without a preliminary state refinement. Tail and depth use those states
+directly; compression uses derivative monitors with $N+j$ states at
+level $j$, as accounted for in \eqref{eq:holebound}. The paper and artifact
+have the same final bounds. Some intermediate statements and constants
+differ; \cref{app:lean} gives the public API, module layout, correspondence,
+and these differences. \lean{ElementaryBound.lengthBound} defines
+$\holeBound(N,d)$; \lean{ElementaryBound.exists_short_hole} proves the
+bounded-depth witness theorem. The back end uses
+\lean{RejectedTail.holeLengthBound}, and
+\lean{RejectedTail.holeLengthBound_le} proves the closed-form estimate
+$H\le2^{2^{1280(N+1)^5}}$.
+
+The module \texttt{Complexity} mechanizes the combinatorial content of
+\cref{sec:complexity,app:small-arity}. The summary search is proved sound
+and complete, and entailment procedures built on it are proved correct in
+each domain. For the label readers,
+\lean{Complexity.Summary.card_config_label_le} bounds the number of
+configurations so that one configuration fits in
+$2^{2^{O(k)}}\cdot\operatorname{poly}(n)$ bits, matching the space bound of
+\cref{thm:complexity}; \cref{app:lean-complexity} states the exact bound.
+Unlike the nondeterministic search of \cref{prop:summary-search}, which
+counts the columns of a derive move to bound its space, the mechanized search
+decides reachability of an accepting configuration in a finite graph and
+keeps no column counter. The configuration bound supports the space
+argument, but the executable search computes the reachable set by
+saturation and is not proved to run in that space.
+\lean{Complexity.Unary.exists_hole_length_le} proves the bound $N-1$ for every
+reader over a one-letter alphabet, and the unary procedures test only the
+word up to the first rejected cut. For every arity $n\ge2$ and each domain,
+\lean{Complexity.entails_hardnessSystem_iff} and its regular and finite
+versions prove the hardness reduction correct, with linearly many literals;
+the systems of \cref{prop:cx-length} refute entailment, and
+\lean{Complexity.expSystem_shortest_hole} gives their exact shortest hole
+length $2(\beta+1)2^\beta$. Not mechanized are the complexity classes
+themselves, that is, space-bounded machines, Savitch's theorem, and the
+space hierarchy theorem; the PSPACE-hardness of universality; the
+polynomial-time tests of \cref{lem:poly-tests}; and the polynomial-time
+procedure at arity zero (\cref{prop:arity-zero}).
+\Cref{app:lean-complexity} gives the correspondence and the differences.
+
+The artifact is included in
+\anon[the supplementary material]{\url{https://github.com/noti0na1/deci-nsse}}.
+The NP03 counterexample is derived in full in \cref{app:np03}. A separate
+kernel-checked formalization agrees with that argument and is not part
+of this artifact.

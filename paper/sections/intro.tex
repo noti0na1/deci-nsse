@@ -1,0 +1,273 @@
+\section{Introduction}
+\label{sec:intro}
+
+Type inference with subtyping expresses the typing requirements of a program
+as \emph{subtype constraints} $t\le t'$ between type expressions with unknowns
+\citep{Mitchell91,FuhMishra90,AikenWimmers93,EifrigSmithTrifonov95,Pottier98}.
+An inferred \emph{constrained type} consists of a type and constraints on its
+variables. Such constraint sets grow quickly, so simplification removes
+redundant constraints \citep{Pottier96,Pottier01,TrifonovSmith96,Rehof97}.
+For example, suppose a constrained type includes
+$u\le a\to b$, $a\to b\le v$, and $u\le v$.
+The first two inequalities imply the third by transitivity, so a simplifier
+can remove $u\le v$ without changing the solutions. They do not imply
+$v\le u$: the assignment $u=\Bot$, $v=\Top$, and $a=b=\Bot$ satisfies
+the first two inequalities and refutes the reversed query.
+
+The general question is \emph{entailment}: given a conjunction $\phi$ and
+an inequality $x\le y$, does every solution of $\phi$ satisfy $x\le y$?
+We write $\phi\entails x\le y$. Entailment is a universally quantified
+implication. It differs from satisfiability, which asks for only one solution.
+For structural subtyping, which relates trees of the same shape, entailment
+is coNP-complete over finite trees and PSPACE-complete over possibly infinite
+trees \citep{HengleinRehof97,HengleinRehof98}. Bottom and top make subtyping
+non-structural: $\Bot\le t\le\Top$ can relate trees of different shapes.
+
+TLCA Problem~16, submitted by Jakob Rehof in 1996, asks whether entailment
+of subtype constraints over these non-structurally ordered trees is
+decidable. Its simple type expressions are built from bottom, top, and a
+binary constructor \citep{Rehof96TLCA}. The statement does not specify
+variance; the literature treats the constructor as covariant
+\citep{NiehrenPriesnitz03}, hereafter NP03. That case is PSPACE-hard
+\citep{HengleinRehof98} (\cref{thm:cx-hard} gives another proof) and has
+been described as open in subsequent work
+\citep{NiehrenPriesnitz03,DudenhefnerMartensRehof17,JiangCuiOliveira25}.
+We decide non-structural subtype entailment (NSSE) for every variance of
+one constructor.
+
+\begin{theorem}[Main theorem]\label{thm:main}
+For every finite arity $n$ and variance map $c:\Dir\to\{0,1\}$, where
+$\Dir=\{0,\ldots,n-1\}$,
+non-structural subtype entailment over $\{\Bot,f,\Top\}$, where $f$ is the
+single constructor of arity $n$, is decidable over arbitrary trees, regular
+trees, and finite trees. The decision procedures are uniform in $n,c$.
+\end{theorem}
+
+The procedures take flat literals
+$z\le f(a_i)_i$, $f(a_i)_i\le z$, $z=\Bot$, and $z=\Top$, with variables
+$z,a_i$, and a variable query $x\le y$.
+\Cref{prop:flattening} gives the reduction from general finite systems
+at positive arity and the direct enumeration at arity zero. The mechanized
+procedures take flat systems; flattening is proved here but not mechanized.
+
+The theorem thus answers TLCA Problem~16 for every choice of binary
+variance and for each of the three tree domains. Binary covariance is
+$c(0)=c(1)=0$; arrows have $c(0)=1,c(1)=0$, with a contravariant domain
+and a covariant codomain. Regular entailment coincides with arbitrary-tree
+entailment. Finite entailment also coincides with it whenever a finite
+solution exists; otherwise finite entailment is vacuous.
+A \emph{countermodel} is a solution that refutes the query.
+\Cref{fig:overview} summarizes the proof.
+
+\begin{figure}[tbp]
+\centering
+\small
+\hyphenpenalty=10000\relax
+\begin{tikzpicture}[
+    node distance=5mm,
+    >=Stealth,
+    redbox/.style={draw, rounded corners=2pt, align=center, text width=0.88\linewidth,
+                 inner sep=4pt, minimum height=7mm, font=\small},
+    domainbox/.style={draw, dashed, rounded corners=2pt, align=flush left,
+                 text width=0.285\linewidth, inner sep=3pt,
+                 font=\footnotesize}]
+  \node[redbox] (ent) {Every solution of $\phi$ satisfies \mbox{$x\le y$}.};
+  \node[redbox, below=of ent] (unsafe)
+    {No finite path witnesses a failed inequality\\
+     (track order reversals with two copies of each variable; \cref{sec:unsafe,sec:signed}).};
+  \node[redbox, below=of unsafe] (spine)
+    {Every attempt to force such a path adds inconsistent constraints\\
+     (four chains of fresh variables along the path; \cref{thm:four-spine}).};
+  \node[redbox, below=of spine] (hole)
+    {Neither finite reader has a rejected word without an admitted suffix comparison\\
+     (such a word is called a hole; \cref{thm:holes}).};
+  \node[redbox, below=of hole] (short)
+    {Neither reader has a hole of length at most the elementary bound $H$\\
+     (bound the tail, the depth, the number of distinct blocks, and the length; \cref{sec:tail,sec:depth,sec:search}).};
+  \draw[<->] (ent) -- (unsafe);
+  \draw[<->] (unsafe) -- (spine);
+  \draw[<->] (spine) -- (hole);
+  \draw[<->] (hole) -- (short);
+  \node[domainbox, below=6mm of short.south west, anchor=north west] (unsat)
+    {\emph{No solution}: a finite consistency test detects this case;
+     entailment is vacuous.};
+  \node[domainbox, right=2mm of unsat] (reg)
+    {\emph{Regular trees}: every failure has a countermodel represented by a finite graph.};
+  \node[domainbox, right=2mm of reg] (fin)
+    {\emph{Finite trees}: test finite satisfiability, then use the same entailment answer.};
+\end{tikzpicture}
+\caption{The reduction for a satisfiable system $\phi$. Each double arrow is
+an equivalence. The dashed boxes explain the satisfiability test and the
+transfers to regular and finite trees.}
+\Description{Five boxes link entailment to the absence of a finite counterexample path,
+the inconsistency of constraints forcing that path, the absence of reader holes,
+and a bounded search. Three dashed boxes cover unsatisfiable systems and the
+two restricted tree domains.}
+\label{fig:overview}
+\end{figure}
+
+\paragraph{Why Entailment Is Hard and What Makes It Decidable}
+A failed tree inequality can be witnessed by a finite path, written as a
+word over argument positions. After variance is accounted for, a word $w$
+is \emph{left unsafe} if, in some solution, $x$ has a top leaf on a prefix
+of $w$ but $y$ has none, and \emph{right unsafe} if $y$ has a bottom leaf on
+a prefix of $w$ but $x$ has none. Entailment fails exactly when some word
+is left or right unsafe.
+
+Suffix comparisons arise when constraints connect subtrees at different
+cuts of this path. In the covariant case, let $s<e$ be cuts of $w$, and
+suppose that some input variable lies above the subtree of $x$ at cut $e$
+and below the subtree of $y$ at cut $s$. Every top leaf of $x$ on $w$ then
+lies at or beyond cut $e$, so the subtree of $x$ at cut $e$ has a top leaf
+on a prefix of the remaining suffix $w[e:]$. The variable passes such a
+leaf up to the subtree of $y$ at cut $s$, again on a prefix of $w[e:]$. If
+$w[e:]$ is a prefix of $w[s:]$, this leaf of $y$ lies on $w$, so $w$ is not
+left unsafe after all. A pair of cuts $s<e$ with $w[e:]$ a prefix of
+$w[s:]$ is a \emph{comparison} of $w$; equivalently, $w[s:]$ has period
+$e-s$. Under variance, comparing a subtree of $x$ with a subtree of its own
+signed copy gives an analogous obstruction.
+
+For example, take a binary covariant constructor, the single literal
+$f(y,x)\le y$, and the query $x\le y$. In every solution $y\ne\Bot$, and
+whenever $y$ is a constructor, it lies below its own $0$-child and $x$ lies
+below its $1$-child. Hence, if $y$ has a bottom leaf on a word $w$, then
+$w=0^i1z$, the nodes of $y$ along $0^i$ are constructors, and the subtree
+of $y$ at cut $i+1$ lies above $x$. This is the order dual of the situation
+above, with cuts $0<i+1$ and $x$ itself as the connecting variable: the
+bottom leaf of $y$ lies in that subtree on a prefix of $z$, and it forces a
+bottom leaf of $x$ on a prefix of $z$. If $(0,i+1)$ is a comparison, that is, if
+$z$ is a prefix of $w$, then $x$ also has a bottom leaf on $w$, and $w$ is
+not right unsafe. Conversely, a word $0^i1z$ for which $(0,i+1)$ is not a
+comparison is right unsafe (\cref{sec:general-holes}). The right-unsafe
+words must therefore avoid a periodic comparison between their suffixes,
+and they do not form a regular set: those in $0^*10^*$ are exactly the
+words $0^i10^j$ with $j>i$.
+
+A finite \emph{reader} records the constraints along a word. It
+\emph{rejects} a word when none of the tests at single cuts rules the word
+out, so rejection marks a candidate counterexample word. A comparison is
+\emph{admitted} when its two reader states certify an obstruction of the
+kind just described. A \emph{hole} is a rejected word with no admitted
+comparison. For a satisfiable system, the holes of two such readers are
+exactly the left-unsafe and the right-unsafe words. Ordinary loop deletion
+can preserve the final reader state while creating a new admitted
+comparison (\cref{ex:loop-deletion}). Preserving the run is therefore
+insufficient.
+
+Readers constructed from subtype constraints satisfy a
+\emph{rejected-path property}: the rejected cuts of a word form an
+interval, and every admitted comparison ends no later than the first
+rejected cut. The reason is semantic. In the left label reader, at a rejected
+cut, no variable that the constraints place above the subtree of $x$ is
+bounded above by a constructor. From the next cut on, the constraints
+therefore bound the subtree of $x$ by no variable at all, whereas every
+admission needs such a bound at its later cut (\cref{sec:interface}). The
+right label reader is dual. \Cref{tab:reader-hypotheses} records which bounds
+need this property.
+
+\paragraph{From Constraints to a Finite Search}
+To handle variance, normalization exchanges $\Bot$ and $\Top$ at paths
+of odd polarity, that is, paths with an odd number of contravariant edges.
+Positive and negative copies of each variable then give a covariant
+system; the solutions that matter assign dual trees to the two copies. We
+obtain such a solution by selecting labels on a constructor shape common to both
+copies. Four chains of fresh constraints along the candidate word, called
+\emph{spines}, impose the two unsafety conditions and their signed
+counterparts. Classifying the inconsistencies of this extension gives the
+reader. For $k$ input variables, a state stores two sets of the $2k$ signed
+variables and one bit recording an earlier obstruction, so there are
+$N=2\cdot4^{2k}=2^{4k+1}$ states.
+
+The finite search uses three bounds.
+\begin{enumerate}[leftmargin=*]
+\item \emph{Tail} (\cref{sec:tail}). If a reader with the rejected-path
+  property has a hole, then it has one whose \emph{rejected tail}, the part
+  after the first rejected cut, has length linear in $N$. If a cycle of
+  rejected states allows a second letter, repeating the cycle and then
+  taking the other letter breaks every relevant period; otherwise
+  continuation within rejected states is forced, and a long periodic tail
+  can be truncated.
+\item \emph{Depth} (\cref{sec:depth}). For every reader, a suffix
+  comparison of a rejected word that joins equal states has gap at most
+  that word's rejected-tail length. Cutting a word at the occurrences of
+  its last letter, and repeating this on the resulting word of blocks,
+  gives a hierarchy of block decompositions. The gap bound limits its
+  depth, quadratically in $N$ when the tail is linear in $N$.
+\item \emph{Length} (\cref{sec:search}). For every reader, a hole of
+  bounded depth can be shortened. Merging interchangeable letters bounds
+  the number of distinct blocks at each positive level, and the blocks of
+  a level are then shortened simultaneously. Finite summaries preserve
+  transitions, admissions, and block equalities.
+\end{enumerate}
+Together, the three bounds give a hole whose length is triply exponential
+in $k$ whenever some hole exists. For arbitrary readers, the remaining
+question is whether a computable rejected-tail bound exists
+(\cref{sec:general-holes}).
+
+\paragraph{Contributions and Scope}
+\begin{itemize}[leftmargin=*]
+\item A decision procedure for one constructor of any finite arity and
+  variance over arbitrary, regular, and finite trees (\cref{thm:main}).
+\item A reduction of non-entailment to holes of finite readers
+  (\cref{sec:variance,sec:spines,sec:holes}). Closure-based satisfiability
+  characterizations are classical
+  \citep{KozenPalsbergSchwartzbach94,PalsbergOKeefe95,PalsbergWandOKeefe97}.
+  The new semantic ingredients are a least constructor shape common to the
+  two signed copies of each variable, the selection of labels on that shape
+  to handle variance, and the four-spine analysis that defines the reader.
+\item Alphabet-generic bounds on tails, depth, and length
+  (\cref{sec:tail,sec:depth,sec:search}); the latter two apply to every
+  reader. For readers with the rejected-path property, they bound the
+  length of a shortest hole doubly exponentially in a polynomial of $N$,
+  hence triply exponentially in $k$ for the label readers
+  (\cref{thm:hole-decision}).
+\item Countermodel transfers (\cref{sec:decision,app:domains}), including
+  coincidence of finite and arbitrary-tree entailment whenever a finite
+  solution exists. That solution excludes cycles in the base constraints;
+  the spines preserve this exclusion and permit a finite countermodel.
+\item Complexity bounds in each domain (\cref{sec:complexity}). A search
+  that stores one level of the block hierarchy at a time places entailment in
+  2-EXPSPACE and 3-EXPTIME (\cref{thm:complexity}); constructors of arity at
+  most one admit stronger bounds (\cref{app:small-arity}). For a covariant
+  constructor of every fixed arity
+  $n\ge2$, entailment is PSPACE-hard (\cref{thm:cx-hard}), which for $n=2$
+  reproves the non-structural hardness theorems of \citet{HengleinRehof98},
+  and shortest holes can have length $2^{\Omega(k)}$ (\cref{prop:cx-length}).
+\item An end-to-end Lean~4 mechanization, for flat constraints, of the three
+  procedures and their correctness, and of the combinatorial content of the
+  complexity bounds: the summary search with its configuration bound, the
+  one-letter bound, the hardness reduction, and the exponentially long holes
+  (\cref{sec:mechanization,app:lean}).
+\item A counterexample to Proposition~16 of \citet{NiehrenPriesnitz03}
+  (\cref{app:np03}); \cref{sec:errata} explains which published proofs
+  depend on that proposition.
+\end{itemize}
+The proof does not use the cap-automaton construction or its
+back-translation from \citet{NiehrenPriesnitz03}. An earlier version of this
+work proved the binary covariant case through a mechanized form of the
+forward cap-automaton characterization; \cref{sec:experience} describes that
+proof and explains why we replaced it.
+
+\paragraph{How to Read This Paper}
+\Cref{sec:background} fixes the semantics and the input language.
+\Cref{sec:variance,sec:spines,sec:holes} turn subtype constraints into a
+word problem. They build on one another and end with the label readers and
+their rejected-path property. \Cref{sec:tail,sec:depth,sec:search} solve
+that word problem; their principal results are the tail, depth, and
+bounded-length theorems (\cref{thm:brt,thm:depth,thm:search}). From the
+earlier sections they use only the definitions of comparisons, readers, and
+holes and the rejected-path property, all in \cref{sec:holes}, so a reader
+interested mainly in the word combinatorics can start there.
+\Cref{sec:decision} assembles the decision procedures and the domain
+transfers. \Cref{sec:complexity} replaces the explicit enumeration of words
+by a search over summaries; it uses the lettered monitors and summaries of
+\cref{sec:search}, the reader construction of \cref{sec:holes}, and the
+statements of \cref{sec:decision}. \Cref{sec:mechanization} describes the
+Lean artifact, \cref{sec:related} discusses related work,
+\cref{sec:experience} compares the present proof with the earlier binary
+proof, and \cref{sec:future} discusses open problems. The appendices supply
+the spine proofs, the preservation arguments for cores and compression, the
+domain transfers, the resource accounting and lower-bound details for the
+complexity results, and the correspondence with the Lean development; they
+end with a navigation table of proof distinctions and the counterexample to
+NP03's Proposition~16.

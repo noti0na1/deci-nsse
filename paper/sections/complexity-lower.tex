@@ -1,0 +1,354 @@
+% complexity-lower: exponential holes and PSPACE-hardness for arity n >= 2
+
+\subsection{Lower Bounds}
+\label{sec:complexity-lower}
+
+We prove two lower bounds for a covariant constructor of arity $n\ge2$:
+holes can be forced to be exponentially long in $k$, and entailment is
+PSPACE-hard, in each of the three domains.
+All systems in this subsection are covariant, so $H_0$ is the identity in
+\eqref{eq:g12}. A word $w$ is then left unsafe for $(\phi,x,y)$ iff some
+solution $\sigma$ has $\widehat{\sigma(x)}(w)=\top\ne\widehat{\sigma(y)}(w)$,
+and right unsafe iff some solution has
+$\widehat{\sigma(y)}(w)=\bot\ne\widehat{\sigma(x)}(w)$. Proofs omitted here
+are given in \cref{app:lower}.
+
+\paragraph{Overview}
+Both constructions simulate a nondeterministic automaton over $\{0,1\}$ by
+constructor literals along binary paths. For long holes, lower literals run
+an automaton on $y$: a transition $q\xrightarrow{a}q'$ places the $a$-child
+of $Y_q$ above $Y_{q'}$, so $Y_q$ has no bottom prefix along any word that
+the automaton accepts from $q$. All states of the automaton are final, so
+its language is prefix closed, and the remaining words form a union of sets
+$u\{0,1\}^*$. We use an automaton that accepts every word except the
+extensions of one exponentially long word, the record of a binary counter.
+Separate upper literals keep $x$ top free, with constructor positions in
+$\{0,1\}^*$, so every unsafe word is right unsafe and extends the counter
+record. Truncating the trees of the automaton states, with top leaves at a
+depth beyond a chosen word, gives finite solutions, so these words are
+unsafe in all three domains. For hardness the roles of the two kinds of
+literals are reversed: upper literals run a given automaton on $x$, and lower
+literals keep a second variable $r$ at least a constructor along every
+proper prefix of a code word.
+
+\paragraph{Constructor Positions}
+For a tree $t$, let $\Pos(t)=\{w\in\operatorname{dom}(t):t(w)=f\}$ be its
+set of \emph{constructor positions}; it is prefix closed. A tree is
+\emph{top free} if no node is labeled $\top$. Every prefix-closed set
+$P\subseteq\Dir^*$ is $\Pos(T_P)$ for exactly one top-free tree $T_P$: its
+domain is $\{\eps\}\cup P\cup P\Dir$, its label is $f$ on $P$, and $\bot$
+elsewhere. For example, $T_\varnothing=\Bot$, and $T_{\{0,1\}^*}$ is the
+full constructor tree $F$ when $n=2$. For a prefix-closed set $P$ and
+$m\ge1$, the \emph{truncation} $T_P^m$ is obtained from $T_P$ by replacing the
+subtree at every word of $P$ of length $m$ by $\Top$; it is a finite tree.
+For variables $a_0,a_1,b$ we write $f(a_0,a_1,\bar b)$ for
+$f(a_0,a_1,b,\ldots,b)$, with $n-2$ copies of $b$; for $n=2$ it stands for
+$f(a_0,a_1)$.
+
+\begin{lemma}[Top-free trees]\label{lem:cx-topfree}
+Let $n\ge2$.
+\begin{enumerate}[leftmargin=*]
+\item For top-free trees $t,u$ and every word $w$, $\widehat t(w)=f$ if
+  $w\in\Pos(t)$ and $\widehat t(w)=\bot$ otherwise; and $t\le u$ iff
+  $\Pos(t)\subseteq\Pos(u)$.
+\item $T_P$ is finite iff $P$ is finite.
+\item Let $\sigma$ satisfy $b=\Bot$ and $g\le f(g,g,\bar b)$. Then
+  $\sigma(g)$ is top free and $\Pos(\sigma(g))\subseteq\{0,1\}^*$, and so is
+  every tree $t\le f(\sigma(g),\sigma(g),\Bot,\ldots,\Bot)$.
+\item Let $P,P'$ be prefix closed, $\eps\in P$, $a\in\Dir$, and
+  $aP'\subseteq P$. Then $f(t_0,\ldots,t_{n-1})\le T_P^m$ for every $m\ge1$,
+  where $t_a=T_{P'}^m$ and $t_i=\Bot$ for $i\ne a$.
+\end{enumerate}
+\end{lemma}
+
+Item~(3) holds because a top leaf cannot lie below a constructor: by
+\eqref{eq:g11}, a top leaf of $\sigma(g)$ at a word $iw$ would force
+$i\in\{0,1\}$ and a top leaf at the shorter word $w$, and $\sigma(g)$ has no
+top leaf at $\eps$. In item~(4), the truncation at the same depth $m$ on both
+sides is what makes the inequality hold: a top leaf of $T_{P'}^m$ at a word
+$v$ of length $m$ lies below the top leaf of $T_P^m$ at the prefix of $av$ of
+length $m$.
+
+\paragraph{Long Holes}
+As noted in \cref{sec:complexity-upper}, a failed entailment on a
+satisfiable system is certified by a hole of one of the two label readers,
+and by \cref{thm:holes} these holes are exactly the unsafe words. Such
+certificates can be forced to be exponentially long. The construction uses
+an automaton with $O(\beta)$ states for the binary words that do not begin
+with one word of length $2(\beta+1)2^\beta$, the record of a $\beta$-bit
+binary counter.
+
+Fix $\beta\ge1$. Over the \emph{token alphabet} $\mathbb T=\{0,1,\#,\$\}$,
+let $\cxbin j$ be the binary expansion of $j$ with $\beta$ bits, least
+significant bit first, and put
+\[
+ \mathsf H_\beta=\cxbin0\#\cxbin1\#\cdots\#\cxbin{2^\beta-1}\$,
+ \qquad \len{\mathsf H_\beta}=(\beta+1)2^\beta.
+\]
+The \emph{token encoding} maps the letters of $\mathbb T$ to $0\mapsto00$,
+$1\mapsto01$, $\#\mapsto10$, and $\$\mapsto11$. Let
+$\mathsf W_\beta\in\{0,1\}^*$ be the token encoding of $\mathsf H_\beta$, of
+length $\lambda_\beta=2(\beta+1)2^\beta$. For $\beta=1$,
+$\mathsf H_1=0\#1\$$ and $\mathsf W_1=00100111$. In a nondeterministic
+automaton all of whose states are final, a word is accepted iff it has a
+run, that is, a path labeled by the word from an initial state.
+
+\begin{lemma}[Counter automaton]\label{lem:cx-counter}
+For every $\beta\ge1$ there is a nondeterministic automaton $\mathcal B_\beta$
+over $\{0,1\}$ with $9\beta+27$ states, all of them final, whose language is
+$\{0,1\}^*\setminus\mathsf W_\beta\{0,1\}^*$. It is computable in time
+polynomial in $\beta$.
+\end{lemma}
+
+The automaton reads the encoded tokens. In parallel, its branches check the
+format of the blocks, that the first block is zero, that each block is the
+successor of the previous one, and that $\$$ follows exactly the all-ones
+block. A branch that detects an error enters a state that loops on every
+letter, and on $\mathsf W_\beta$ itself every branch dies (\cref{app:lower}).
+For instance, for $\beta=2$ the record is $\mathsf H_2=00\#10\#01\#11\$$. In a
+token word that begins with $00\#10\#11$, the first bit of the third block is
+wrong: the successor of $10$, that is, of $1$, is $01$. The branch spawned at
+the first bit of the second block predicts the bit $0$ from that bit and the
+carry, counts $\beta+1=3$ tokens, and reads $1$ instead. It detects the
+error while storing only the predicted bit and a counter, not the history.
+
+Let $Q$ be the set of states of $\mathcal B_\beta$, $I\subseteq Q$ its
+initial states, and $q\xrightarrow{a}q'$ its transitions. Add a state
+$q_{\mathrm{in}}$ with $q_{\mathrm{in}}\xrightarrow{a}q'$ iff
+$q\xrightarrow{a}q'$ for some $q\in I$, so that $q_{\mathrm{in}}$ accepts the
+language of $\mathcal B_\beta$. For $n\ge2$, let $\Phi_\beta^{(n)}$ have the
+variables $x$, $g$, $b$, and $Y_q$ for $q\in Q\cup\{q_{\mathrm{in}}\}$, with
+$y=Y_{q_{\mathrm{in}}}$, and the flat literals
+\[
+\begin{aligned}
+ &b=\Bot,\quad g\le f(g,g,\bar b),\quad x\le f(g,g,\bar b)
+   &&\text{(confinement to binary paths)},\\
+ &f(b,b,\bar b)\le Y_q &&\text{(nonbottom roots)},\\
+ &f(Y_{q'},b,\bar b)\le Y_q\ \ (q\xrightarrow0q'),\quad
+  f(b,Y_{q'},\bar b)\le Y_q\ \ (q\xrightarrow1q')
+   &&\text{(propagation along transitions)},
+\end{aligned}
+\]
+for all $q\in Q\cup\{q_{\mathrm{in}}\}$. Thus $y$ receives the lower literals
+of the initial states directly. Write $\Phi_\beta=\Phi_\beta^{(2)}$. For every
+$n$, $\Phi_\beta^{(n)}$ has $k=9\beta+31$ variables. The confining literals
+keep $x$ top free, with constructor positions in $\{0,1\}^*$. The other two
+groups give each $Y_q$ a constructor or a top prefix along every word that
+$\mathcal B_\beta$ accepts from $q$, so $y$ has no bottom prefix along any
+binary word without the prefix $\mathsf W_\beta$. The trees of $y$ and of the $Y_q$
+may have top leaves, which permits finite solutions.
+
+\begin{proposition}[Exponentially long holes]\label{prop:cx-length}
+Let $n\ge2$, let $f$ be covariant of arity $n$, let $\beta\ge1$, and let
+$\Phi=\Phi_\beta^{(n)}$, with the query $x\le y$.
+\begin{enumerate}[leftmargin=*]
+\item $\Phi$ has a finite solution, and $\Phi\models_{\mathcal D}x\le y$ fails
+  in each of the three domains $\mathcal D$.
+\item No word is left unsafe, and the right-unsafe words are exactly the
+  words of $\mathsf W_\beta\{0,1\}^*$.
+\item The left label reader
+  $(\mathcal M_{\mathsf l},\Adm_{\mathsf l},\Rej_{\mathsf l})$ has no hole,
+  and the holes of the right label reader
+  $(\mathcal M_{\mathsf r},\Adm_{\mathsf r},\Rej_{\mathsf r})$ are exactly the
+  words of $\mathsf W_\beta\{0,1\}^*$. In particular, every hole that the
+  search of \cref{fig:algorithm} can find has length at least
+  $\lambda_\beta=2(\beta+1)2^\beta$, and $\mathsf W_\beta$ is a hole of this
+  length.
+\end{enumerate}
+Hence, for every fixed arity $n\ge2$ and in each domain, shortest holes of
+systems with $k$ variables can have length $2^{\Omega(k)}$: here
+$\lambda_\beta\ge2^{(k-22)/9}$.
+\end{proposition}
+
+\begin{proof}[Proof idea]
+For $n=2$, let $\sigma$ be a solution. By \cref{lem:cx-topfree}(3), $\sigma(x)$
+is top free with $\Pos(\sigma(x))\subseteq\{0,1\}^*$, so no word is left
+unsafe, and a right-unsafe word $w$ has $w\in\Pos(\sigma(x))$ and
+$\widehat{\sigma(y)}(w)=\bot$ for some solution $\sigma$. Induction along runs of
+$\mathcal B_\beta$ shows that $\widehat{\sigma(y)}$ is not $\bot$ on the language
+of $\mathcal B_\beta$, so by \cref{lem:cx-counter} every right-unsafe word
+begins with $\mathsf W_\beta$. Conversely, let $w\in\mathsf W_\beta\{0,1\}^*$
+and $m=\len w+1$. The truncations $Y_q=T_{L_q}^m$, with $L_q$ the set of words
+accepted from $q$, together with $g=T_{\{0,1\}^{<m}}$, $b=\Bot$, and $x=T_P$ for
+the set $P$ of prefixes of $w$, form a finite solution with $w\in\Pos(x)$ and
+$\widehat y(w)=\bot$ (\cref{lem:cx-topfree}(4)). This gives~(1) and~(2),
+and~(3) follows by \cref{thm:holes}. The case $n\ge3$ reduces to $n=2$ by an
+embedding of binary trees, described at the end of this subsection. The
+details are in \cref{app:lower}.
+\end{proof}
+
+Since $N=2^{4k+1}$, the length $\lambda_\beta$ is only polynomial in $N$,
+whereas the length bound $H$ of \cref{sec:complexity-upper} is triply
+exponential in $k$.
+
+\paragraph{Hardness}
+\Citet[Theorems~1 and~2]{HengleinRehof98} proved PSPACE-hardness for a binary
+covariant constructor over arbitrary and over finite trees
+(\cref{sec:related}). We give a reduction from universality of
+nondeterministic automata over $\{0,1\}$ that works in all three domains and
+for every fixed arity $n\ge2$. An automaton $\mathcal A=(Q,q_0,F,\delta)$ has
+one initial state $q_0$, final states $F$, and transitions
+$\delta\subseteq Q\times\{0,1\}\times Q$; it is universal if it accepts every
+word. Universality of such automata is PSPACE-hard.\footnote{%
+\citet[Theorem~3]{KrotzschMasopustThomazo16} prove this for automata over
+$\{0,1\}$, even for partially ordered ones. Their automata may have several
+initial states; a fresh initial state that has the outgoing transitions of
+all of them, and is final iff one of them is, accepts the same language. For
+regular expressions over $\{0,1\}$ with union, concatenation, and star, the
+classical result is due to \citet[Section~3]{StockmeyerMeyer73}, who state
+that inequivalence is complete for nondeterministic linear space.}
+
+The reduction runs an automaton on $x$ by upper literals, and an accepting
+run forces the subtree of $x$ at its end to be $\Bot$; then $x$ has no node
+below that word. A word at which $x$ is to have a constructor while a second
+variable $r$ is $\bot$ must therefore have no accepted prefix. We encode
+words by a prefix-free code, so that the code of a rejected word has no
+accepted code as a prefix. The variables $r$ and $r'$ track the position
+within an encoded letter (\cref{fig:cx-code}). Their lower literals keep $r$
+at least a constructor at every proper prefix of a code, while at a
+completed code $r$ may be $\bot$, where $x$ can still have a constructor if
+the code is rejected.
+
+For $w\in\{0,1\}^*$ let $\cxcode(w)=e(w)1$, where $e$ replaces each letter
+$0$ by $00$ and each $1$ by $01$; we call $\cxcode$ the \emph{prefix-free
+code}. On single bits, $e$ agrees with the token encoding, but the two
+encodings serve different constructions. The code is prefix
+free: if $\cxcode(w')\pre\cxcode(w)$ and $\len{w'}<\len w$, then position
+$2\len{w'}$ carries the final $1$ of $\cxcode(w')$ but the letter $0$ in
+$\cxcode(w)$. From $\mathcal A$ we obtain in linear time an automaton
+$\mathcal A'$, again with the initial state $q_0$, that accepts
+$\cxcode(L(\mathcal A))$: replace each transition $(q,a,q')$ by
+$q\xrightarrow0\mu\xrightarrow{a}q'$ through a new middle state $\mu$, and
+add a transition labeled $1$ from every final state to one new state
+$q_{\mathrm f}$, the only final state of $\mathcal A'$.
+
+For such an automaton $\mathcal A'$ with states $Q'$, let $\chi(\mathcal A')$
+have the variables $z$, $b$, $r$, $r'$, and $X_q$ for $q\in Q'$, write $x$ for
+$X_{q_0}$, and take the flat literals
+\[
+\begin{gathered}
+ X_q\le f(X_{q'},z,b,\ldots,b)\ \ (q\xrightarrow0q'),\qquad
+ X_q\le f(z,X_{q'},b,\ldots,b)\ \ (q\xrightarrow1q'),\qquad
+ X_{q_{\mathrm f}}=\Bot,\\
+ b=\Bot,\qquad f(r',b,\ldots,b)\le r,\qquad f(r,r,b,\ldots,b)\le r'.
+\end{gathered}
+\]
+Here $b$ fills the arguments $2,\ldots,n-1$ of the first two literals and
+the arguments $1,\ldots,n-1$ of the first lower literal; for $n=2$ the first
+two literals have no $b$. No literal bounds $z$, so $z$ may be $\top$, and
+then, among the two binary children, an upper literal constrains only the child
+that the run follows; the added children are bounded by $b=\Bot$. Along
+every run of $\mathcal A'$ from $q_0$ on a word $u$, the upper literals keep the subtree
+of $x$ at $u$, if it exists, below the variable $X_q$ of the reached state
+$q$; an accepting run therefore forces the subtree of $x$ at its end, if it
+exists, to be $\Bot$. The lower literals give $r$ a constructor or $\top$ at
+every proper prefix of a code, and they allow $r$ to be $\bot$ at a code. If
+$\mathcal A$ is universal, every proper prefix of a code lies on an accepting
+run, and $x\le r$ follows. If $\mathcal A$ rejects a word $w$, then a solution
+can give $x$ a constructor at $\cxcode(w)$ and $r$ the label $\bot$ there.
+
+\begin{figure}[tbp]
+\centering
+\begin{tikzpicture}[>=Stealth, auto,
+    every state/.style={minimum size=9mm, inner sep=1pt}]
+  \node[state, initial, initial text={}] (r) at (0,0) {$r$};
+  \node[state] (rp) at (3.2,0) {$r'$};
+  \node[draw, rounded corners=2pt, font=\small, align=center] (bot) at (0,-1.9)
+    {bottom permitted\\[-1pt]at a completed code};
+  \draw[->] (r) edge[bend left=25] node {$0$} (rp);
+  \draw[->] (rp) edge[bend left=25] node {$0,1$} (r);
+  \draw[->, dashed] (r) -- node[left] {$1$} (bot);
+\end{tikzpicture}
+\caption{The lower literals $f(r',b,\ldots,b)\le r$ and
+$f(r,r,b,\ldots,b)\le r'$ of $\chi(\mathcal A')$ as a diagram: an edge
+labeled $a$ from $v$ to $v'$ means that the $a$-child of $v$ lies above $v'$.
+Reading the encoding $e(w)$ of a word follows the solid edges, so the tree
+of $r$ has a constructor or $\top$ at every proper prefix of a code. The
+final $1$ of $\cxcode(w)$ leaves the diagram (dashed): at a completed code the
+tree of $r$ may have the label $\Bot$, although $r$ itself is never $\Bot$.}
+\Description{Two states r and r prime with a 0-edge from r to r prime and a 0,1-edge back, and a dashed 1-edge from r to a box saying that the tree of r may be bottom at a completed code.}
+\label{fig:cx-code}
+\end{figure}
+
+\begin{theorem}[PSPACE-hardness]\label{thm:cx-hard}
+Let $n\ge2$ be fixed and let $f$ be covariant. For every automaton
+$\mathcal A$ over $\{0,1\}$ and each domain $\mathcal D$,
+\[
+ \chi(\mathcal A')\models_{\mathcal D}x\le r
+ \quad\Longleftrightarrow\quad
+ \mathcal A\text{ is universal}.
+\]
+Consequently, in each of the three domains, entailment of flat systems over
+$\{\Bot,f,\Top\}$ is PSPACE-hard. So is the problem with the variance as part
+of the input, already on covariant instances.
+\end{theorem}
+
+\begin{proof}[Proof idea]
+Let $P$ be the set of proper prefixes of codes, the words $e(w)$ and
+$e(w)0$. If $\mathcal A$ is universal, every word of $P$ lies on an accepting
+run of $\mathcal A'$, so in every solution the subtree of $x$ there, if
+present, lies below a constructor tree whose arguments $2,\ldots,n-1$ are
+$\Bot$; every code is accepted, so $x$ is $\Bot$ at codes. Along $P$, the
+lower literals give $r$ only the labels $f$ and $\top$. Every common position
+of $x$ and $r$ therefore compares a label at most $f$ with one at least $f$,
+or has $x=\Bot$. If $\mathcal A$ rejects $w$, no prefix of $\cxcode(w)$ is
+accepted by $\mathcal A'$, and a path tree along $\cxcode(w)$ together with
+finite approximants of $r$ forms a finite countermodel, which lies in every
+domain. The system is satisfiable, has $\len{Q'}+4$ variables, and is
+computed in polynomial time. The details are in \cref{app:lower}.
+\end{proof}
+
+For $n=2$ and arbitrary or finite trees, \cref{thm:cx-hard} reproves, by a
+different reduction, the hardness theorems of
+\citet[Theorems~1 and~2]{HengleinRehof98}, which are stated for a binary
+covariant constructor over these two domains. It gives a uniform proof for
+all three domains and every fixed arity $n\ge2$. Their theorems do not state
+the regular case, and we do not claim that it is new. We claim no hardness
+for a fixed variance with a contravariant argument, nor for arity one
+(\cref{app:small-arity}).
+
+\paragraph{Larger Arities}
+The hardness reduction works directly at every arity $n\ge2$. The systems
+$\Phi_\beta^{(n)}$ for long holes are obtained from $\Phi_\beta$ by filling
+the new arguments of every constructor with the variable $b=\Bot$. Such
+\emph{bare padding} does not preserve lower bounds in general. The padded
+system also constrains trees that are not images of binary trees, and these
+may refute the entailment at short words that use the new letters.
+
+\begin{example}[Bare padding fails]\label{ex:cx-padding}
+For a binary covariant $f_2$, the system
+\[
+ \chi=\{x\le f_2(y,b),\ f_2(z,b)\le y,\ f_2(z,t)\le z,\ b=\Bot,\ t=\Top\}
+\]
+entails $x\le y$. Indeed, every top leaf of $x$ lies at a word $0v$ such that
+$y$ has a top prefix along $v$. Then $y$ also has one along $0v$: either
+$y=\Top$, or the child $0$ of $y$ lies above $z$, which has a top prefix along
+every word that begins with $0^j1$; and for $v\in0^*$, the top prefix along
+$v$ lies along $0v$. Moreover, $y$ has bottom prefixes only along words that
+begin with $1$, where $x$ has one as well. Padding with a variable $o=\Bot$
+in the third argument, for $n=3$, loses the entailment: the finite assignment
+$x=f(f(\Bot,\Bot,\Top),\Bot,\Bot)$, $y=f(z,\Bot,\Top)$, $z=f(\Top,\Top,\Bot)$,
+$b=o=\Bot$, and $t=\Top$ is a countermodel, since $x$ has a top leaf at $02$,
+where $y$ has the bottom leaf of $z$.
+\end{example}
+
+Padding with $\Bot$ does preserve solutions and unsafe words on binary
+paths: lifting a binary tree by adding $\Bot$ children, and projecting a tree
+over $\Dir$ to its binary paths, map solutions to solutions in each domain
+and keep leaf extensions on $\{0,1\}^*$ (\cref{prop:cx-embedding} in
+\cref{app:lower}). For $\Phi_\beta^{(n)}$, the confining literals
+$g\le f(g,g,\bar b)$ and $x\le f(g,g,\bar b)$ also exclude unsafe words that
+use an added child position, because they keep $x$ top free with constructor
+positions in $\{0,1\}^*$. Thus $\Phi_\beta^{(n)}$ and $\Phi_\beta$ have
+exactly the same unsafe words. The system of \cref{ex:cx-padding} has no
+confining literals, and the word $02$ of its countermodel is left unsafe and
+uses the added letter $2$. The embedding is therefore not a general
+reduction between arities, such as the equivalence of all arities at least
+two asserted by \citet[Corollary~1]{NiehrenPriesnitz03} (\cref{sec:errata}).
+It transfers unsafe words only on binary paths, which suffices when
+confining literals exclude all other words.
+
+\paragraph{Combined Bounds}
+Together with \cref{thm:complexity}, entailment for a covariant constructor
+of each fixed arity $n\ge2$ is PSPACE-hard and in 2-EXPSPACE in each domain.
+\Cref{sec:future} discusses the open questions about its exact complexity.

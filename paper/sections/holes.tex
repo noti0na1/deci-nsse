@@ -1,0 +1,282 @@
+\section{Label Readers and Holes}
+\label{sec:holes}
+
+The clash tests now become a finite reader: rejection rules out the
+single-cut events, while admission records the two-cut events. We show that
+the resulting readers have the rejected-path property, which is the only
+subtype-specific input to the word bounds.
+
+\subsection{Words, Cuts, and Comparisons}
+
+We use the word and cut notation of \cref{sec:words}; put $m=|w|$. Recall
+from \cref{def:comparison} that a comparison of $w$ is a pair of cuts $s<e$
+with $\wsuf{w}{e}\pre\wsuf{w}{s}$; its period is $\varpi=e-s$, its root is
+$\wsub{w}{s}{e}$, and it is terminal when $e=m$. Comparisons are what the
+readers below test.
+
+Equivalently, $(s,e)$ is a comparison iff the suffix $\wsuf{w}{s}$ has period~$\varpi$, \ie
+$w[i] = w[i-\varpi]$ for all $e \le i < m$, iff $\wsuf{w}{s}$ is a prefix of a power of its
+root (\cref{lem:periodic}). Every pair $(s,m)$ is a terminal comparison. Over $\{0,1\}$, the
+nonterminal comparisons of $w = 0100$ are $(0,3)$, because $\wsuf{w}{3} = 0$ is a prefix of
+$w$, which has period~$3$, and $(2,3)$, because $0 \pre 00 = \wsuf{w}{2}$; the pair $(0,2)$ is
+not a comparison, because $00$ is not a prefix of $0100$. Comparisons are inherited by
+prefixes: if $(s,e)$ is a comparison of $w$ and $e \le h \le m$, then $(s,e)$ is a
+comparison of $\wpre{w}{h}$. Extending a word may destroy a comparison when a new letter breaks its
+period, and may create comparisons that end at the new cuts.
+
+
+\begin{definition}[Reader hole]\label{def:reader-hole}
+A \emph{reader} $(\mathcal{M},\Adm,\Rej)$ consists of a deterministic finite automaton
+$\mathcal{M} = (Q,q_0,\delta)$ over a finite alphabet $\Gamma$, with transition function
+$\delta : Q \times \Gamma \to Q$ extended to words by $\delta(q,\eps) = q$ and
+$\delta(q,wa) = \delta(\delta(q,w),a)$, together with a relation $\Adm \subseteq Q \times Q$,
+the \emph{admission relation}, and a set $\Rej \subseteq Q$ of \emph{rejected} states. A
+state is \emph{reachable} if it is $\delta(q_0,w)$ for some word $w$. For a word $w$, write
+$q_i = \delta(q_0,\wpre{w}{i})$ for the state at cut $i$. A word $w$ is a \emph{hole} of
+$(\mathcal{M},\Adm,\Rej)$ if $q_{\len{w}} \in \Rej$ and no comparison $(s,e)$ of $w$ satisfies
+$\Adm(q_s,q_e)$. States outside $\Rej$ are accepted.
+\end{definition}
+Rejection identifies a candidate counterexample word. An admitted comparison
+disqualifies that candidate. Thus a hole requires both a rejected final state and the
+absence of every admitted comparison.
+
+
+
+\subsection{The Label Reader}\label{sec:label-reader}
+For a set of signed variables define its one-letter updates
+
+\begin{equation}\label{eq:g37}
+\begin{aligned}
+ E_i(U)&=\{v:\exists u\in U\quad\Up(i,u,v)\},\\
+ G_i(L)&=\{v:\exists u\in L\quad\Lo(i,v,u)\}.
+ \end{aligned}
+\end{equation}
+
+For a flip-closed, sign-coherent system $\psi$ and positive query roots
+$x^+,y^+$, the \emph{label reader} has states $(U,L,b)$, where $U,L\subseteq V^{\pm}$
+and $b\in\{0,1\}$. Its initial state and transition are
+
+\begin{equation}\label{eq:g38}
+q_0=(D_\psi\mathord\uparrow x^+,D_\psi\mathord\downarrow y^+,0),
+ \qquad
+ \delta_i(U,L,b)=(E_iU,G_iL,b\lor\ready(U,L)).
+\end{equation}
+
+The bit $b$ is a \emph{latch}: once set, it stays set and records readiness
+at an earlier cut. It is needed because readiness at any earlier cut
+excludes every extension from being unsafe, even if readiness later disappears.
+Since $|V^\pm|=2k$, each of $U,L$ has $2^{2k}$ possible values;
+together with the two latch values this gives
+$2\cdot2^{2k}\cdot2^{2k}=2\cdot4^{2k}$ states.
+All transitions and tests are computable
+from the finite closure. Write $q_j$ for the state after $w[:j]$.
+The path rules (\cref{lem:path-rules}) and induction on $j$ prove the run invariant
+
+\begin{equation}\label{eq:g39}
+q_j=(U_j,L_j,b_j),\qquad
+ b_j=1\iff\exists h<j\quad\ready(U_h,L_h).
+\end{equation}
+
+Designate as rejected the states
+
+\begin{equation}\label{eq:g40}
+\Rej=\{(U,L,b):b=0\land\neg\ready(U,L)
+                         \land\neg\childtest(U)\},
+\end{equation}
+
+and define the binary state relation
+
+\begin{equation}\label{eq:g41}
+\Adm((U,L,b),(U',L',b'))
+ \iff L\cap U'\ne\varnothing\ \lor\ U\cap\flip U'\ne\varnothing.
+\end{equation}
+
+A word $w$ is a hole precisely when
+\begin{equation}\label{eq:g42}
+q_m\in \Rej\quad\land\quad
+ \forall s<e\le m,\quad w[e:]\preceq w[s:]\Longrightarrow\neg \Adm(q_s,q_e).
+\end{equation}
+The set of holes of a reader need not be a regular language, even for a
+label reader, since the comparison test relates suffixes that start at
+different cuts; \cref{sec:general-holes} gives an example. The argument
+does not require regularity.
+
+There is one reader construction, with two instances: the \emph{left and
+right label readers}. The left label
+reader uses $\psi$ with $(x^+,y^+)$; the right one uses $\psi^{\mathfrak d}$
+with $(y^+,x^+)$. In the latter, closure, path updates, readiness, child, and
+admission are all computed in the dual system by the same formulas.
+Order duality preserves flip closure, sign coherence, and satisfiability.
+By \cref{lem:fixed-witness}, a top prefix in the dual system is a bottom
+prefix in the original one, so the right label reader tests right unsafety.
+Write $(\mathcal M_\theta,\Adm_\theta,\Rej_\theta)$ for the instance on
+$(\psi_\theta,X_\theta,Y_\theta)$ defined in \cref{sec:fixed-witness}.
+
+\begin{example}[Reading the running query]\label{ex:running-reader}
+We run the left-side construction on the signed system of
+\cref{ex:running-signed} along $00$, for the failing query $x\le y$ and,
+for contrast, for the entailed query $y\le x$, which exchanges the roots.
+Neither half is the right label reader of $x\le y$, which would use the
+order-dual system. The last three columns give the latch, readiness,
+and acceptance status at each cut, before the next letter is read.
+\begin{center}
+\small
+\begin{tabular}{@{}ccccccl@{}}
+\toprule
+Query & cut $j$ & $U_j$ & $L_j$ & $b_j$ & $\ready$ & status\\
+\midrule
+$x\le y$ & $0$ & $\{x^+\}$ & $\{y^+\}$ & $0$ & false & accepted (child)\\
+ & $1$ & $\{a^-\}$ & $\varnothing$ & $0$ & false & rejected\\
+ & $2$ & $\varnothing$ & $\varnothing$ & $0$ & false & rejected\\
+\midrule
+$y\le x$ & $0$ & $\{y^+\}$ & $\{x^+\}$ & $0$ & false & accepted (child)\\
+ & $1$ & $\{a^-\}$ & $\{a^-\}$ & $0$ & true & accepted (ready)\\
+ & $2$ & $\varnothing$ & $\varnothing$ & $1$ & false & accepted (latch)\\
+\bottomrule
+\end{tabular}
+\end{center}
+For $x\le y$, the word $0$ is a hole: its final state is rejected,
+and its only comparison $(0,1)$ is not admitted. The word $00$ is also
+a hole. The empty word is accepted by the child test; it is not a
+left-unsafe word. For the entailed reverse query, readiness at cut $1$
+sets the latch at cut $2$, so the empty upper and lower sets there do
+not cause rejection.
+
+Rejection alone does not certify a hole. In the cross event of
+\cref{ex:cross-event}, the run on $11$ has $b_j=0$ throughout and ends
+in $(\{b^+\},\varnothing,0)$, a rejected state. Nevertheless $(0,1)$
+is cross-admitted, so $11$ is not a hole.
+\end{example}
+
+\subsection{The Rejected-Path Property}\label{sec:interface}
+For a general reader $(\mathcal{M},\Adm,\Rej)$, write $q_j=\delta(q_0,w[:j])$. If $q_m\in\Rej$,
+let $J=J(w)$ be the least cut with $q_J\in\Rej$, and put $r(w)=|w|-J(w)$. The reader has the
+\emph{rejected-path property} if it satisfies \emph{betweenness} and
+the \emph{admission cone}:
+
+\begin{description}[style=nextline,leftmargin=1em,font=\normalfont\itshape]\item[Betweenness] if two prefixes of a word end in $\Rej$, every intermediate
+  prefix also ends in $\Rej$.
+\item[Admission cone] in a word ending in $\Rej$, every comparison
+  $(s,e)$ that satisfies $\Adm(q_s,q_e)$ has $e\le J$.
+
+\end{description}
+
+\begin{lemma}[Rejected paths of label readers]\label{lem:between}\label{lem:cone}
+The label reader, and hence both the left and the right label reader, satisfies the rejected-path
+property, without any satisfiability assumption.
+\end{lemma}
+
+\begin{proof} Rejection at a cut implies $\neg\childtest(U)$.
+Every reachable $U$ is upward closed under $D_\psi$: this holds at
+$q_0$ and is preserved by each $E_i$, using \eqref{eq:g22} and transitivity.
+If $E_iU\ne\varnothing$, \eqref{eq:g22} supplies an upper constructor with root
+$z$ reached from some $u\in U$. Upward closure puts $z\in U$,
+giving $\childtest(U)$, a contradiction. Thus $U$ becomes
+empty on the next letter and remains empty thereafter. Both disjuncts of \eqref{eq:g41} require a
+nonempty upper set at their second cut. Any admission therefore has
+$e\le J$, proving the admission cone.
+
+For betweenness, after a rejected cut every later upper set is empty. A later
+state can cease to be rejected only through readiness or an already set
+latch; a child can no longer occur. Once readiness occurs, it is present
+at that cut and sets the latch at the next one, making every subsequent
+state accepted. Consequently it cannot occur between two rejected cuts.
+This proves betweenness for either instance of the construction. \end{proof}
+
+The proof gives more than the admission cone: it excludes later
+admissions even for pairs that are not comparisons. The rejected-path property retains
+only what the tail proof needs; this stronger restriction may help sharpen
+subtype-specific bounds. Rejection need not be absorbing: a later ready
+state can become accepted permanently.
+
+\subsection{Unsafe Words and Holes}\label{sec:side-bridge}
+\begin{theorem}[Unsafe words are holes]\label{thm:holes}
+If $\Sat_c(\phi)$, then for either side $\theta$,
+
+\begin{equation}\label{eq:g44}
+w\text{ is }\theta\text{-unsafe}
+ \quad\Longleftrightarrow\quad
+ w\text{ is a hole of }(\mathcal{M}_\theta,\Adm_\theta,\Rej_\theta).
+\end{equation}\end{theorem}
+
+\begin{proof} By \cref{thm:four-spine}, unsafety is equivalent to absence
+of a label clash in the side's four-spine extension. Satisfiability excludes
+inherited clashes in either side system, so \cref{thm:clashes} identifies
+this with the simultaneous negation of \eqref{eq:g36}.
+The run and test formulas \eqref{eq:g39}--\eqref{eq:g41} identify those negations precisely
+with \eqref{eq:g42}, using the right label reader for the right side. Every implication is reversible. The argument uses
+no positive-arity assumption; the letter-free child test also handles the
+empty word over the empty alphabet. \end{proof}
+
+\subsection{Consequences for General Readers}
+For any reader satisfying the rejected-path property, the following consequences hold.
+
+\begin{corollary}[Hole criterion]\label{cor:normal}
+A rejected word $w$ is a hole iff it has no admitted comparison $(s,e)$ with $e \le J(w)$.
+\end{corollary}
+
+\begin{lemma}[Rejected extension]\label{lem:extension}
+If $v$ is a hole and $w$ is a rejected word with $v \pre w$, then $w$ is a hole.
+\end{lemma}
+
+\begin{proof}
+Since $v$ is rejected, $J(w) = J(v) \le \len{v}$. An admitted comparison $(s,e)$ of $w$ has
+$e \le J(w) \le \len{v}$ by the admission cone, so it is also a comparison of $v$, with the
+same cut states. This contradicts the assumption that $v$ is a hole.
+\end{proof}
+
+\Cref{tab:reader-hypotheses} separates the subtype-specific rejected-path property
+from the general word arguments.
+\begin{table}[tbp]
+\caption{Hypotheses used by the word bounds.}
+\label{tab:reader-hypotheses}
+\centering
+\begin{tabular}{@{}p{.44\linewidth}p{.51\linewidth}@{}}
+\toprule
+Result & Hypotheses on the reader and word\\
+\midrule
+Rejected extension (\cref{lem:extension}) & Admission cone; a hole and a rejected extension\\
+Bounded tail (\cref{thm:brt}) & Admission cone and betweenness; some hole\\
+Return gap and depth (\cref{lem:return-gap,thm:depth}) & Any reader; a rejected word, nonempty for depth\\
+Bounded-depth compression (\cref{thm:search}) & Any reader; a nonempty hole of bounded depth\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{example}[Loop deletion can create an admission]\label{ex:loop-deletion}
+Consider the reader on $\{0,1\}$ with initial state $q$, rejected set
+$\Rej=\{r\}$, sole admitted pair $(q,b)$, and all transitions as follows:
+\begin{center}
+\begin{tabular}{@{}c|cccccc@{}}
+state & $q$ & $a$ & $b$ & $c$ & $r$ & $h$\\
+\hline
+$0$ & $a$ & $a$ & $c$ & $h$ & $r$ & $h$\\
+$1$ & $h$ & $b$ & $h$ & $r$ & $r$ & $h$
+\end{tabular}
+\end{center}
+Here $h$ is an accepted sink. State $q$ occurs only at cut $0$, so a
+comparison is admitted only if it starts at cut $0$ and ends at a cut in
+state $b$. Deleting the loop $a\xrightarrow{0}a$ between the equal-state
+cuts $1$ and $2$ of $00101$ gives $0101$; both runs end in the rejected
+state $r$:
+\[
+\begin{array}{r@{\quad}l}
+ 00101: & q\xrightarrow{0}a\xrightarrow{0}a\xrightarrow{1}b
+          \xrightarrow{0}c\xrightarrow{1}r,\\[2pt]
+ 0101: & q\xrightarrow{0}a\xrightarrow{1}b\xrightarrow{0}c\xrightarrow{1}r.
+\end{array}
+\]
+In $00101$, state $b$ occurs only at cut $3$, so the only candidate is
+$(0,3)$. It is not a comparison: the suffix $01$ at cut $3$ is not a
+prefix of $00101$. Thus $00101$ is a hole. In $0101$, state $b$ occurs at
+cut $2$, and the candidate $(0,2)$ is a comparison, since the suffix $01$
+at cut $2$ is a prefix of $0101$. Its states are $(q,b)$, so it is
+admitted, and the shortened word is not a hole.
+
+This reader has the rejected-path property. State $r$ is absorbing,
+which proves betweenness. Any admission must start at $q$ and end at
+$b$; $q$ occurs only initially, and $b$ can occur only before the first
+visit to $r$. Hence every admitted comparison of a rejected word ends
+before $J$, proving the admission cone. This example motivates the
+simultaneous comparison summaries in \cref{sec:search}.
+\end{example}

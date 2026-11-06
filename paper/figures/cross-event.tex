@@ -1,0 +1,35 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=12mm,y=8mm,>=Stealth,
+    every node/.style={font=\small,inner sep=2pt}]
+  \node (s) at (0,0) {$s=0$};
+  \node (e) at (2,0) {$e=1$};
+  \node (m) at (4,0) {$m=2$};
+  \draw[->] (s) -- node[above] {$1$} (e);
+  \draw[->] (e) -- node[above] {$1$} (m);
+  \node[anchor=west] at (4.6,0) {$w[e:]=1\pre 11=w[s:]$};
+  \node (p1) at (2,-1.4) {$P_1$};
+  \node (bridge) at (1,-1.4) {$y^+$};
+  \node (y0) at (0,-1.4) {$Y_0$};
+  \draw[->] (p1) -- node[above,font=\scriptsize] {$D$} (bridge);
+  \draw[->] (bridge) -- node[above,font=\scriptsize] {$D$} (y0);
+  \node[anchor=west] at (4.6,-1.4) {$y^+\in U_1\cap L_0$};
+  \node (p2) at (4,-3) {$P_2=\Top$};
+  \node (y1) at (2,-3) {$Y_1\le f(\ldots)$};
+  \draw[->] (p1) -- node[right,font=\scriptsize] {child $1$} (p2);
+  \draw[->] (y0) -- node[left,font=\scriptsize] {child $1$} (y1);
+  \draw[->,thick] (p2) -- node[above] {$D$}
+    node[below,font=\scriptsize] {clash: $\Top>f$} (y1);
+\end{tikzpicture}
+\caption{The nonterminal cross event of \cref{ex:cross-event}, for
+$\phi=\{x\le f(a,y),\ y\le f(a,b)\}$ with $c=(1,0)$, the query $x\le y$,
+and $w=11$. The comparison $(0,1)$ is cross-admitted through
+$y^+\in U_1\cap L_0$. The bridge $D(P_1,Y_0)$ descends one matching letter to
+$D(P_2,Y_1)$, where top meets an upper constructor bound.}
+\Description{The word consisting of two ones has cuts zero, one and two,
+with its one-letter suffix at cut one matching the prefix at cut zero.
+A middle row connects P one through the shared variable y positive to Y zero.
+Descending child one on both sides gives a closure pair from P two, labeled
+top, to Y one, bounded above by a constructor. These labels clash.}
+\label{fig:cross-event}
+\end{figure}

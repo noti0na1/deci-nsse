@@ -1,0 +1,86 @@
+\section{Details of the Spine Proofs}
+\label{app:spine-proofs}
+
+\subsection{The Bridge Invariant}
+We complete the left-to-right direction of \cref{lem:bridge}, using its
+four simultaneous obligations: old-to-old reflection, the two path
+memberships, and the bridge formula. All path judgments are in $\psi$.
+Reflexivity gives the old-to-old obligation and no pair between two distinct
+fresh spine variables. For transitivity, an intermediate source forces the
+incoming pair to be its identity, and an intermediate sink forces the outgoing
+pair to be its identity, by \eqref{eq:g30}. These cases reduce to a subderivation.
+An old intermediate variable preserves \eqref{eq:g32} by upward or downward closure.
+For an $R_j$-to-$Z_{j'}$ pair through an old $v$, \eqref{eq:g32} gives
+$v\in U^R_j\cap L^Z_{j'}$, which is \eqref{eq:g33} with $\alpha=j,\gamma=j'$.
+
+In a decomposition concluding at $R_j$, $j>0$, the lower bounding
+literal must be the unique $R$-link in which $R_j$ is a child, and
+the selected child position must be $w[j-1]$. For an old right endpoint,
+the upper literal is old. The induction hypothesis at the root pair and
+the one-step rule \eqref{eq:g22} give membership in $U^R_j$. The old-to-$Z_{j'}$
+case is dual. If both endpoints are $R_j,Z_{j'}$, their two unique parent
+links force
+$w[j-1]=w[j'-1]$. Apply induction to their roots and append this common
+letter to the two equal factors in \eqref{eq:g33}. When one parent index is zero, its root is old. If the lower parent is
+$R_0$ and the upper parent is $Z_{j'-1}$, \eqref{eq:g32} puts
+$R_0$ in $L^Z_{j'-1}$, while reflexivity puts it in $U^R_0$.
+This supplies a bridge with empty descent before the final letter.
+The other orientation is symmetric. If both parents have index zero,
+separation reflects their pair to $D_\psi(R_0,Z_0)$, and $Z_0$ lies
+in $U^R_0\cap L^Z_0$.
+An old-to-old decomposition has already been dealt with in \eqref{eq:g30}.
+If the selected child is off-spine, the conclusion has a bottom filler on
+the left or a top filler on the right, so no membership or bridge obligation
+applies. The terminal lower bound at $W_m$ has only bottom-filler children;
+the terminal upper bound at $Y_m$ has only top-filler children. Thus their
+decomposition consequences are covered by the same cases.
+
+This covers every closure rule. Because positive-index $Q$- and
+$Y$-variables are sinks, no bridge passes through them, and the fillers
+create no further bridges.
+
+It remains to justify zero endpoints in \eqref{eq:g33}. If $j=0$, \eqref{eq:g32} says
+$R_0\in L^Z_{j'}$; this gives the formula with $\alpha=0,\gamma=j',v=R_0$.
+Conversely, its factor-length equation forces $\gamma=j'$, and a member of
+$U^R_0\cap L^Z_{j'}$ yields that same membership by downward closure.
+The case $j'=0$ is symmetric. Thus the induction covers every cut. 
+
+\subsection{The Remaining Clash Cases}
+We complete the classification in \cref{thm:clashes}. Bound families refer
+to literal provenance, including new literals whose cut-zero roots are old.
+If the lower bound is old and the upper bound is on $Q_{j'}$, an old top
+gives a member of $\mathsf{Top}\cap L^Q_{j'}$. By \eqref{eq:g25} and flip closure, its variable flip is
+in $\mathsf{Bot}\cap U_{j'}$, giving bot-readiness. An old constructor
+can clash only against $Q_m=\bot$; variable flip and order reversal turn its membership in
+$L^Q_m$ into an upper constructor in $U_m$, giving (b).
+An old lower bound clashes against a $Y_{j'}$-bound only when it is top;
+\eqref{eq:g32} then gives $\operatorname{top}(L_{j'})$.
+For a $W_j$-bound against an old upper bound, the latter must be bottom.
+Its root belongs to $U^W_j=\flip L_j$; flipping gives an old top in $L_j$,
+again top-readiness.
+
+For a $W_j$-bound against a $Q_{j'}$-bound, incompatibility forces $j'=m$.
+The bridge gives cuts $\alpha,\gamma$ with
+\[
+ j-\alpha=m-\gamma,\quad w[\alpha:j]=w[\gamma:m],\quad
+ \flip L_\alpha\cap\flip U_\gamma\ne\varnothing.
+\]
+Flipping a common element gives $L_\alpha\cap U_\gamma\ne\varnothing$.
+Since $j\le m$, $\alpha\le\gamma$. Equality gives reflexivity readiness;
+otherwise take $s=\alpha,e=\gamma$. Then $j=s+m-e$ and the factor
+equality is exactly $w[e:]\preceq w[s:]$, with cross admission.
+This includes $e=m$, when descent is empty. A $W$-bound against a
+$Y$-bound always has the compatible labels $f,f$, even at terminal cuts.
+Its closure bridges may exist, but their decomposition consequences are
+already covered by the full invariant in \cref{lem:bridge}.
+
+
+\subsection{Readiness and Child Events Give Clashes}
+Suppose a readiness or child event occurs. If $v\in U_j\cap\mathsf{Bot}$,
+\eqref{eq:g32} gives $D(P_j,v)$, and the lower label on $P_j$, either $f$
+or $\top$, clashes with bottom. If
+$v\in L_j\cap\mathsf{Top}$, then $D(v,Y_j)$ clashes with the upper
+constructor on $Y_j$. If $v\in U_j\cap L_j$, then
+$D(P_j,Y_j)$; decomposing down the common remaining suffix gives
+$D(P_m,Y_m)$, a top/constructor clash. An upper constructor in $U_m$
+likewise clashes with $P_m=\top$.

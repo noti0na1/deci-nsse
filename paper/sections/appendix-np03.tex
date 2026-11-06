@@ -1,0 +1,303 @@
+\section{A Counterexample to NP03 Proposition 16}
+\label{app:np03}
+
+This appendix uses a binary covariant constructor $\ftree$ and the child
+alphabet $\{0,1\}$. NP03's binary child indices $1,2$ become $0,1$ here.
+A separate kernel-checked formalization of this counterexample, not part
+of the artifact (\cref{app:lean}), agrees with the argument below.
+
+\subsection{Cap Automata and the Back-Translation}
+
+A \emph{cap automaton} consists of a finite automaton and an additional relation
+of \emph{P-edges}, written $q'\pedge q$. Write
+$q\xrightarrow{w}q'$ for a run of the underlying finite automaton.
+For one initial state $q_0$ and final-state set $F$, its language is
+\[
+\Lang(P)=
+ \{w\mid q_0\xrightarrow{w}q,\ q\in F\}
+ \;\cup\;
+ \{\pi u\mid q_0\xrightarrow{\pi}q\xrightarrow{\rho}q',\
+              q'\pedge q,\ u\in\pr(\rho^*)\}.
+\]
+Here $\rho^*$ is the set of finite powers of $\rho$, and $\pr$ takes all
+prefixes (\cref{sec:words}). Thus a P-edge accepts prefixes of repetitions of a word read
+between its target and its source. We allow $\rho=\eps$, as in NP03's
+Definition~1; the example below has no cap at all and also works if roots
+are required to be nonempty.
+A cap automaton is \emph{complete} if every word has a run from an initial
+state, whether or not that run accepts. NP03's Definition~3 calls it
+\emph{restricted} when the following four conditions hold.
+\begin{enumerate}[leftmargin=*,nosep]
+\item \emph{Strictly epsilon free:} there is one initial state and no
+epsilon transition.
+\item \emph{Gap universal:} if $q\xrightarrow{i}q'$ with $q\notin F$
+and $q'\in F$, then every word has a run from $q'$ to a final state.
+This condition uses ordinary finite-automaton acceptance.
+\item \emph{Strictly cap:} if
+$q\xrightarrow{\rho}q'\pedge r$ with $\rho\ne\eps$, then $q\in F$.
+\item \emph{Shuffled:} if
+$q_0\xrightarrow{\pi}q$, $q_0\xrightarrow{\pi}q'$, and
+$q'\pedge q$ with $q\ne q'$, then $\pi\tau\in\Lang(P)$ for every word
+$\tau$.
+\end{enumerate}
+
+NP03's Definition~5 introduces distinct variables $l(q),r(q)$ for each state,
+and defines $J(P)=(\judg{\phi_P}{l(q_0)}{r(q_0)})$.
+The binary rules needed here are as follows. For each choice of successors
+$q\xrightarrow{0}p_0$ and $q\xrightarrow{1}p_1$, include
+\[
+ l(q)\le\ftree(l(p_0),l(p_1))\quad(q\in F),
+ \qquad
+ \ftree(r(p_0),r(p_1))\le r(q).
+\]
+A transition $q\xrightarrow{i}q'$ with $q\notin F$ and $q'\in F$
+contributes $r(q')=\Top$. Finally,
+$q\xrightarrow{i}q'\pedge p$ with $q'\ne p$ contributes
+\[
+ l(q)\le\ftree(r(p),t)\quad(i=0),\qquad
+ l(q)\le\ftree(t,r(p))\quad(i=1),\qquad t=\Top,
+\]
+where $t$ is a fresh filler variable. These last constraints are the
+binary form of the notation $l(q)\le i[r(p)]$ in Table~7.
+NP03 does not fix the other argument of $i[\cdot]$. Leaving $t$
+unconstrained gives an equivalent judgment: it occurs only inside this
+upper bound, so raising it to $\Top$ preserves every solution without
+changing $x,y$. Conversely, a solution with $t=\Top$ satisfies the
+unconstrained version. Thus both versions have the same solutions on
+the original variables in each tree domain.
+
+In Table~7, the finality side conditions of the left and top rules are
+conveyed by typographic marks. We read the left rule as applying at final
+sources and the top rule at final targets, as NP03's proof of
+Proposition~16 uses in the auxiliary claim in case~(3) and the
+gap-universality argument in case~(3b). Dropping these conditions adds
+left bounds at nonfinal sources and top equations at nonfinal targets.
+We prove the counterexample for both readings and every
+constraint system between them, so the conclusion does not depend on
+these marks.
+
+\subsection{The Six-State Automaton}
+
+Let the states be $q_0,A,B,C,C_2,U$, with initial state $q_0$,
+final states $q_0,A,U$, and the single P-edge $C\pedge B$.
+The following table lists all letter transitions; an entry denotes the
+set of possible successors.
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+State & on $0$ & on $1$\\\midrule
+$q_0$ & $\{U\}$ & $\{A,B\}$\\
+$A$   & $\{U\}$ & $\{C\}$\\
+$B$   & $\{U\}$ & $\{C_2\}$\\
+$C$   & $\{U\}$ & $\{C_2\}$\\
+$C_2$ & $\{U\}$ & $\{C_2\}$\\
+$U$   & $\{U\}$ & $\{U\}$\\\bottomrule
+\end{tabular}
+\end{center}
+Every state has at least one successor on each letter, so $P$ is complete.
+It has one initial state and no epsilon transitions. Every transition
+from a nonfinal to a final state enters $U$, which accepts every
+continuation by ordinary acceptance. The only states with a nonempty
+run to the P-edge source $C$ are $A$ and $q_0$, both final. Finally,
+$B$ is reachable from $q_0$ only on $1$, and $C$ only on $11$.
+No word reaches both endpoints of the P-edge, so shuffledness is
+vacuous. This checks all four restrictions.
+
+Every word containing $0$ reaches $U$. On $1^j$, the reachable state
+sets are $\{q_0\}$ for $j=0$, $\{A,B\}$ for $j=1$,
+$\{C,C_2\}$ for $j=2$, and $\{C_2\}$ for $j\ge3$.
+No run from $B$ reaches $C$, so no P-edge contributes to acceptance.
+Consequently
+\[
+ \Lang(P)=\{0,1\}^*\setminus\{1^j\mid j\ge2\},
+ \qquad 11\notin\Lang(P).
+\]
+
+\subsection{The Generated Constraints and Their Solutions}
+
+Write $l_q=l(q)$ and $r_q=r(q)$, and set $x=l_{q_0}$ and $y=r_{q_0}$.
+With the final-state marks, Table~7 gives the following conjunction
+$\phi_{\min}$; the grouping records which rule supplies each literal.
+\begin{align*}
+\text{left:}\quad
+ x&\le\ftree(l_U,l_A), & x&\le\ftree(l_U,l_B),\\
+ l_A&\le\ftree(l_U,l_C), & l_U&\le\ftree(l_U,l_U);\\[2pt]
+\text{right:}\quad
+ \ftree(r_U,r_A)&\le y, & \ftree(r_U,r_B)&\le y,\\
+ \ftree(r_U,r_C)&\le r_A, & \ftree(r_U,r_{C_2})&\le r_B,\\
+ \ftree(r_U,r_{C_2})&\le r_C, & \ftree(r_U,r_{C_2})&\le r_{C_2},\\
+ \ftree(r_U,r_U)&\le r_U;\\[2pt]
+\text{top:}\quad r_U&=\Top;\\
+\text{P-edge:}\quad l_A&\le\ftree(t,r_B), & t&=\Top.
+\end{align*}
+In particular, the P-edge literal comes from
+$A\xrightarrow{1}C\pedge B$.
+Without the final-state marks, the system $\phi_{\max}$ adds precisely
+\[
+ l_B\le\ftree(l_U,l_{C_2}),\quad
+ l_C\le\ftree(l_U,l_{C_2}),\quad
+ l_{C_2}\le\ftree(l_U,l_{C_2}),\quad r_{C_2}=\Top.
+\]
+Set every $l_q$ to $\Bot$ and every $r_q$ and $t$ to $\Top$.
+Each upper bound then has $\Bot$ on the left, each lower bound has
+$\Top$ on the right, and all top equations hold. This is a finite
+solution of $\phi_{\max}$, hence of any system $\phi$ with
+$\phi_{\min}\subseteq\phi\subseteq\phi_{\max}$.
+
+We next prove $\phi_{\min}\models x\le y$ over arbitrary trees.
+Fix a solution $\sigma$ and abbreviate its values by
+$X=\sigma(x)$, $Y=\sigma(y)$, $a=\sigma(l_A)$,
+$b=\sigma(r_B)$, and $c=\sigma(r_{C_2})$.
+The lower bounds give
+\[
+ \ftree(\Top,c)\le c,\qquad
+ \ftree(\Top,c)\le b,\qquad
+ \ftree(\Top,b)\le Y.
+\]
+They imply that every label of $Y$ is either $\Top$, or $\ftree$ at a
+path of the form $1^j$. Here is a direct verification.
+From $\ftree(\Top,c)\le c$, $c$ is either $\Top$ or
+$\ftree(\Top,c')$ with $c\le c'$. In the latter case,
+substitution gives $\ftree(\Top,c')\le c'$. Repeating this argument
+along any finite path proves the asserted label property for $c$.
+That property is preserved by $s\mapsto\ftree(\Top,s)$ and by passing
+to a larger tree: at a constructor root the larger tree either becomes
+$\Top$ or keeps a top left child and a larger right child.
+Induction on path length justifies the latter assertion even for infinite
+trees. Applying these two preservation facts to the remaining lower
+bounds proves the property for $Y$.
+
+For a tree $s$, let $s|_w$ denote its subtree at $w$, when $w$ belongs
+to its domain, and write $s(w)$ for its label there. We check the labels of $X$ and $Y$ at every common
+path $w$, which suffices for covariant subtyping. If $Y(w)=\Top$,
+the labels compare. Otherwise, $w=1^j$ and $Y(w)=\ftree$.
+For $j=0$, the bound $X\le\ftree(\sigma(l_U),a)$ excludes a top root
+of $X$. For $j=1$, that bound and
+$a\le\ftree(\sigma(l_U),\sigma(l_C))$ exclude a top label of $X$ at $1$.
+For $j\ge2$, the existence of $1^j$ in $X$ makes its root and its
+child at $1$ constructors. The bounds
+\[
+ X\le\ftree(\sigma(l_U),a),\qquad
+ a\le\ftree(\Top,b),\qquad
+ \ftree(\Top,b)\le Y
+\]
+then force $a$ to be a constructor too: $X|_1\le a$ excludes $\Bot$,
+and the upper bound on $a$ excludes $\Top$.
+Since $1^j$ also exists in $Y$, its root is a constructor.
+Decomposing these three inequalities gives the subtree inequalities
+\[
+ X|_{11}\le a|_1\le b\le Y|_1.
+\]
+By transitivity, $X|_{11}\le Y|_1$. Comparing at their common path
+$1^{j-2}$ yields
+$X(1^j)\le Y(1^{j-1})=\ftree$, because $1^{j-1}$ is a proper prefix
+of a path in $Y$. Thus $X(w)\le Y(w)$ in every case, proving $X\le Y$.
+Entailment persists when literals are added, so every intermediate
+reading $\phi$ is both satisfiable and entails $x\le y$.
+The proof covers arbitrary trees and hence also regular and finite trees.
+
+\subsection{Forward Acceptance and the Failed Proof Step}
+
+Write $P_{\mathsf l}(J(P))$ and $P_{\mathsf r}(J(P))$ for the left and
+right cap automata obtained from $J(P)$ by NP03's Table~3.
+The rules used here can be read directly on these constraints: support
+between variables is trivial, as in NP03's Lemma~21.
+States are pairs $(u,v)$ of variables or a blank
+coordinate, with initial state $(x,y)$, and an accepting sink.
+An upper bound $u\le\ftree(u_0,u_1)$ and a lower bound
+$\ftree(v_0,v_1)\le v$ permit a transition on $i$ to $(u_i,v_i)$;
+either coordinate may instead descend alone, leaving the other blank.
+The left automaton makes a state final when its left coordinate has an
+upper constructor bound; the right automaton uses a lower constructor
+bound on the right coordinate. The bottom, top, and reflexivity rules
+send ready states to the accepting sink on every letter. In particular,
+a right coordinate constrained to $\Top$ is ready.
+The left P-edge rule includes $(u,\square)\pedge(v,u)$, where
+$\square$ denotes a coordinate that may be a variable or blank.
+
+The left automaton of $J(P)$ has the transitions and P-edge
+\[
+ (x,y)\xrightarrow{1}(l_A,r_B)
+       \xrightarrow{1}(r_B,\text{blank})
+       \pedge(l_A,r_B).
+\]
+The first transition combines the upper bound using $l_A$ with the lower
+bound using $r_B$; the second uses the P-edge literal.
+This cap uses only descend steps and a P-edge. Its entry state is final
+because $l_A\le\ftree(l_U,l_C)$ is an upper constructor bound.
+Hence $11\in\Lang(P_{\mathsf l}(J(P)))$ under either finality convention
+for Table~3, whereas $11\notin\Lang(P)$. The inclusion
+$\Lang(P_{\mathsf l}(J(P)))\subseteq\Lang(P)$, claimed in case~(3) of
+NP03's proof of Proposition~16, therefore fails independently of that
+convention, even if cap entry states are required to be final.
+
+To show universality, we additionally count ready states as final.
+NP03's proofs of Propositions~12 and~14 use this convention:
+Proposition~12 uses bottom, top, and reflexivity readiness to accept
+the prefix itself; Proposition~14 uses top-readiness for gap universality
+and reflexivity for shuffledness. NP03's own Section~4 example witnesses
+the need for this reading of Table~3. For the unary judgment
+$\judg{z=\Top\wedge f(z)\le y}{x}{y}$, NP03 states that every path in
+$1^+$ is both left safe and right safe, using its child index $1$.
+Read literally, Table~3 reaches only $(\text{blank},z)$ on $1$;
+that state is not final in either automaton, and there is no cap, so
+both reject $1$.
+
+Under this convention, the displayed cap accepts $1\pr(1^*)$, and
+$(x,y)$ is final, accepting $\eps$.
+For a word containing $0$, let the right coordinate follow any run of
+$P$ through the lower constructor bounds. At its first $0$, it reaches
+$r_U=\Top$, so this path and all its extensions are accepted.
+The right automaton is universal as well: since every state of $P$ has
+a successor on each letter, a right-coordinate run exists on every word,
+and every $r_q$ has a lower
+constructor bound, so every resulting state is final.
+These runs remain available under every intermediate reading of Table~7.
+They verify directly the conclusion also supplied by NP03's
+Propositions~1 and~3 (soundness, Proposition~8; completeness,
+Proposition~11):
+\[
+ \Lang(P_{\mathsf l}(J(P)))=\{0,1\}^*\ne\Lang(P),
+ \qquad \Lang(P_{\mathsf r}(J(P)))=\{0,1\}^*.
+\]
+The convention is needed only for this universality conclusion; acceptance
+of $11$ already refutes Proposition~16.
+
+Case~(3d) of NP03's proof writes the cap's entry state as
+$(l(q_i),r(q_i))$, assuming that both coordinates follow the same run
+of $P$. In this example the entry state is $(l(A),r(B))$.
+Both $A$ and $B$ are reached on $1$, but only the run through $A$
+can next reach $C$, whose P-edge returns to $B$.
+The back-translation combines coordinates of different runs; the original
+automaton has no run $B\xrightarrow{1}C$ to close that cap.
+Shuffledness does not apply: it tests endpoints reached on the same
+word, whereas $B$ and $C$ occur at different cuts here.
+
+\subsection{Consequences for the Published Reductions}
+
+Theorem~4 explicitly invokes Proposition~16 to reduce restricted
+cap-automaton universality to entailment. The counterexample invalidates
+that construction and therefore the converse reduction underlying
+Theorem~1. This is the implication from decidability of NSSE to
+decidability of restricted cap-set universality. It does not rule out a
+different reduction between the two decision problems.
+Corollary~1, asserting equivalence of arities at least two and of finite,
+regular, and arbitrary tree classes, also relies on that converse.
+Its arity part additionally uses Proposition~17's alphabet extension and
+its alphabet restriction, which encodes each letter by two letters of a
+smaller alphabet. Theorem~4, Theorem~1, and Corollary~1 themselves are
+not refuted; their published proofs are incomplete. We claim no defect
+in Proposition~17.
+
+The forward reduction of Theorem~2 first checks satisfiability in the
+chosen tree domain, then constructs the two Table~3 automata.
+Its soundness and completeness proofs precede the back-translation and
+do not invoke Proposition~16. The unary result, Corollary~3, follows
+in NP03 from Corollary~2: cap-set membership is expressed by existential
+word equations with regular constraints, and universality adds a
+universal word quantifier. Although the text introduces this derivation
+through Theorem~1, it uses only the forward reduction to cap sets.
+For a unary alphabet, word equations and regular constraints become
+constraints in Presburger arithmetic on lengths, so this quantified
+formulation is decidable.
+Neither the converse reduction nor Proposition~17 is needed.

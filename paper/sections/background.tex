@@ -1,0 +1,342 @@
+\section{Background}
+\label{sec:background}
+
+\subsection{Words and Trees}\label{sec:words}
+Fix an arity $n\in\mathbb N$, the child alphabet $\Dir=\{0,\ldots,n-1\}$,
+and a variance map
+$c:\Dir\to\{0,1\}$. Here $0$ means covariant and $1$ contravariant.
+The signature contains exactly $\Bot$, $\Top$, and one constructor $f$ of arity $n$.
+A \emph{cut} of a word $w$ of length $m$ is an integer $0\le j\le m$;
+cut $j$ separates its first $j$ letters from the remaining suffix.
+Write $w[i]$ for its letter at position $i$, with indices starting at $0$
+and $0\le i<m$. Words are finite; $\eps$ is the empty word, concatenation is juxtaposition,
+$u\pre w$ means that $u$ is a prefix of $w$, and $w[:j]$, $w[j:h]$, $w[j:]$
+are its prefix, factor, and suffix at the indicated cuts. For example, over
+$\{0,1\}$, $010[:2]=01$ and $010[1:]=10$. A positive integer $\varpi$ is a
+\emph{period} of $w$ when $w[i]=w[i-\varpi]$ for $\varpi\le i<|w|$.
+For a set $L$ of words, $\pr(L)$ is the set of prefixes of its members, and
+$\pr(v)$ abbreviates $\pr(\{v\})$. For a nonempty root word $\rho$,
+$\pr(\rho^*)$ thus consists of the prefixes of its finite powers; these are
+exactly the finite prefixes of $\rho^\omega$.
+
+\begin{lemma}[Periodic prefixes]\label{lem:periodic}
+For $\rho\ne\eps$, $u\in\pr(\rho^*)$ iff $u\pre\rho^\omega$ iff $u\pre\rho u$.
+\end{lemma}
+\begin{proof}
+The first equivalence follows by choosing a sufficiently long power. If
+$u\pre\rho^\omega$, then both $u$ and $\rho u$ prefix the same infinite word.
+Conversely, $u\pre\rho u$ either gives $u\pre\rho$, or lets us cancel an
+initial $\rho$ and repeat on a shorter word.
+\end{proof}
+
+The \emph{polarity} of a path counts contravariant positions modulo two:
+\begin{equation}\label{eq:g1}
+ p(w)=\bigoplus_{j<|w|}c(w[j]),\qquad p(\eps)=0,\qquad p(uv)=p(u)\oplus p(v).
+\end{equation}
+Occurrences are counted with multiplicity: if $c(0)=1$ and $c(1)=0$, then
+$p(0)=1$, $p(00)=0$, and $p(010)=0$.
+
+A \emph{tree} is a partial labeling $t:\Dir^*\rightharpoonup\{\Bot,f,\Top\}$,
+with a defined root and prefix-closed domain, such that
+\begin{equation}\label{eq:g2}
+ wi\in\operatorname{dom}(t)\quad\Longleftrightarrow\quad t(w)=f
+ \qquad(i\in\Dir).
+\end{equation}
+The \emph{extreme labels} are $\bot$ and $\top$. They label leaves;
+an $f$-node has $n$ children, so $f()$ is also a leaf at arity zero.
+Write $f(t_i)_{i\in\Dir}$ for a constructor tree. A subtree at $\eta$ has
+labeling $w\mapsto t(\eta w)$, when $\eta$ belongs to the domain.
+For example, the finite binary tree $f(\Bot,\Top)$ has domain
+$\{\eps,0,1\}$. The full constructor tree $F=f(F,\ldots,F)$ is infinite
+when $n>0$ and is $f()$ when $n=0$.
+
+Let $\Trees$ contain all trees, $\Trees_{\mathrm{fin}}$ those with finite
+domain, and $\Trees_{\mathrm{reg}}$ those with finitely many distinct rooted
+subtrees. A tree is regular iff it is the unfolding of a finite labeled graph
+with $n$ ordered outgoing edges at each constructor node; for the forward
+direction, take the graph of its finitely many distinct subtrees. The tree $F$ has a one-state
+graph. Every finite tree is regular, but $F$ shows that the converse fails
+at positive arity. At arity zero, the only trees are $\Bot,f(),\Top$.
+
+\subsection{Non-Structural Subtyping}
+Order the labels by $\Bot<f<\Top$. Define
+\begin{equation}\label{eq:g3}
+ t\le_c u\quad\Longleftrightarrow\quad
+ \forall w\in\operatorname{dom}(t)\cap\operatorname{dom}(u),\quad
+ \begin{cases}t(w)\le u(w),&p(w)=0,\\u(w)\le t(w),&p(w)=1.\end{cases}
+\end{equation}
+For $c=0$, write $\le$ and call the order \emph{covariant}.
+The order is non-structural because $\Bot\le_c t\le_c\Top$ holds even for
+trees of different shapes. For binary products $c(0)=c(1)=0$; for arrows
+$c(0)=1,c(1)=0$, and the usual rule is
+$f(a_0,a_1)\le_c f(b_0,b_1)$ iff $b_0\le_c a_0$ and $a_1\le_c b_1$.
+For instance, $f(\Top,\Bot)\le_c f(\Bot,\Top)$ for arrows.
+
+For a relation $R$ on trees, define the textbook one-step rule
+\begin{equation}\label{eq:g4}
+\begin{split}
+ \operatorname{Step}_c(R)(t,u)\quad\Longleftrightarrow\quad& t=\Bot\ \lor\ u=\Top\\
+ &\lor\ \exists\vec a,\vec b\;[t=f(\vec a)\land u=f(\vec b)\land
+ \forall i\;\begin{cases}R(a_i,b_i),&c(i)=0,\\R(b_i,a_i),&c(i)=1.\end{cases}]
+\end{split}
+\end{equation}
+Then $\le_c=\nu R.\operatorname{Step}_c(R)$, the \emph{greatest fixed point}:
+the largest relation preserved by this rule. To prove it, compare roots
+in \eqref{eq:g3} and apply \eqref{eq:g1} to the children; this shows that
+\eqref{eq:g3} is a fixed point. Conversely, if $R\subseteq\operatorname{Step}_c(R)$,
+induction on a common path proves \eqref{eq:g3} for every pair in $R$.
+A contravariant first letter exchanges the trees and toggles polarity; a
+leaf case leaves only the root comparison. The greatest fixed point is
+necessary: at positive arity $F\le_c F$, whereas the least fixed point
+cannot justify this comparison by finitely many unfoldings. On finite
+trees, the same rule is the usual inductive order. The relation is a partial
+order, as also follows from normalization and the pointwise characterization
+in \eqref{eq:g11}.
+
+\subsection{Constraints, Solutions, and Entailment}
+Let $V$ be a finite set of $k$ variables containing $x,y$. A \emph{flat constraint system} $\phi$ is a finite conjunction of literals
+\begin{equation}\label{eq:g5}
+ z\le f(a_i)_i,\qquad f(a_i)_i\le z,\qquad z=\Bot,\qquad z=\Top,
+\end{equation}
+where each $a_i$ is a variable. An assignment $\sigma:V\to\mathcal D$, for
+$\mathcal D\in\{\Trees,\Trees_{\mathrm{reg}},\Trees_{\mathrm{fin}}\}$, is a
+\emph{solution} if it satisfies all literals, interpreting inequalities by
+$\le_c$. Write $\Sat_{\mathcal D,c}(\phi)$ for existence of a solution. Define
+\begin{equation}\label{eq:g6}
+ \phi\models_{\mathcal D,c}x\le y\quad\Longleftrightarrow\quad
+ \forall\sigma:V\to\mathcal D,\quad\sigma\models_c\phi\Longrightarrow
+ \sigma(x)\le_c\sigma(y).
+\end{equation}
+Omit $\mathcal D$ for arbitrary trees, and use $\mathrm{reg}$ and $\mathrm{fin}$
+for the other domains; omit $c$ as well in the covariant case.
+Satisfiability asks for one solution; entailment asks
+about every solution. A \emph{countermodel} is a solution that violates
+the query. An unsatisfiable system entails every query.
+For example, $x\le f(a_i)_i$ and $f(a_i)_i\le y$ entail $x\le y$.
+With distinct variables they do not entail $y\le x$: set $x=\Bot,y=\Top$.
+For a binary covariant constructor, $f(x,x)\le x\le f(x,x)$ has a regular
+infinite solution but no finite solution.
+The query $x\le y$ is a variable inequality. It is accepted directly and is
+not a literal of \eqref{eq:g5}; general systems and queries reduce to this
+form as follows.
+
+\begin{proposition}[Flattening]\label{prop:flattening}
+At positive arity, any finite system of inequalities between finite type
+expressions, with a type-expression query, reduces to the flat syntax
+\eqref{eq:g5} and a variable query. Solutions correspond under projection
+in each of the three tree domains. At arity zero, such entailments are
+decidable by enumerating assignments in $\{\bot,f(),\top\}$.
+\end{proposition}
+\begin{proof}
+Give each nonvariable subexpression a fresh name. For a constructor
+subexpression, impose both flat bounds between its name and the constructor
+applied to the names of its children; for a constant, impose its constant
+literal. Antisymmetry forces each name to denote its subexpression.
+Replace each original inequality, and the query, by the variable inequality
+between the names of its two sides. The query is now a variable query.
+
+A variable inequality $u\le v$ in the system is not a literal of
+\eqref{eq:g5}, but at positive arity it can be expressed with fresh
+auxiliaries. Choose a child $i$, put $u,v$ in the $i$th coordinates of
+vectors $\vec a,\vec b$ (exchanged if $c(i)=1$), use a common filler
+variable in the other coordinates, and add the two literals
+$f(\vec a)\le z\le f(\vec b)$ with a fresh \emph{sandwich variable} $z$.
+A solution extends by evaluating subexpressions and taking $z$ to be
+$f(\vec a)$. Conversely, the two literals give $f(\vec a)\le_c f(\vec b)$,
+and decomposing it at child $i$ gives $u\le_c v$.
+These extensions use only constants and finitely many constructor
+applications, which preserve finite and regular trees. At arity zero, all
+expressions evaluate in the displayed three-element chain, and the sandwich
+encoding is unavailable.\footnote{Every flat literal
+then concerns one variable. Solution sets, even after existential projection,
+are products of unary sets; the order on $\bot<f()<\top$ is not such a product.}
+\end{proof}
+This reduction explains the mathematical scope; the exported formal
+procedures take the flat syntax directly (\cref{app:lean}).
+
+\subsection{Normalization}\label{sec:normal}
+Normalization moves all order reversals from the comparison rule into the
+leaf labels: after it, every path is compared covariantly.
+Define \emph{tree duality} $\mathfrak d(t)$ by exchanging $\bot$ and
+$\top$ and leaving every $f$-label unchanged, including the nullary
+constructor $f()$. For $q\in\{0,1\}$, define $H_qt$ on the same domain as
+$t$, exchanging $\bot$ and $\top$ in its label at $w$ precisely when
+$q\oplus p(w)=1$. The following lemma shows that $H_0$ turns $\le_c$ into
+the covariant order.
+
+\begin{lemma}[Normalization]\label{lem:normalization}
+\begin{equation}\label{eq:g9}
+H_q f(t_i)_i=f(H_{q\oplus c(i)}t_i)_i,\qquad
+ H_1=\mathfrak d H_0,\qquad H_0H_0=\mathrm{id},
+\end{equation}
+
+\begin{equation}\label{eq:g10}
+t\le_c u\quad\Longleftrightarrow\quad H_0t\le H_0u.
+\end{equation}
+
+\end{lemma}
+\begin{proof} Exchanging the extreme labels preserves \eqref{eq:g2}. At a child path $iw$, \eqref{eq:g1} gives
+the sign in \eqref{eq:g9}; flipping twice proves the involution identities.
+At every common path, exchanging the extreme labels reverses their order. Thus the comparison in
+\eqref{eq:g3} is exactly the covariant comparison after applying $H_0$, proving \eqref{eq:g10}.
+In particular, $H_0$ is an order isomorphism to the covariant tree order.
+Both $H_q$ and $\mathfrak d$ preserve finite domains. They preserve regularity:
+in a finite graph, attach one polarity bit to each node and update it on an
+edge labeled $i$ by xor with $c(i)$. \end{proof}
+
+\subsection{Unsafe Words and Sides}\label{sec:unsafe}
+For a covariant tree $t$, define its \emph{constant leaf extension}
+$\widehat t:\Dir^*\to\{\bot,f,\top\}$ by following a word until its
+end or the first leaf, and then retaining that leaf's label. Thus
+$\widehat t(w)=\top$ exactly when some prefix of $w$ is a $\top$-leaf
+of $t$; the analogous assertion holds for $\bot$.
+
+\begin{lemma}[Leaf-extension characterization]\label{lem:leaf-extension}
+The covariant order has the characterization
+
+\begin{equation}\label{eq:g11}
+t\le u\quad\Longleftrightarrow\quad
+ \forall w\quad\widehat t(w)\le\widehat u(w).
+\end{equation}
+
+\end{lemma}
+\begin{proof} The reverse implication follows by considering common domain
+paths. For the forward implication, follow both trees along $w$. Until a
+leaf is reached, labels compare by hypothesis. If the left tree stops at
+$\bot$, or the right at $\top$, the extended comparison holds forever.
+If the left stops at $\top$, the right must also be $\top$ at that common
+node; if the right stops at $\bot$, the left must also be $\bot$.
+Otherwise, both reach the end and the original comparison applies. \end{proof}
+
+For a tree $t$ ordered by $\le_c$, put
+
+\begin{equation}\label{eq:g12}
+\operatorname{Pref}_c^+(t,w):\Longleftrightarrow\widehat{H_0t}(w)=\top,
+ \qquad
+ \operatorname{Pref}_c^-(t,w):\Longleftrightarrow\widehat{H_0t}(w)=\bot.
+\end{equation}
+
+We say that $t$ has a \emph{top prefix} along $w$ if
+$\operatorname{Pref}_c^+(t,w)$, and a \emph{bottom prefix} along $w$ if
+$\operatorname{Pref}_c^-(t,w)$.
+Thus a top prefix is an actual top leaf at an even-polarity prefix of $w$,
+or an actual bottom leaf at an odd-polarity prefix. Its polarity is measured
+at that prefix, not at a later point past the leaf.
+A word $w$ is \emph{left unsafe} for an assignment $\sigma$ if
+$\operatorname{Pref}_c^+(\sigma x,w)$ and not $\operatorname{Pref}_c^+(\sigma y,w)$, and
+\emph{right unsafe} for $\sigma$ if
+$\operatorname{Pref}_c^-(\sigma y,w)$ and not $\operatorname{Pref}_c^-(\sigma x,w)$.
+It is left (right) unsafe for $(\phi,x,y)$ if it is left (right) unsafe for
+some solution of $\phi$.
+
+By \eqref{eq:g10}--\eqref{eq:g11},
+
+\begin{equation}\label{eq:g13}
+\phi\not\models_c x\le y
+ \quad\Longleftrightarrow\quad
+ \text{some word is left unsafe or right unsafe}.
+\end{equation}
+
+Indeed, the only failures of order in the three-element label chain are a
+left top against a non-top, or a right bottom against a non-bottom. The same
+argument shows, for each assignment $\sigma$, that
+$\sigma(x)\not\le_c\sigma(y)$ iff some word is left or right unsafe for
+$\sigma$.
+
+
+\begin{example}[Running arrow system]\label{ex:running-arrow}
+Take $c=(1,0)$, variables $x,y,a,b$, and the three flat literals
+\[
+ \phi=\{x\le f(a,b),\ f(a,b)\le x,\ y\le f(a,b)\}.
+\]
+The first two force $x=f(a,b)$, so every solution has $y\le_c x$.
+The converse query fails: the finite assignment
+\[
+ \sigma(a)=\Bot,\quad \sigma(b)=\Top,\qquad
+ \sigma(x)=f(\Bot,\Top),\quad \sigma(y)=f(\Top,\Bot)
+\]
+solves $\phi$, but $\sigma(x)\not\le_c\sigma(y)$.
+As \cref{fig:arrow-witness} shows, normalization gives
+$H_0\sigma(x)=f(\Top,\Top)$ and $H_0\sigma(y)=f(\Bot,\Bot)$.
+Thus $w=0$ witnesses both sides of unsafety: $x$ has a top prefix and
+$y$ does not, while $y$ has a bottom prefix and $x$ does not.
+The same assignment witnesses both sides for $00$: the leaves are reached
+at $0$, whose polarity is $1$, even though $p(00)=0$.
+We reuse this system with the failing query $x\le y$ below.
+\end{example}
+
+\input{figures/arrow-witness}
+
+\FloatBarrier
+\subsection{Notation at a Glance}\label{sec:notation}
+The following table collects the main notation, including symbols
+introduced later, grouped by the part of the paper that introduces them.
+In particular, the four dual operations have different input and output
+types.
+\begingroup
+\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{.21\linewidth}>{\raggedright\arraybackslash}p{.28\linewidth}>{\raggedright\arraybackslash}p{.44\linewidth}@{}}
+\toprule
+Symbol & Type & Reading or effect\\
+\midrule
+\endfirsthead
+\toprule
+Symbol & Type & Reading or effect\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\multicolumn{3}{@{}l}{\emph{Semantics and constraints (\cref{sec:background,sec:variance,sec:spines})}}\\
+$\Trees$, $\Trees_{\mathrm{reg}}$, $\Trees_{\mathrm{fin}}$ & sets of trees & Arbitrary, regular, and finite trees; $\mathcal D$ ranges over these domains.\\
+$V$, $V^\pm$, $\sigma$ & variable sets; assignment & Original and signed variables; a tree for each variable.\\
+$\phi$, $\psi$, $\chi$ & finite constraint systems & Original system, signed translation, and a generic covariant system.\\
+$k$ & integer & Number of input variables (never a block count).\\
+$\Dir$, $c$, $p$ & alphabet; $\Dir\to\{0,1\}$; $\Dir^*\to\{0,1\}$ & Child positions, their variances, and path polarity.\\
+$w[i]$, $w[:j]$, $w[j:]$ & letter; word; word & Letter at position $i$; prefix and suffix at cut $j$.\\
+$u\pre w$, $\pr(L)$ & relation on words; set of words & Prefix; all prefixes of words in $L$, with $\pr(v)=\pr(\{v\})$.\\
+$\mathfrak d$ & $\Trees\to\Trees$ & Tree duality: exchange $\bot,\top$, retain $f$.\\
+$H_q$ & trees under $\le_c$ $\to$ covariant trees & Normalize labels using $q\oplus p(w)$.\\
+$\operatorname{Pref}^\pm_c(t,w)$ & truth value & Top ($+$) or bottom ($-$) prefix of $t$ along $w$.\\
+$\flip$ & $V^\pm\to V^\pm$ & Variable flip: complement the sign.\\
+$S$ & signed assignments $\to$ signed assignments & Assignment involution: $(S\sigma)(v)=\mathfrak d(\sigma(\flip v))$; fixed witnesses are $S$-fixed.\\
+$\chi^{\mathfrak d}$ & covariant systems $\to$ covariant systems & Order dual: reverse inequalities and exchange constants; keep variable names.\\
+$\theta$; $\psi_\theta$, $X_\theta$, $Y_\theta$ & side; system; variables & Left or right side, its covariant system, and its two query roots.\\
+$D_\chi$ & relation on variables & Reflexive, transitive decomposition closure.\\
+$\Up$, $\Lo$ & word $\times$ variable $\times$ variable $\to$ truth value & Supported upper and lower path bounds.\\
+$\emb_b(\eta,t)$ & tree & Embed $t$ at path $\eta$, with off-path filler $b$.\\
+$\ell_f,u_f,u_\bot$ & predicates on pairs of a variable and a path & Lower constructor, upper constructor, and upper bottom support.\\
+$\Psi^4_w$; $P_j$, $Q_j$, $Y_j$, $W_j$ & system; signed variables & Four-spine extension along $w$ and its spine variables at cut $j$.\\
+$U_j,L_j$; $U^R_j,L^Z_j$ & sets of signed variables & Variables reached by upper and lower path bounds at cut $j$, from $x^+$ and $y^+$, or from the spine roots $R_0$ and $Z_0$.\\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Readers and holes (\cref{sec:holes,sec:tail,sec:depth,sec:decision})}}\\
+$(\mathcal M,\Adm,\Rej)$, $N$ & reader; integer & Deterministic automaton with admission relation and rejected states; its number of states.\\
+$\mathcal M_\theta$, $\Adm_\theta$, $\Rej_\theta$ & reader & Left or right label reader: the label reader of \cref{sec:label-reader} on side $\theta$.\\
+$E_i$, $G_i$ & maps on sets of signed variables & One-letter updates of the upper and lower sets.\\
+$(s,e)$ & pair of cuts & Comparison when $s<e$ and $w[e:]\pre w[s:]$.\\
+$q_j$, $\Rej$, $\Adm$ & state; set of states; relation on states & Reader run, rejection, and admission.\\
+$J(w)$, $r(w)$ & integers & First rejected cut and rejected-tail length $|w|-J(w)$.\\
+hole; fixed witness & word; assignment & Rejected word without admitted comparison, for a satisfiable system an unsafe word; $S$-fixed solution showing unsafety along a word. \emph{Witness} always means the latter.\\
+$B$, $d$, $H$ & integers & Tail bound $4N-2$, depth bound $2N(B+1)-1$, and length bound $\holeBound(N,d)$ (\cref{thm:hole-decision}).\\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Hierarchies and compression (\cref{sec:depth,sec:search,sec:complexity})}}\\
+$u_j$, $\ell_j$, $\Cores_j$, $\Supp_j$ & word; letter; set of cuts; set of states & Hierarchy level, marker, ordinary cores, and their reader states (state support).\\
+$\mathcal M_j$, $\triangleright$, $\star$ & lettered monitor; label; state & Derived monitor, start label, and new derivative start state.\\
+$\Tfin$, $\Lambda$, $\Lfin$ & predicate; two relations on labels & Final target, nonterminal admission, and terminal admission.\\
+$\mathcal A_i$, $g_i$ & set of letters; integer & Level-$i$ dictionary (letters of $u_i$) and its size.\\
+$\Pi_i$, $Z_i$ & set of letters; set of states & Protected letters and monitor states in use at level $i$.\\
+$\mathcal E_j$ & set of letters & Letter support kept at level $j$ during shortening.\\
+$\Delta$ & integer & Depth of the hole being shortened in \cref{sec:search}.\\
+$\TyBound(N,d)$, $\AlBound(N,d)$, $\DictBound(N,d)$ & integers & Number of exchange types, allowance, and dictionary bound \eqref{eq:dictionary-constants}.\\
+$h$, $\mathit{col}(N,h)$ & integers & Number of blocks (tracks) shortened together; column count of their summaries \eqref{eq:col}.\\
+$\holeBound(N,d)$ & integer & Length bound for holes of depth at most $d$ \eqref{eq:holebound}.\\
+dictionary-normal & property of holes & Normal form of \cref{lem:dictionary-normal-form}; unrelated to the normalization $H_q$.\\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Complexity (\cref{sec:complexity})}}\\
+$\insize{\phi}$ & integer & Size of the explicit input.\\
+cycle clash & property of a system & $\Lo(\eta,a,a)$, $D_\chi(a,b)$ and $\Up(\eta,b,b)$ for a nonempty $\eta$; excludes finite solutions (\cref{sec:decision}).\\
+$\mathcal W$, $\Gamma_{\mathcal W}$, $\Theta$ & lettered monitor; alphabet; summary & Current monitor of the summary search, its abstract letters $1,\ldots,h$, and a column summary determining the next monitor.\\
+$\mathbb T$ & alphabet & Counter tokens $\{0,1,\#,\$\}$ of the long-hole construction.\\
+$T_P$, $T_P^m$ & trees & Top-free tree with constructor positions $P$, and its truncation at depth $m$ with $\Top$ at the cut.\\
+token encoding; $\cxcode$ & maps into $\{0,1\}^*$ & Binary encoding of counter tokens (long holes); prefix-free code of words (hardness).\\
+\end{longtable}
+\endgroup

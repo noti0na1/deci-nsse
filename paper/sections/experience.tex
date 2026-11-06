@@ -1,0 +1,74 @@
+\section{From the Binary Proof to the General Proof}
+\label{sec:experience}
+
+An earlier version of this work treated only the binary covariant signature,
+through cap automata. The present proof constructs readers directly from
+subtype constraints and handles arbitrary arity and variance. This section
+explains the change. \Cref{app:history} lists the distinctions on which both
+proofs rely, with the places where the present proof handles them.
+
+\subsection{An Earlier Proof for the Binary Covariant Case}
+\label{sec:earlier}
+The earlier version decided \NSSE for the binary covariant interpretation
+of the TLCA problem, over the same three domains. It was based on the
+\emph{cap automata} of \citet{NiehrenPriesnitz03}: finite automata with
+additional \emph{P-edges}. A P-edge from a state $q'$ back to a state $q$
+makes the automaton accept $\pi u$ whenever $\pi$ leads to $q$, a word
+$\rho$ leads from $q$ to $q'$, and $u$ is a prefix of a power of $\rho$
+(\cref{app:np03} gives the full definition). The earlier version mechanized NP03's forward
+characterization: for a satisfiable system, the left and right cap automata
+of a judgment accept exactly the safe paths, once ready states are counted
+as final (\cref{sec:errata}). Holes were then read from transition images.
+The transition relations of each cap automaton form a finite monoid. A
+deterministic reader over this monoid, with an admission relation derived
+from the P-edges, has as its holes exactly the words that the cap automaton
+rejects. The tail, depth, and compression arguments of
+\cref{sec:tail,sec:depth,sec:search} were first proved for these readers
+over the binary alphabet. The completeness of the characterization and the
+countermodel transfers both used chains of fresh variables that force a top
+or a bottom label along an unsafe path.
+
+\subsection{Limits of the Earlier Proof}
+\label{sec:why-route}
+The cap-automaton proof covers only its binary covariant signature.
+Extending it to larger arities through NP03's arity equivalence would rely
+on a published proof that is incomplete (\cref{sec:errata}), and
+contravariance would require new automata with a new completeness proof.
+We instead derived the reader directly from the semantics, which has three
+advantages.
+\begin{itemize}[leftmargin=*]
+\item \emph{One construction replaces several.} The chains that the earlier
+  proof used inside its completeness argument and its transfers become the
+  central object. The four-spine extension characterizes unsafety
+  (\cref{thm:four-spine}), and its clash analysis (\cref{thm:clashes})
+  defines the reader. The selected least shape of the same
+  extension supplies the countermodels in all three domains.
+\item \emph{Admissions have a semantic reading.} Each admitted comparison
+  is a cross or a self event: a constructor bound at one cut meets an
+  incompatible bound at a later cut across a repeated suffix. In the
+  earlier proof the same comparisons appeared as closed P-edges in a
+  transition monoid, which hides the constraints responsible for them.
+\item \emph{Readers are smaller.} The label reader has $2\cdot4^{2k}$
+  states, and one construction serves both sides by order duality. A cap
+  automaton has at most $N_{\mathrm{cap}}=(k+1)^2+1$ states, and its
+  transition monoid can have up to $2^{N_{\mathrm{cap}}^2}$ elements. The
+  rejected-tail bound therefore drops from $2^{O(k^4)}$ to $2^{O(k)}$.
+  Either reader construction, followed by the same compression, gives a
+  triply exponential length bound; the smaller direct reader improves the
+  top exponent from $O(k^4)$ to $O(k)$.
+\end{itemize}
+
+The new route has a cost: its semantic reduction is longer. The four spines
+with polarity-dependent signs, the signed fillers, and the possible
+aliasing of roots at cut zero all need care, whereas the earlier proof
+could follow the published forward construction with its ready-state
+finality convention.
+
+In summary, the combinatorial core carries over unchanged. The tail and depth
+arguments are alphabet-generic under their respective hypotheses, and
+bounded-depth compression applies to every finite-state lettered monitor over
+any finite alphabet, including the cap-monoid readers, once a depth bound is
+supplied. The direct reader replaces the cap automata, their transition
+monoids, and the published forward characterization. In exchange, the
+semantic reduction must itself establish the rejected-path property, from
+which the depth bound follows.
