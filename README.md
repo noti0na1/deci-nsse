@@ -7,6 +7,10 @@ with [Mathlib](https://github.com/leanprover-community/mathlib4), and computable
 decision procedures over **arbitrary, regular and finite trees, including arity
 zero**.
 
+The paper [*Non-Structural Subtype Entailment Is Decidable*](paper/main.pdf)
+explains the proof in detail. It is an unpolished write-up; its LaTeX sources
+are in [paper](paper).
+
 The input specifies an arity `n`, a variance map `c : Fin n → Bool`, a finite
 constraint system, and a queried variable inequality. Here `false` means
 covariant and `true` means contravariant. Binary covariant products and arrows
@@ -826,6 +830,8 @@ module is reachable from `import DeciNSSE` except the executable front ends
 `Certificates/Command` and `Solver/Command` and their JSON parser
 `Certificates/Json`, which Lake's executable targets `nsse-check` and `nsse`
 build. The folder [examples](examples) holds the solver examples and `check.sh`.
+The folder [paper](paper) holds the LaTeX sources of the write-up and the
+compiled [main.pdf](paper/main.pdf); build it with `make` in that folder.
 
 ## License
 
