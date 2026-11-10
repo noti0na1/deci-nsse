@@ -1,6 +1,6 @@
+import DeciNSSE.Monitor.Events
 import DeciNSSE.RejectedTail.Basic
-import DeciNSSE.Satisfiability.Decide
-import DeciNSSE.Semantics.Selector
+import DeciNSSE.Satisfiability.BoundSets
 
 /-! # The finite label reader
 
@@ -8,31 +8,30 @@ A state records upper labels, lower labels and a latch for earlier readiness.
 Acceptance also tests current readiness and the terminal child condition.
 Cross and self admissions detect periodic comparisons. There are `2 * 4^m`
 states for `m` variables, hence `2 * 4^(2*k)` after signed translation.
-The reader of `ψ ⊨? X ≤ Y` reads the top-prefix side of the query; the
-bottom-prefix side is read by the same reader on the order dual of `ψ` with
-`X` and `Y` exchanged.
+The label sets are the bound sets `upperSet ψ X` and `lowerSet ψ Y` along the
+word read so far.
 
 ## Main declarations
 
 - `Monitor.State`, `Monitor.card_state`: label states, `2 * 4^m` of them.
 - `Monitor.reader`: the label DFA of `ψ ⊨? X ≤ Y`, with `Monitor.target` its rejected
   states and `Monitor.admission` its admissions.
-- `Monitor.mem_eval_U`, `Monitor.mem_eval_L`, `Monitor.accept_eval_iff`: after reading a
-  word, the labels are its upper and lower path bounds, and acceptance is acceptance along
-  the path.
+- `Monitor.eval_U`, `Monitor.eval_L`, `Monitor.accept_eval_iff`: after reading a word,
+  the labels are its upper and lower bound sets, and acceptance is acceptance along the
+  path.
 - `Monitor.rejectedPath`: the reader has the rejected-path property, so the generic hole
   bounds apply to it.
 -/
 
 namespace DeciNSSE.Monitor
 
-open SignSelection RejectedTail
+open SignDuality RejectedTail Events
 
 /-- A label state: upper labels `U`, lower labels `L`, acceptance latch `b`. -/
 structure State (m : ℕ) where
-  /-- Variables with an upper bound along the path read so far. -/
+  /-- The upper path bounds of the first root along the word read so far. -/
   U : Finset (V m)
-  /-- Variables with a lower bound along the path read so far. -/
+  /-- The lower path bounds of the second root along the word read so far. -/
   L : Finset (V m)
   /-- Whether readiness occurred at a strictly earlier cut. -/
   b : Bool
@@ -57,20 +56,6 @@ theorem card_state (m : ℕ) : Fintype.card (State m) = 2 * 4 ^ m := by
   ring
 
 variable {n m k : ℕ}
-
-section Executable
-
-variable (ψ : Constraint n m) (pairs : Finset (V m × V m))
-
-/-- `E_i U`: the one-letter upper extension, over a precomputed closure. -/
-def upperStep (i : Fin n) (U : Finset (V m)) : Finset (V m) :=
-  Finset.univ.filter fun v => ∃ u ∈ U, PathDecision.upper ψ pairs [i] u v = true
-
-/-- `F_i L`: the one-letter lower extension, over a precomputed closure. -/
-def lowerStep (i : Fin n) (L : Finset (V m)) : Finset (V m) :=
-  Finset.univ.filter fun v => ∃ u ∈ L, PathDecision.lower ψ pairs [i] v u = true
-
-end Executable
 
 /-- The label sets witness a bottom, top or common-variable clash. -/
 def Ready (ψ : Constraint n m) (U L : Finset (V m)) : Prop :=
@@ -111,7 +96,7 @@ def target (ψ : Constraint n m) : Set (State m) := {S | ¬ Accept ψ S}
 instance instDecidableMemTarget (ψ : Constraint n m) : DecidablePred (· ∈ target ψ) :=
   fun S => inferInstanceAs (Decidable (¬ Accept ψ S))
 
-/-- The relation of the label monitor over doubled variables: cross admission
+/-- The admission relation of the label reader over signed variables: cross admission
 `L_s ∩ U_e ≠ ∅` or self admission `U_s ∩ flipV U_e ≠ ∅`. -/
 def admission (S S' : State (2 * k)) : Prop :=
   (∃ v ∈ S.L, v ∈ S'.U) ∨ ∃ z ∈ S.U, flipV z ∈ S'.U
@@ -140,74 +125,42 @@ theorem reader_start :
     (reader ψ X Y).start = ⟨Finset.univ.filter (fun v => (X, v) ∈ derivedPairs ψ),
       Finset.univ.filter (fun v => (v, Y) ∈ derivedPairs ψ), false⟩ := rfl
 
-/-- The upper extension of a letter collects the one-letter upper path bounds. -/
-theorem mem_upperStep_iff {i : Fin n} {U : Finset (V m)} {v : V m} :
-    v ∈ upperStep ψ (derivedPairs ψ) i U ↔ ∃ u ∈ U, UpperAt ψ [i] u v := by
-  simp only [upperStep, Finset.mem_filter, Finset.mem_univ, true_and]
-  exact exists_congr fun u => and_congr_right fun _ => upperAtB_iff ψ [i] u v
+/-- Upper labels. After reading `w`, `U` is the set of upper path bounds of `X`
+along `w`. -/
+theorem eval_U (w : List (Fin n)) : ((reader ψ X Y).eval w).U = upperSet ψ X w := by
+  induction w using List.reverseRecOn with
+  | nil => ext v; simp [reader_start, mem_derivedPairs]
+  | append_singleton w i ih => rw [DFA.eval_append_singleton, reader_step, ih, upperSet_append]
 
-/-- The lower extension of a letter collects the one-letter lower path bounds. -/
-theorem mem_lowerStep_iff {i : Fin n} {L : Finset (V m)} {v : V m} :
-    v ∈ lowerStep ψ (derivedPairs ψ) i L ↔ ∃ u ∈ L, LowerAt ψ [i] v u := by
-  simp only [lowerStep, Finset.mem_filter, Finset.mem_univ, true_and]
-  exact exists_congr fun u => and_congr_right fun _ => lowerAtB_iff ψ [i] v u
+/-- Lower labels. After reading `w`, `L` is the set of lower path bounds of `Y`
+along `w`. -/
+theorem eval_L (w : List (Fin n)) : ((reader ψ X Y).eval w).L = lowerSet ψ Y w := by
+  induction w using List.reverseRecOn with
+  | nil => ext v; simp [reader_start, mem_derivedPairs]
+  | append_singleton w i ih => rw [DFA.eval_append_singleton, reader_step, ih, lowerSet_append]
 
-/-- Upper labels. After reading `w`, `U` holds exactly the upper path
-bounds of `X` along `w`. -/
-theorem mem_eval_U (w : List (Fin n)) (v : V m) :
+@[simp] theorem mem_eval_U (w : List (Fin n)) (v : V m) :
     v ∈ ((reader ψ X Y).eval w).U ↔ UpperAt ψ w X v := by
-  induction w using List.reverseRecOn generalizing v with
-  | nil =>
-    simp [reader_start, mem_derivedPairs]
-  | append_singleton w i ih =>
-    simp only [DFA.eval_append_singleton, reader_step, mem_upperStep_iff]
-    constructor
-    · rintro ⟨u, hu, hi⟩
-      exact ((ih u).mp hu).comp hi
-    · intro h
-      obtain ⟨u, hu, hi⟩ := UpperAt.factor h
-      exact ⟨u, (ih u).mpr hu, hi⟩
+  rw [eval_U, mem_upperSet]
 
-/-- Lower labels. After reading `w`, `L` holds exactly the lower path
-bounds of `Y` along `w`. -/
-theorem mem_eval_L (w : List (Fin n)) (v : V m) :
+@[simp] theorem mem_eval_L (w : List (Fin n)) (v : V m) :
     v ∈ ((reader ψ X Y).eval w).L ↔ LowerAt ψ w v Y := by
-  induction w using List.reverseRecOn generalizing v with
-  | nil =>
-    simp [reader_start, mem_derivedPairs]
-  | append_singleton w i ih =>
-    simp only [DFA.eval_append_singleton, reader_step, mem_lowerStep_iff]
-    constructor
-    · rintro ⟨u, hu, hi⟩
-      exact hi.comp ((ih u).mp hu)
-    · intro h
-      obtain ⟨u, hu, hi⟩ := LowerAt.factor (π := w) (π' := [i]) h
-      exact ⟨u, (ih u).mpr hu, hi⟩
+  rw [eval_L, mem_lowerSet]
 
-/-- Readiness along a path. -/
-def ReadyAt (ψ : Constraint n m) (X Y : V m) (π : List (Fin n)) : Prop :=
-  (∃ u, UpperAt ψ π X u ∧ u ∈ botVars ψ) ∨ (∃ v, LowerAt ψ π v Y ∧ v ∈ topVars ψ) ∨
-    (∃ u, UpperAt ψ π X u ∧ LowerAt ψ π u Y)
-
-/-- The letter-free child condition along a path: an upper bound of `X`
-carries an upper constructor literal. -/
-def ChildAt (ψ : Constraint n m) (X : V m) (π : List (Fin n)) : Prop :=
-  ∃ z b, UpperAt ψ π X z ∧ Lit.leF z b ∈ ψ
-
-/-- Acceptance along a path: readiness at a strictly earlier cut, readiness, or a child. -/
+/-- Acceptance along a path: readiness at some cut, or the child condition at the end. -/
 def AcceptAt (ψ : Constraint n m) (X Y : V m) (π : List (Fin n)) : Prop :=
-  (∃ j < π.length, ReadyAt ψ X Y (π.take j)) ∨ ReadyAt ψ X Y π ∨ ChildAt ψ X π
+  (∃ j ≤ π.length, ReadyAt ψ X Y (π.take j)) ∨ ChildAt ψ X π
 
 /-- Readiness of the labels after `π` is readiness along `π`. -/
 theorem ready_eval_iff (π : List (Fin n)) :
     Ready ψ ((reader ψ X Y).eval π).U ((reader ψ X Y).eval π).L ↔ ReadyAt ψ X Y π := by
-  simp only [Ready, ReadyAt, mem_eval_U, mem_eval_L]
+  simp only [Ready, ReadyAt, mem_eval_U, mem_eval_L, mem_botVars, mem_topVars]
 
 /-- The child condition of the labels after `π` is the child condition along `π`. -/
 theorem child_eval_iff (π : List (Fin n)) :
     (∃ p ∈ upperLits ψ, p.1 ∈ ((reader ψ X Y).eval π).U) ↔ ChildAt ψ X π := by
   simp only [ChildAt, mem_eval_U, Prod.exists, mem_upperLits]
-  exact ⟨fun ⟨z, b, hl, hz⟩ => ⟨z, b, hz, hl⟩, fun ⟨z, b, hz, hl⟩ => ⟨z, b, hl, hz⟩⟩
+  exact ⟨fun ⟨z, b, hl, hz⟩ => ⟨z, hz, b, hl⟩, fun ⟨z, hz, b, hl⟩ => ⟨z, b, hl, hz⟩⟩
 
 /-- The latch records readiness at a strictly earlier cut. -/
 theorem eval_b_iff (w : List (Fin n)) :
@@ -234,7 +187,15 @@ theorem eval_b_iff (w : List (Fin n)) :
 /-- Acceptance after reading `w` is acceptance along `w`. -/
 theorem accept_eval_iff (w : List (Fin n)) :
     Accept ψ ((reader ψ X Y).eval w) ↔ AcceptAt ψ X Y w := by
-  simp only [Accept, AcceptAt, eval_b_iff, ready_eval_iff, child_eval_iff]
+  simp only [Accept, AcceptAt, eval_b_iff, ready_eval_iff, child_eval_iff, ← or_assoc]
+  refine or_congr_left ⟨?_, ?_⟩
+  · rintro (⟨j, hj, h⟩ | h)
+    · exact ⟨j, hj.le, h⟩
+    · exact ⟨w.length, le_rfl, by rwa [List.take_length]⟩
+  · rintro ⟨j, hj, h⟩
+    rcases hj.lt_or_eq with hlt | rfl
+    · exact Or.inl ⟨j, hlt, h⟩
+    · exact Or.inr (by rwa [List.take_length] at h)
 
 /-- The reader ends in the target exactly when `w` is not accepted along its path. -/
 theorem mem_target_iff (w : List (Fin n)) :
@@ -250,7 +211,7 @@ theorem childAt_of_upper {π τ : List (Fin n)} {v : V m} (hτ : τ ≠ [])
   | cons i τ =>
     cases ht with
     | cons hd hl _ =>
-      exact ⟨_, _, by simpa using ha.comp (UpperAt.nil hd), hl⟩
+      exact ⟨_, by simpa using ha.comp (UpperAt.nil hd), _, hl⟩
 
 /-- The latch is monotone along prefixes. -/
 theorem eval_b_append {u τ : List (Fin n)} (h : ((reader ψ X Y).eval u).b = true) :
@@ -291,7 +252,7 @@ instance rejectedPath : RejectedPath (reader ψ X Y) admission (target ψ) where
     · obtain ⟨τ₁, rfl⟩ := hvu
       by_cases hτ : τ₁ = []
       · subst τ₁; rw [List.append_nil] at hacc; exact hv hacc
-      · exact hv (Or.inr (Or.inr (childAt_of_upper hτ hp)))
+      · exact hv (Or.inr (childAt_of_upper hτ hp))
   cone := by
     intro w J _ hJ s e hse he _ hr
     by_contra hlt
@@ -299,7 +260,7 @@ instance rejectedPath : RejectedPath (reader ψ X Y) admission (target ψ) where
     have hc : ¬ ChildAt ψ X (w.take J) := by
       have h := hJ.2.1
       rw [mem_target_iff] at h
-      exact fun hc => h (Or.inr (Or.inr hc))
+      exact fun hc => h (Or.inr hc)
     have hτ : (w.drop J).take (e - J) ≠ [] := by
       intro h
       rw [List.take_eq_nil_iff] at h

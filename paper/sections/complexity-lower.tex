@@ -14,22 +14,22 @@ $\widehat{\sigma(y)}(w)=\bot\ne\widehat{\sigma(x)}(w)$. Proofs omitted here
 are given in \cref{app:lower}.
 
 \paragraph{Overview}
-Both constructions simulate a nondeterministic automaton over $\{0,1\}$ by
-constructor literals along binary paths. For long holes, lower literals run
-an automaton on $y$: a transition $q\xrightarrow{a}q'$ places the $a$-child
-of $Y_q$ above $Y_{q'}$, so $Y_q$ has no bottom prefix along any word that
-the automaton accepts from $q$. All states of the automaton are final, so
-its language is prefix closed, and the remaining words form a union of sets
-$u\{0,1\}^*$. We use an automaton that accepts every word except the
-extensions of one exponentially long word, the record of a binary counter.
-Separate upper literals keep $x$ top free, with constructor positions in
-$\{0,1\}^*$, so every unsafe word is right unsafe and extends the counter
-record. Truncating the trees of the automaton states, with top leaves at a
-depth beyond a chosen word, gives finite solutions, so these words are
-unsafe in all three domains. For hardness the roles of the two kinds of
-literals are reversed: upper literals run a given automaton on $x$, and lower
-literals keep a second variable $r$ at least a constructor along every
-proper prefix of a code word.
+Both results use one construction, the \emph{rejection system} of a
+nondeterministic automaton over $\{0,1\}$ all of whose states are final.
+Its lower literals run the automaton on $y$: a transition
+$q\xrightarrow{a}q'$ places the $a$-child of a variable $Y_q$ above
+$Y_{q'}$, so $Y_q$ has no bottom prefix along any word that the automaton
+accepts from $q$. Separate upper literals keep $x$ top free, with constructor
+positions in $\{0,1\}^*$. Every unsafe word is therefore right unsafe, binary,
+and rejected by the automaton. Since all states are final, the language is
+prefix closed, and the rejected words form a union of sets $u\{0,1\}^*$.
+Truncating the trees of the automaton states, with top leaves at a depth
+beyond a chosen rejected word, gives finite solutions, so every rejected word
+is unsafe in all three domains. Thus the rejection system entails $x\le y$ iff
+the automaton accepts every word. For long holes we use an automaton that
+accepts every word except the extensions of one exponentially long word, the
+record of a binary counter. For hardness we translate an arbitrary automaton
+into one all of whose states are final, preserving universality.
 
 \paragraph{Constructor Positions}
 For a tree $t$, let $\Pos(t)=\{w\in\operatorname{dom}(t):t(w)=f\}$ be its
@@ -69,14 +69,94 @@ sides is what makes the inequality hold: a top leaf of $T_{P'}^m$ at a word
 $v$ of length $m$ lies below the top leaf of $T_P^m$ at the prefix of $av$ of
 length $m$.
 
+\paragraph{Rejection Systems}
+An \emph{automaton} $\mathcal A=(Q,I,F,\delta)$ over $\{0,1\}$ has a finite
+set $Q$ of states, initial states $I\subseteq Q$, final states $F\subseteq Q$,
+and transitions $\delta\subseteq Q\times\{0,1\}\times Q$, written
+$q\xrightarrow{a}q'$. A \emph{run} on a word is a path labeled by the word
+from an initial state; the word is accepted if some run ends in a final
+state, and $L(\mathcal A)$ is the set of accepted words. The automaton is
+\emph{universal} if $L(\mathcal A)=\{0,1\}^*$. We call it \emph{all-final} if
+$F=Q$ and $I\ne\varnothing$. An all-final automaton accepts a word iff the
+word has a run, so its language is prefix closed and contains $\eps$.
+
+Let $\mathcal A$ be all-final. Add a state $q_{\mathrm{in}}$ with
+$q_{\mathrm{in}}\xrightarrow{a}q'$ iff $q\xrightarrow{a}q'$ for some $q\in I$,
+so that the words with a path from $q_{\mathrm{in}}$ are those of
+$L(\mathcal A)$. For $n\ge2$, the \emph{rejection system}
+$\Phi^{(n)}(\mathcal A)$ has the variables $x$, $g$, $b$, and $Y_q$ for
+$q\in Q\cup\{q_{\mathrm{in}}\}$, with $y=Y_{q_{\mathrm{in}}}$, and the flat
+literals
+\[
+\begin{aligned}
+ &b=\Bot,\quad g\le f(g,g,\bar b),\quad x\le f(g,g,\bar b)
+   &&\text{(confinement to binary paths)},\\
+ &f(b,b,\bar b)\le Y_q &&\text{(nonbottom roots)},\\
+ &f(Y_{q'},b,\bar b)\le Y_q\ \ (q\xrightarrow0q'),\quad
+  f(b,Y_{q'},\bar b)\le Y_q\ \ (q\xrightarrow1q')
+   &&\text{(propagation along transitions)},
+\end{aligned}
+\]
+for all $q\in Q\cup\{q_{\mathrm{in}}\}$. Thus $y$ receives the lower literals
+of the initial states directly. The query is $x\le y$. With $m=\len Q$ and
+$T=\len\delta$, the system has $m+4$ variables and at most $m+2T+4$ literals:
+three confining literals, $m+1$ root literals, and one literal for each
+transition of $\mathcal A$ and of $q_{\mathrm{in}}$. The confining literals
+keep $x$ top free, with constructor positions in $\{0,1\}^*$. The other two
+groups give each $Y_q$ a constructor or a top prefix along every word that
+has a path from $q$, so $y$ has no bottom prefix along any word of
+$L(\mathcal A)$. The trees of $y$ and of the $Y_q$ may have top leaves, which
+permits finite solutions.
+
+\begin{lemma}[Rejection systems]\label{lem:cx-rejection}
+Let $n\ge2$, let $f$ be covariant of arity $n$, let $\mathcal A$ be an
+all-final automaton over $\{0,1\}$, and let $\Phi=\Phi^{(n)}(\mathcal A)$,
+with the query $x\le y$.
+\begin{enumerate}[leftmargin=*]
+\item $\Phi$ has a finite solution.
+\item No word is left unsafe, and every right-unsafe word lies in
+  $\{0,1\}^*\setminus L(\mathcal A)$.
+\item For every $w\in\{0,1\}^*\setminus L(\mathcal A)$ there is a finite
+  solution $\sigma_w$ of $\Phi$ with $\widehat{\sigma_w(x)}(w)=f$ and
+  $\widehat{\sigma_w(y)}(w)=\bot$. In particular, $w$ is right unsafe and
+  $\sigma_w(x)\not\le\sigma_w(y)$.
+\end{enumerate}
+Hence the right-unsafe words are exactly the words of
+$\{0,1\}^*\setminus L(\mathcal A)$, and in each of the three domains
+$\mathcal D$,
+\[
+ \Phi\models_{\mathcal D}x\le y
+ \quad\Longleftrightarrow\quad
+ \mathcal A\text{ is universal}.
+\]
+\end{lemma}
+
+\begin{proof}[Proof idea]
+Let $\sigma$ be a solution. By \cref{lem:cx-topfree}(3), $\sigma(x)$ is top
+free with $\Pos(\sigma(x))\subseteq\{0,1\}^*$, so no word is left unsafe, and
+a right-unsafe word $w$ has $w\in\Pos(\sigma(x))$ and
+$\widehat{\sigma(y)}(w)=\bot$ for some solution $\sigma$. Induction along
+paths of $\mathcal A$ shows that $\widehat{\sigma(y)}$ is not $\bot$ on
+$L(\mathcal A)$, which gives~(2). For~(3), let $w$ be rejected and
+$m=\len w+1$. The truncations $Y_q=T_{L_q}^m$, with $L_q$ the set of words
+that have a path from $q$, together with $g=T_{\{0,1\}^{<m}}$, $b=\Bot$, and
+$x=T_P$ for the set $P$ of prefixes of $w$, form a finite solution with
+$w\in\Pos(x)$ and $\widehat y(w)=\bot$ (\cref{lem:cx-topfree}(4)). For the
+equivalence, if $\mathcal A$ is universal then by~(2) no word is unsafe, so
+\eqref{eq:g13} gives the entailment over arbitrary trees, and regular and
+finite solutions are among the solutions considered there; if $\mathcal A$
+rejects $w$, the finite solution $\sigma_w$ refutes the entailment in each
+domain. The details are in \cref{app:lower}.
+\end{proof}
+
 \paragraph{Long Holes}
 As noted in \cref{sec:complexity-upper}, a failed entailment on a
 satisfiable system is certified by a hole of one of the two label readers,
 and by \cref{thm:holes} these holes are exactly the unsafe words. Such
 certificates can be forced to be exponentially long. The construction uses
-an automaton with $O(\beta)$ states for the binary words that do not begin
-with one word of length $2(\beta+1)2^\beta$, the record of a $\beta$-bit
-binary counter.
+an all-final automaton with $O(\beta)$ states for the binary words that do
+not begin with one word of length $2(\beta+1)2^\beta$, the record of a
+$\beta$-bit binary counter.
 
 Fix $\beta\ge1$. Over the \emph{token alphabet} $\mathbb T=\{0,1,\#,\$\}$,
 let $\cxbin j$ be the binary expansion of $j$ with $\beta$ bits, least
@@ -89,13 +169,11 @@ The \emph{token encoding} maps the letters of $\mathbb T$ to $0\mapsto00$,
 $1\mapsto01$, $\#\mapsto10$, and $\$\mapsto11$. Let
 $\mathsf W_\beta\in\{0,1\}^*$ be the token encoding of $\mathsf H_\beta$, of
 length $\lambda_\beta=2(\beta+1)2^\beta$. For $\beta=1$,
-$\mathsf H_1=0\#1\$$ and $\mathsf W_1=00100111$. In a nondeterministic
-automaton all of whose states are final, a word is accepted iff it has a
-run, that is, a path labeled by the word from an initial state.
+$\mathsf H_1=0\#1\$$ and $\mathsf W_1=00100111$.
 
 \begin{lemma}[Counter automaton]\label{lem:cx-counter}
-For every $\beta\ge1$ there is a nondeterministic automaton $\mathcal B_\beta$
-over $\{0,1\}$ with $9\beta+27$ states, all of them final, whose language is
+For every $\beta\ge1$ there is an all-final automaton $\mathcal B_\beta$
+over $\{0,1\}$ with $9\beta+27$ states whose language is
 $\{0,1\}^*\setminus\mathsf W_\beta\{0,1\}^*$. It is computable in time
 polynomial in $\beta$.
 \end{lemma}
@@ -112,31 +190,11 @@ the first bit of the second block predicts the bit $0$ from that bit and the
 carry, counts $\beta+1=3$ tokens, and reads $1$ instead. It detects the
 error while storing only the predicted bit and a counter, not the history.
 
-Let $Q$ be the set of states of $\mathcal B_\beta$, $I\subseteq Q$ its
-initial states, and $q\xrightarrow{a}q'$ its transitions. Add a state
-$q_{\mathrm{in}}$ with $q_{\mathrm{in}}\xrightarrow{a}q'$ iff
-$q\xrightarrow{a}q'$ for some $q\in I$, so that $q_{\mathrm{in}}$ accepts the
-language of $\mathcal B_\beta$. For $n\ge2$, let $\Phi_\beta^{(n)}$ have the
-variables $x$, $g$, $b$, and $Y_q$ for $q\in Q\cup\{q_{\mathrm{in}}\}$, with
-$y=Y_{q_{\mathrm{in}}}$, and the flat literals
-\[
-\begin{aligned}
- &b=\Bot,\quad g\le f(g,g,\bar b),\quad x\le f(g,g,\bar b)
-   &&\text{(confinement to binary paths)},\\
- &f(b,b,\bar b)\le Y_q &&\text{(nonbottom roots)},\\
- &f(Y_{q'},b,\bar b)\le Y_q\ \ (q\xrightarrow0q'),\quad
-  f(b,Y_{q'},\bar b)\le Y_q\ \ (q\xrightarrow1q')
-   &&\text{(propagation along transitions)},
-\end{aligned}
-\]
-for all $q\in Q\cup\{q_{\mathrm{in}}\}$. Thus $y$ receives the lower literals
-of the initial states directly. Write $\Phi_\beta=\Phi_\beta^{(2)}$. For every
-$n$, $\Phi_\beta^{(n)}$ has $k=9\beta+31$ variables. The confining literals
-keep $x$ top free, with constructor positions in $\{0,1\}^*$. The other two
-groups give each $Y_q$ a constructor or a top prefix along every word that
-$\mathcal B_\beta$ accepts from $q$, so $y$ has no bottom prefix along any
-binary word without the prefix $\mathsf W_\beta$. The trees of $y$ and of the $Y_q$
-may have top leaves, which permits finite solutions.
+For $n\ge2$, let $\Phi_\beta^{(n)}=\Phi^{(n)}(\mathcal B_\beta)$ be the
+rejection system of the counter automaton, and write
+$\Phi_\beta=\Phi_\beta^{(2)}$. For every $n$, $\Phi_\beta^{(n)}$ has
+$k=9\beta+31$ variables, and $y$ has no bottom prefix along any binary word
+without the prefix $\mathsf W_\beta$.
 
 \begin{proposition}[Exponentially long holes]\label{prop:cx-length}
 Let $n\ge2$, let $f$ be covariant of arity $n$, let $\beta\ge1$, and let
@@ -160,21 +218,17 @@ systems with $k$ variables can have length $2^{\Omega(k)}$: here
 $\lambda_\beta\ge2^{(k-22)/9}$.
 \end{proposition}
 
-\begin{proof}[Proof idea]
-For $n=2$, let $\sigma$ be a solution. By \cref{lem:cx-topfree}(3), $\sigma(x)$
-is top free with $\Pos(\sigma(x))\subseteq\{0,1\}^*$, so no word is left
-unsafe, and a right-unsafe word $w$ has $w\in\Pos(\sigma(x))$ and
-$\widehat{\sigma(y)}(w)=\bot$ for some solution $\sigma$. Induction along runs of
-$\mathcal B_\beta$ shows that $\widehat{\sigma(y)}$ is not $\bot$ on the language
-of $\mathcal B_\beta$, so by \cref{lem:cx-counter} every right-unsafe word
-begins with $\mathsf W_\beta$. Conversely, let $w\in\mathsf W_\beta\{0,1\}^*$
-and $m=\len w+1$. The truncations $Y_q=T_{L_q}^m$, with $L_q$ the set of words
-accepted from $q$, together with $g=T_{\{0,1\}^{<m}}$, $b=\Bot$, and $x=T_P$ for
-the set $P$ of prefixes of $w$, form a finite solution with $w\in\Pos(x)$ and
-$\widehat y(w)=\bot$ (\cref{lem:cx-topfree}(4)). This gives~(1) and~(2),
-and~(3) follows by \cref{thm:holes}. The case $n\ge3$ reduces to $n=2$ by an
-embedding of binary trees, described at the end of this subsection. The
-details are in \cref{app:lower}.
+\begin{proof}
+By \cref{lem:cx-counter}, $\mathcal B_\beta$ is all-final and
+$\{0,1\}^*\setminus L(\mathcal B_\beta)=\mathsf W_\beta\{0,1\}^*$. So
+\cref{lem:cx-rejection} gives~(2), a finite solution, and, since
+$\mathcal B_\beta$ rejects $\mathsf W_\beta$, the failure of the entailment
+in each domain. For~(3), the system is satisfiable, so by \cref{thm:holes}
+the holes of each label reader are exactly the unsafe words of its side,
+and~(2) identifies them. The search of \cref{fig:algorithm} returns its
+answer from such a hole in each domain: by~(1), the finite-satisfiability
+test succeeds. Finally, $k=9\beta+31$ gives $\beta+1=(k-22)/9$ and
+$\lambda_\beta=(\beta+1)2^{\beta+1}\ge2^{(k-22)/9}$.
 \end{proof}
 
 Since $N=2^{4k+1}$, the length $\lambda_\beta$ is only polynomial in $N$,
@@ -186,116 +240,170 @@ exponential in $k$.
 covariant constructor over arbitrary and over finite trees
 (\cref{sec:related}). We give a reduction from universality of
 nondeterministic automata over $\{0,1\}$ that works in all three domains and
-for every fixed arity $n\ge2$. An automaton $\mathcal A=(Q,q_0,F,\delta)$ has
-one initial state $q_0$, final states $F$, and transitions
-$\delta\subseteq Q\times\{0,1\}\times Q$; it is universal if it accepts every
-word. Universality of such automata is PSPACE-hard.\footnote{%
+for every fixed arity $n\ge2$. Universality of automata
+$\mathcal A=(Q,I,F,\delta)$ over $\{0,1\}$ is PSPACE-hard.\footnote{%
 \citet[Theorem~3]{KrotzschMasopustThomazo16} prove this for automata over
-$\{0,1\}$, even for partially ordered ones. Their automata may have several
-initial states; a fresh initial state that has the outgoing transitions of
-all of them, and is final iff one of them is, accepts the same language. For
-regular expressions over $\{0,1\}$ with union, concatenation, and star, the
-classical result is due to \citet[Section~3]{StockmeyerMeyer73}, who state
-that inequivalence is complete for nondeterministic linear space.}
+$\{0,1\}$, even for partially ordered ones. Their automata, like ours, may
+have several initial states. For regular expressions over $\{0,1\}$ with
+union, concatenation, and star, the classical result is due to
+\citet[Section~3]{StockmeyerMeyer73}, who state that inequivalence is
+complete for nondeterministic linear space.}
 
-The reduction runs an automaton on $x$ by upper literals, and an accepting
-run forces the subtree of $x$ at its end to be $\Bot$; then $x$ has no node
-below that word. A word at which $x$ is to have a constructor while a second
-variable $r$ is $\bot$ must therefore have no accepted prefix. We encode
-words by a prefix-free code, so that the code of a rejected word has no
-accepted code as a prefix. The variables $r$ and $r'$ track the position
-within an encoded letter (\cref{fig:cx-code}). Their lower literals keep $r$
-at least a constructor at every proper prefix of a code, while at a
-completed code $r$ may be $\bot$, where $x$ can still have a constructor if
-the code is rejected.
+By \cref{lem:cx-rejection}, the rejection system of an all-final automaton
+entails $x\le y$ iff the automaton is universal. It remains to reduce
+universality of arbitrary automata to universality of all-final ones. Making
+every state final changes the language, so we first encode words: the
+\emph{letter doubling} $e$ replaces each letter $a$ of a word by $0a$, so
+that $e(a_1\cdots a_t)=0a_1\cdots0a_t$. On single bits, $e$ agrees with the
+token encoding, but the two encodings serve different constructions. Every
+binary word has exactly one of the forms
+\begin{equation}\label{eq:cx-forms}
+ e(w),\qquad e(w)0,\qquad e(w)1v\qquad(w,v\in\{0,1\}^*),
+\end{equation}
+determined as follows. Consider its first letter $1$ at an even position, counted
+from zero. If there is one, the word is $e(w)1v$ with this letter displayed.
+If there is none, the word is $e(w)$ or $e(w)0$, according to the parity of
+its length. The translated automaton accepts all words of the first two
+forms, and it accepts $e(w)1v$ iff $\mathcal A$ accepts $w$: a letter $1$
+where the doubling expects $0$ asks whether the word read so far is accepted,
+and the answer is kept forever.
 
-For $w\in\{0,1\}^*$ let $\cxcode(w)=e(w)1$, where $e$ replaces each letter
-$0$ by $00$ and each $1$ by $01$; we call $\cxcode$ the \emph{prefix-free
-code}. On single bits, $e$ agrees with the token encoding, but the two
-encodings serve different constructions. The code is prefix
-free: if $\cxcode(w')\pre\cxcode(w)$ and $\len{w'}<\len w$, then position
-$2\len{w'}$ carries the final $1$ of $\cxcode(w')$ but the letter $0$ in
-$\cxcode(w)$. From $\mathcal A$ we obtain in linear time an automaton
-$\mathcal A'$, again with the initial state $q_0$, that accepts
-$\cxcode(L(\mathcal A))$: replace each transition $(q,a,q')$ by
-$q\xrightarrow0\mu\xrightarrow{a}q'$ through a new middle state $\mu$, and
-add a transition labeled $1$ from every final state to one new state
-$q_{\mathrm f}$, the only final state of $\mathcal A'$.
-
-For such an automaton $\mathcal A'$ with states $Q'$, let $\chi(\mathcal A')$
-have the variables $z$, $b$, $r$, $r'$, and $X_q$ for $q\in Q'$, write $x$ for
-$X_{q_0}$, and take the flat literals
+For an automaton $\mathcal A=(Q,I,F,\delta)$, the \emph{all-final code}
+$\mathcal A^\circ$ is the following automaton (\cref{fig:cx-adapter}). Its
+states are a \emph{boundary} copy $q$ and a \emph{pending} copy $\bar q$ of
+every $q\in Q$, two \emph{guards} $\gamma$ and $\bar\gamma$, and a
+\emph{sink} $\omega$. Its initial states are $\gamma$ and the states of $I$.
+All its states are final. Its transitions are
 \[
-\begin{gathered}
- X_q\le f(X_{q'},z,b,\ldots,b)\ \ (q\xrightarrow0q'),\qquad
- X_q\le f(z,X_{q'},b,\ldots,b)\ \ (q\xrightarrow1q'),\qquad
- X_{q_{\mathrm f}}=\Bot,\\
- b=\Bot,\qquad f(r',b,\ldots,b)\le r,\qquad f(r,r,b,\ldots,b)\le r'.
-\end{gathered}
+\begin{aligned}
+ &q\xrightarrow0\bar q\ \ (q\in Q),\qquad
+  \bar q\xrightarrow{a}q'\ \ ((q,a,q')\in\delta),\qquad
+  q\xrightarrow1\omega\ \ (q\in F),\\
+ &\gamma\xrightarrow0\bar\gamma,\qquad
+  \bar\gamma\xrightarrow0\gamma,\qquad
+  \bar\gamma\xrightarrow1\gamma,\qquad
+  \omega\xrightarrow0\omega,\qquad
+  \omega\xrightarrow1\omega.
+\end{aligned}
 \]
-Here $b$ fills the arguments $2,\ldots,n-1$ of the first two literals and
-the arguments $1,\ldots,n-1$ of the first lower literal; for $n=2$ the first
-two literals have no $b$. No literal bounds $z$, so $z$ may be $\top$, and
-then, among the two binary children, an upper literal constrains only the child
-that the run follows; the added children are bounded by $b=\Bot$. Along
-every run of $\mathcal A'$ from $q_0$ on a word $u$, the upper literals keep the subtree
-of $x$ at $u$, if it exists, below the variable $X_q$ of the reached state
-$q$; an accepting run therefore forces the subtree of $x$ at its end, if it
-exists, to be $\Bot$. The lower literals give $r$ a constructor or $\top$ at
-every proper prefix of a code, and they allow $r$ to be $\bot$ at a code. If
-$\mathcal A$ is universal, every proper prefix of a code lies on an accepting
-run, and $x\le r$ follows. If $\mathcal A$ rejects a word $w$, then a solution
-can give $x$ a constructor at $\cxcode(w)$ and $r$ the label $\bot$ there.
+The boundary and pending copies simulate $\mathcal A$ on the doubled word.
+The guards keep a run alive on every word of the first two forms of
+\eqref{eq:cx-forms}, whatever $\mathcal A$ does, and they have no transition
+on $1$ at a boundary. There, only the boundary copies of final states
+continue, into the sink. With $m=\len Q$ and $T=\len\delta$, the automaton
+$\mathcal A^\circ$ has $2m+3$ states and $m+T+\len F+5\le2m+T+5$ transitions,
+it is all-final because $\gamma$ is initial, and it is computed from
+$\mathcal A$ in linear time.
 
 \begin{figure}[tbp]
 \centering
 \begin{tikzpicture}[>=Stealth, auto,
     every state/.style={minimum size=9mm, inner sep=1pt}]
-  \node[state, initial, initial text={}] (r) at (0,0) {$r$};
-  \node[state] (rp) at (3.2,0) {$r'$};
-  \node[draw, rounded corners=2pt, font=\small, align=center] (bot) at (0,-1.9)
-    {bottom permitted\\[-1pt]at a completed code};
-  \draw[->] (r) edge[bend left=25] node {$0$} (rp);
-  \draw[->] (rp) edge[bend left=25] node {$0,1$} (r);
-  \draw[->, dashed] (r) -- node[left] {$1$} (bot);
+  \node[state, initial, initial text={}] (g) at (0,0) {$\gamma$};
+  \node[state] (gb) at (2.4,0) {$\bar\gamma$};
+  \node[state] (q) at (5.4,0) {$q$};
+  \node[state] (qb) at (7.8,0) {$\bar q$};
+  \node[state] (qp) at (10.2,0) {$q'$};
+  \node[state] (om) at (5.4,-1.9) {$\omega$};
+  \draw[->] (g) edge[bend left=25] node {$0$} (gb);
+  \draw[->] (gb) edge[bend left=25] node {$0,1$} (g);
+  \draw[->] (q) -- node {$0$} (qb);
+  \draw[->] (qb) -- node {$a$} (qp);
+  \draw[->, dashed] (q) -- node[left] {$1$} (om);
+  \draw[->] (om) edge[loop right] node {$0,1$} (om);
 \end{tikzpicture}
-\caption{The lower literals $f(r',b,\ldots,b)\le r$ and
-$f(r,r,b,\ldots,b)\le r'$ of $\chi(\mathcal A')$ as a diagram: an edge
-labeled $a$ from $v$ to $v'$ means that the $a$-child of $v$ lies above $v'$.
-Reading the encoding $e(w)$ of a word follows the solid edges, so the tree
-of $r$ has a constructor or $\top$ at every proper prefix of a code. The
-final $1$ of $\cxcode(w)$ leaves the diagram (dashed): at a completed code the
-tree of $r$ may have the label $\Bot$, although $r$ itself is never $\Bot$.}
-\Description{Two states r and r prime with a 0-edge from r to r prime and a 0,1-edge back, and a dashed 1-edge from r to a box saying that the tree of r may be bottom at a completed code.}
-\label{fig:cx-code}
+\caption{The all-final code $\mathcal A^\circ$, shown for one transition
+$(q,a,q')$ of $\mathcal A$. The dashed edge exists iff $q$ is final in
+$\mathcal A$. The initial states are the guard $\gamma$ and the initial
+states of $\mathcal A$, and every state is final. A doubled word $e(w)$
+leads from $\gamma$ back to $\gamma$ and from the initial states of
+$\mathcal A$ to the states that $\mathcal A$ reaches on $w$.}
+\Description{Six states. The guard gamma has a 0-edge to the guard gamma bar, which has edges labeled 0 and 1 back to gamma. A state q has a 0-edge to q bar, which has an a-edge to q prime. A dashed 1-edge leads from q to the sink omega, which has a loop labeled 0 and 1.}
+\label{fig:cx-adapter}
 \end{figure}
+
+\begin{lemma}[All-final code]\label{lem:cx-allfinal}
+Let $\mathcal A$ be an automaton over $\{0,1\}$. For all $w,v\in\{0,1\}^*$,
+the automaton $\mathcal A^\circ$ accepts $e(w)$ and $e(w)0$, and it accepts
+$e(w)1v$ iff $\mathcal A$ accepts $w$. Consequently $\mathcal A^\circ$ is
+universal iff $\mathcal A$ is.
+\end{lemma}
+
+\begin{proof}
+For a word $u$, let $R(u)$ be the set of states of $\mathcal A^\circ$ that
+are reached from an initial state of $\mathcal A^\circ$ along a path labeled
+$u$, and let $R_{\mathcal A}(w)\subseteq Q$ be the corresponding set of
+$\mathcal A$. Since all states of $\mathcal A^\circ$ are final, it accepts
+$u$ iff $R(u)\ne\varnothing$, and $\mathcal A$ accepts $w$ iff
+$R_{\mathcal A}(w)\cap F\ne\varnothing$. We claim that, for all $w$ and $v$,
+\begin{equation}\label{eq:cx-reach}
+\begin{gathered}
+ R(e(w))=\{\gamma\}\cup R_{\mathcal A}(w),\qquad
+ R(e(w)0)=\{\bar\gamma\}\cup\{\bar q:q\in R_{\mathcal A}(w)\},\\
+ R(e(w)1v)=\begin{cases}\{\omega\},&w\in L(\mathcal A),\\
+   \varnothing,&w\notin L(\mathcal A).\end{cases}
+\end{gathered}
+\end{equation}
+The first two equations are proved together by induction on $w$. For
+$w=\eps$, $R(\eps)$ is the set $\{\gamma\}\cup I$ of initial states, and
+$R_{\mathcal A}(\eps)=I$. Suppose $R(e(w))=\{\gamma\}\cup R_{\mathcal A}(w)$.
+The only transitions on $0$ from these states are
+$\gamma\xrightarrow0\bar\gamma$ and $q\xrightarrow0\bar q$, which gives the
+second equation for $w$. The transitions on a letter $a$ from $\bar\gamma$
+and from the states $\bar q$ with $q\in R_{\mathcal A}(w)$ lead to $\gamma$
+and to the states $q'$ with $(q,a,q')\in\delta$ for such a $q$, that is, to
+the states of $R_{\mathcal A}(wa)$. As $e(wa)=e(w)0a$, this is the first
+equation for $wa$. For the third equation, the only transitions on $1$ from
+the states of $\{\gamma\}\cup R_{\mathcal A}(w)$ are $q\xrightarrow1\omega$
+for $q\in R_{\mathcal A}(w)\cap F$. So $R(e(w)1)$ is $\{\omega\}$ if
+$\mathcal A$ accepts $w$, and empty otherwise; and $\omega$ has exactly the
+two loops, so $R(e(w)1v)=R(e(w)1)$ for every $v$.
+
+The three acceptance claims follow from \eqref{eq:cx-reach}. Every binary
+word has one of the forms \eqref{eq:cx-forms}, by induction on its length:
+$\eps=e(\eps)$, a word $1v$ is $e(\eps)1v$, the word $0$ is $e(\eps)0$, and a
+word $0au$ has the form of $u$ with $w$ replaced by $aw$, because
+$e(aw)=0a\,e(w)$. Hence, if $\mathcal A$ is universal, $\mathcal A^\circ$
+accepts every word. Conversely, if $\mathcal A^\circ$ is universal, it
+accepts $e(w)1$ for every $w$, so $\mathcal A$ accepts every $w$.
+\end{proof}
 
 \begin{theorem}[PSPACE-hardness]\label{thm:cx-hard}
 Let $n\ge2$ be fixed and let $f$ be covariant. For every automaton
 $\mathcal A$ over $\{0,1\}$ and each domain $\mathcal D$,
 \[
- \chi(\mathcal A')\models_{\mathcal D}x\le r
+ \Phi^{(n)}(\mathcal A^\circ)\models_{\mathcal D}x\le y
  \quad\Longleftrightarrow\quad
  \mathcal A\text{ is universal}.
 \]
-Consequently, in each of the three domains, entailment of flat systems over
-$\{\Bot,f,\Top\}$ is PSPACE-hard. So is the problem with the variance as part
-of the input, already on covariant instances.
+For an automaton with $m$ states and $T$ transitions, the system
+$\Phi^{(n)}(\mathcal A^\circ)$ has $2m+7$ variables and at most $6m+2T+17$
+literals, and it has a finite solution. Consequently, in each of the three
+domains, entailment of flat systems over $\{\Bot,f,\Top\}$ is PSPACE-hard. So
+is the problem with the variance as part of the input, already on covariant
+instances.
 \end{theorem}
 
-\begin{proof}[Proof idea]
-Let $P$ be the set of proper prefixes of codes, the words $e(w)$ and
-$e(w)0$. If $\mathcal A$ is universal, every word of $P$ lies on an accepting
-run of $\mathcal A'$, so in every solution the subtree of $x$ there, if
-present, lies below a constructor tree whose arguments $2,\ldots,n-1$ are
-$\Bot$; every code is accepted, so $x$ is $\Bot$ at codes. Along $P$, the
-lower literals give $r$ only the labels $f$ and $\top$. Every common position
-of $x$ and $r$ therefore compares a label at most $f$ with one at least $f$,
-or has $x=\Bot$. If $\mathcal A$ rejects $w$, no prefix of $\cxcode(w)$ is
-accepted by $\mathcal A'$, and a path tree along $\cxcode(w)$ together with
-finite approximants of $r$ forms a finite countermodel, which lies in every
-domain. The system is satisfiable, has $\len{Q'}+4$ variables, and is
-computed in polynomial time. The details are in \cref{app:lower}.
+\begin{proof}
+The automaton $\mathcal A^\circ$ is all-final. By \cref{lem:cx-rejection},
+$\Phi^{(n)}(\mathcal A^\circ)$ has a finite solution, and in each domain it
+entails $x\le y$ iff $\mathcal A^\circ$ is universal, that is, by
+\cref{lem:cx-allfinal}, iff $\mathcal A$ is universal. In detail: if
+$\mathcal A$ is universal, no word is unsafe for
+$\Phi^{(n)}(\mathcal A^\circ)$, and the entailment holds in each domain; if
+$\mathcal A$ rejects a word $w$, then $\mathcal A^\circ$ rejects $e(w)1$, and
+the finite solution $\sigma_{e(w)1}$ of \cref{lem:cx-rejection}(3) is a
+countermodel in each domain.
+
+The rejection system of an all-final automaton with $m'$ states and $T'$
+transitions has $m'+4$ variables and at most $m'+2T'+4$ literals. For
+$\mathcal A^\circ$, $m'=2m+3$ and $T'\le2m+T+5$, which gives $2m+7$ variables
+and at most $(2m+3)+2(2m+T+5)+4=6m+2T+17$ literals. Each literal contains at
+most $n+1$ variable occurrences, so for fixed $n$ the system is computed
+from $\mathcal A$ in polynomial time. Since universality of automata over
+$\{0,1\}$ is PSPACE-hard, entailment is PSPACE-hard in each domain. The
+covariant instances are instances of the problem with the variance as part
+of the input, so that problem is PSPACE-hard as well.
 \end{proof}
 
 For $n=2$ and arbitrary or finite trees, \cref{thm:cx-hard} reproves, by a
@@ -308,10 +416,11 @@ for a fixed variance with a contravariant argument, nor for arity one
 (\cref{app:small-arity}).
 
 \paragraph{Larger Arities}
-The hardness reduction works directly at every arity $n\ge2$. The systems
-$\Phi_\beta^{(n)}$ for long holes are obtained from $\Phi_\beta$ by filling
+Both results hold directly at every arity $n\ge2$, since the proof of
+\cref{lem:cx-rejection} does not depend on $n$. The system
+$\Phi^{(n)}(\mathcal A)$ is obtained from $\Phi^{(2)}(\mathcal A)$ by filling
 the new arguments of every constructor with the variable $b=\Bot$. Such
-\emph{bare padding} does not preserve lower bounds in general. The padded
+\emph{bare padding} does not preserve entailment in general. The padded
 system also constrains trees that are not images of binary trees, and these
 may refute the entailment at short words that use the new letters.
 
@@ -336,11 +445,12 @@ Padding with $\Bot$ does preserve solutions and unsafe words on binary
 paths: lifting a binary tree by adding $\Bot$ children, and projecting a tree
 over $\Dir$ to its binary paths, map solutions to solutions in each domain
 and keep leaf extensions on $\{0,1\}^*$ (\cref{prop:cx-embedding} in
-\cref{app:lower}). For $\Phi_\beta^{(n)}$, the confining literals
+\cref{app:lower}). For a rejection system, the confining literals
 $g\le f(g,g,\bar b)$ and $x\le f(g,g,\bar b)$ also exclude unsafe words that
 use an added child position, because they keep $x$ top free with constructor
-positions in $\{0,1\}^*$. Thus $\Phi_\beta^{(n)}$ and $\Phi_\beta$ have
-exactly the same unsafe words. The system of \cref{ex:cx-padding} has no
+positions in $\{0,1\}^*$. Thus $\Phi^{(n)}(\mathcal A)$ and
+$\Phi^{(2)}(\mathcal A)$ have exactly the same unsafe words, in agreement
+with \cref{lem:cx-rejection}. The system of \cref{ex:cx-padding} has no
 confining literals, and the word $02$ of its countermodel is left unsafe and
 uses the added letter $2$. The embedding is therefore not a general
 reduction between arities, such as the equivalence of all arities at least

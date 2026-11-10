@@ -3,6 +3,16 @@ import DeciNSSE.Solver.Mask
 /-! # Saturation of a bit matrix
 
 The rows encode precisely the reflexive, transitive, constructor closure.
+
+## Main declarations
+
+- `Solver.relation`: the relation encoded by a bit matrix.
+- `Solver.closeRows`, `Solver.closeRows_spec`: saturation of bit matrices, equal to the
+  saturation of finite sets.
+- `Solver.derivedRows`, `Solver.derivedRows_spec`, `Solver.bit_derivedRows`: the packed
+  closure of a system.
+- `Solver.derivedPairs_fast`: a `@[csimp]` lemma, so compiled code computes
+  `derivedPairs` with packed rows.
 -/
 
 namespace DeciNSSE.Solver
@@ -96,30 +106,32 @@ decreasing_by
 
 theorem closeRowsWith_spec (ϕ : Constraint n k) (rs : Table k (List (V k × V k × V k)))
     (hrs : (rs : V k → List (V k × V k × V k)) = rules ϕ) (s : Rows k) :
-    relation (closeRowsWith ϕ rs hrs s) = Closure.close ϕ (relation s) := by
+    relation (closeRowsWith ϕ rs hrs s) = Saturation.saturate (Closure.expand ϕ) (relation s) := by
   fun_induction closeRowsWith ϕ rs hrs s with
   | case1 s t he =>
     simp only [t, hrs] at he
     have hfix := congrArg relation he
     rw [expandRows_spec] at hfix
-    conv_rhs => rw [Closure.close]
+    conv_rhs => rw [Saturation.saturate]
     rw [ite_eq_left (show Closure.expand ϕ (relation s) ⊆ relation s by rw [hfix])]
   | case2 s t he ih =>
     simp only [t, hrs, expandRows_spec] at ih he ⊢
     rw [ih]
-    conv_rhs => rw [Closure.close]
+    conv_rhs => rw [Saturation.saturate]
     split
     · rename_i hsub
       have heq := Finset.Subset.antisymm hsub Finset.subset_union_left
       exact (he (relation_injective ((expandRows_spec ϕ s).trans heq))).elim
-    · rfl
+    · congr 1
+      exact (Finset.union_eq_right.mpr
+        (Finset.subset_union_left : relation s ⊆ Closure.expand ϕ (relation s))).symm
 
 /-- Reuse the decomposition table throughout saturation. -/
 def closeRows (ϕ : Constraint n k) (s : Rows k) : Rows k :=
   closeRowsWith ϕ (table (rules ϕ)) (table_eq _) s
 
 theorem closeRows_spec (ϕ : Constraint n k) (s : Rows k) :
-    relation (closeRows ϕ s) = Closure.close ϕ (relation s) :=
+    relation (closeRows ϕ s) = Saturation.saturate (Closure.expand ϕ) (relation s) :=
   closeRowsWith_spec ϕ _ _ s
 
 /-- Materialize constructor arguments before saturation. -/

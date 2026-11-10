@@ -103,21 +103,22 @@ does not require regularity.
 
 There is one reader construction, with two instances: the \emph{left and
 right label readers}. The left label
-reader uses $\psi$ with $(x^+,y^+)$; the right one uses $\psi^{\mathfrak d}$
-with $(y^+,x^+)$. In the latter, closure, path updates, readiness, child, and
-admission are all computed in the dual system by the same formulas.
-Order duality preserves flip closure, sign coherence, and satisfiability.
-By \cref{lem:fixed-witness}, a top prefix in the dual system is a bottom
-prefix in the original one, so the right label reader tests right unsafety.
+reader uses $\psi$ with the roots $(x^+,y^+)$; the right one uses the same
+system $\psi$ with the roots $(y^-,x^-)$, which are positive for the
+complementary sign map (\cref{sec:spine}). Closure, path updates, readiness,
+child, and admission are the same for both; only the initial state differs.
+By \cref{lem:fixed-witness}, a top prefix of $y^-$ is a bottom prefix of
+$y$, so the right label reader tests right unsafety.
 Write $(\mathcal M_\theta,\Adm_\theta,\Rej_\theta)$ for the instance on
-$(\psi_\theta,X_\theta,Y_\theta)$ defined in \cref{sec:fixed-witness}.
+$\psi$ with the roots $(X_\theta,Y_\theta)$ defined in
+\cref{sec:fixed-witness}.
 
 \begin{example}[Reading the running query]\label{ex:running-reader}
 We run the left-side construction on the signed system of
 \cref{ex:running-signed} along $00$, for the failing query $x\le y$ and,
 for contrast, for the entailed query $y\le x$, which exchanges the roots.
-Neither half is the right label reader of $x\le y$, which would use the
-order-dual system. The last three columns give the latch, readiness,
+Neither half is the right label reader of $x\le y$, which would start
+from the roots $(y^-,x^-)$. The last three columns give the latch, readiness,
 and acceptance status at each cut, before the next letter is read.
 \begin{center}
 \small
@@ -201,7 +202,7 @@ w\text{ is }\theta\text{-unsafe}
 
 \begin{proof} By \cref{thm:four-spine}, unsafety is equivalent to absence
 of a label clash in the side's four-spine extension. Satisfiability excludes
-inherited clashes in either side system, so \cref{thm:clashes} identifies
+inherited clashes in $\psi$, so \cref{thm:clashes} identifies
 this with the simultaneous negation of \eqref{eq:g36}.
 The run and test formulas \eqref{eq:g39}--\eqref{eq:g41} identify those negations precisely
 with \eqref{eq:g42}, using the right label reader for the right side. Every implication is reversible. The argument uses

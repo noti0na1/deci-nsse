@@ -113,9 +113,7 @@ exchanging constants preserves its literals. It is \emph{sign coherent}
 if every constructor child $a_i$ of root $z$ has sign
 $\operatorname{sg}(z)\oplus c(i)$, in either inequality orientation.
 
-Return now to $\psi=\phi^{\pm}$; everything below also holds for its order
-dual $\psi^{\mathfrak d}$ with the query $(y^+,x^+)$, the right side system
-of \cref{sec:fixed-witness}. The literals of $\psi$ are closed under reversing
+Return now to $\psi=\phi^{\pm}$. The literals of $\psi$ are closed under reversing
 inequalities, flipping all signs, and exchanging constants. Induction on
 \eqref{eq:g21} and \eqref{eq:g22} therefore proves
 
@@ -138,7 +136,10 @@ compares children at the same position, so both signs toggle by $c(i)$.
 Induction on \eqref{eq:g22} proves the path assertion.
 \end{proof}
 In particular, a path from a positive query variable along $\eta$ has
-its other endpoint of sign $p(\eta)$.
+its other endpoint of sign $p(\eta)$. Both properties refer to the signs
+only through sign differences, so they also hold for the
+\emph{complementary sign map} $1\oplus\operatorname{sg}$, under which the
+negative copies are the positive variables.
 
 \subsection{Label Clashes and the Least Shape}\label{sec:least}
 A supported lower root label at $z$ is $f$ if some
@@ -237,8 +238,8 @@ $\sigma_{\mathrm{sh}}$ a solution, its constructor set is least by inclusion.
 
 \subsection{Polarity Selection}\label{sec:selector}
 Use the assignment involution $S$ of \cref{lem:signed} on any signed
-variable set. The signed translation and its order dual are flip-closed
-and sign coherent.
+variable set. The signed translation is flip-closed and sign coherent, for
+its own sign map and for the complementary one.
 The proofs of \eqref{eq:g25} and sign purity apply to every such system;
 flip closure also implies $\sigma\models\chi\Rightarrow S\sigma\models\chi$
 by evaluating each flipped literal and reversing its tree inequality.
@@ -286,6 +287,17 @@ decoding in the other prove
  \Sat_c(\phi)\quad\Longleftrightarrow\quad\Sat(\phi^\pm).
 \end{equation}
 Together with the finite closure test, this decides satisfiability.
+The decoded solution is explicit. For $\psi=\phi^\pm$ without a label clash,
+decoding $\sigma_{\mathrm{sel}}$ by \cref{lem:signed} gives the solution
+\begin{equation}\label{eq:variance-shape}
+ \sigma_{\mathrm{var}}(v)(\eta)=\sigma_{\mathrm{sh}}\bigl(v^{p(\eta)}\bigr)(\eta)
+\end{equation}
+of $\phi$, the \emph{variance shape}: at each path it reads the least shape
+of the copy whose sign is the polarity of the path. Indeed
+$\sigma_{\mathrm{var}}(v)=H_0(\sigma_{\mathrm{sel}}(v^+))$; when
+$p(\eta)=0$ neither $H_0$ nor \eqref{eq:g60} changes the label of
+$\sigma_{\mathrm{sh}}(v^+)$ at $\eta$, and when $p(\eta)=1$ the label is that
+of $\sigma_{\mathrm{sh}}(v^-)$ dualized twice, by $S$ and by $H_0$.
 
 \begin{example}[Selecting on the least shape]\label{ex:running-selection}
 The running signed system of \cref{ex:running-signed} has identity closure
@@ -320,8 +332,12 @@ $y=\Bot$, and $a=b=\Top$.
 Throughout \cref{sec:spine,sec:bridge-formula,sec:events}, $\psi$ may be any
 flip-closed, sign-coherent system on a signed variable set, and $x^+,y^+$
 any two positive variables, with $x^-=\flip x^+$ and $y^-=\flip y^+$.
-In particular, this includes both side systems
-$(\psi_\theta,X_\theta,Y_\theta)$ of \cref{sec:fixed-witness}.
+In particular, this includes both sides of \cref{sec:fixed-witness}: the
+left side is $\phi^{\pm}$ with the roots $(x^+,y^+)$, and the right side is
+$\phi^{\pm}$ under the complementary sign map, for which its roots
+$(X_{\mathsf r},Y_{\mathsf r})=(y^-,x^-)$ are positive. The assignment
+involution $S$, and hence the notion of a fixed solution, depends only on
+the variable flip and is the same for both sign maps.
 
 Fix $w=w[0]\cdots w[m-1]$ and $p_j=p(w[:j])$.
 To enforce the two fixed-witness conditions and their sign duals, we seek
@@ -457,8 +473,9 @@ For $m=0$ the terminal literals themselves are those bounds at the old roots.
 \end{proof}
 
 \begin{theorem}[Four-spine unsafe-word criterion]\label{thm:four-spine}
-On either side, $w$ is unsafe iff the four-spine extension of that side's
-system and query has no label clash. No satisfiability assumption is needed.
+On either side $\theta$, $w$ is $\theta$-unsafe iff the four-spine extension
+of $\psi$ for the roots $(X_\theta,Y_\theta)$ has no label clash. No
+satisfiability assumption is needed.
 \end{theorem}
 \begin{proof}
 For the left side, an unsafe word gives a fixed witness by
@@ -469,10 +486,9 @@ extension \eqref{eq:g28}. The selected least shape is a fixed solution;
 restriction to the old variables preserves satisfaction and fixedness,
 and \cref{lem:spine} supplies all four prefix conditions. Its first and
 third conditions give the fixed witness and hence unsafety.
-For the right side use $\psi^{\mathfrak d}$ and $(y^+,x^+)$.
-Order duality preserves flip closure and coherence, since child signs do
-not depend on inequality orientation. Conclude by \cref{lem:fixed-witness}
-for $\theta=\mathsf r$.
+For the right side, apply the same argument to $\psi$ with the roots
+$(y^-,x^-)$, which are positive for the complementary sign map, and conclude
+by \cref{lem:fixed-witness} for $\theta=\mathsf r$.
 \end{proof}
 
 \begin{lemma}[Separation]\label{lem:separation}
@@ -640,8 +656,8 @@ $L_s\cap U_e\ne\varnothing$, and \emph{self-admitted}
 if $U_s\cap\flip U_e\ne\varnothing$.
 
 \begin{theorem}[Exact clash analysis]\label{thm:clashes}
-For either side system, its four-spine extension $\Psi^4_w$ has a label
-clash iff the side system $\psi$ has a label clash or at least one of the
+For either side, the four-spine extension $\Psi^4_w$ has a label
+clash iff $\psi$ has a label clash or at least one of the
 following events occurs:
 
 \begin{equation}\label{eq:g36}

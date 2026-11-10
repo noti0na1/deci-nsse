@@ -33,6 +33,11 @@ def Unsafe (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
   | .l, w => ∃ ρ, Sat c ρ ϕ ∧ prefTop c w (ρ x) ∧ ¬ prefTop c w (ρ y)
   | .r, w => ∃ ρ, Sat c ρ ϕ ∧ prefBot c w (ρ y) ∧ ¬ prefBot c w (ρ x)
 
+/-- An unsatisfiable system has no unsafe word. -/
+theorem not_unsafe_of_unsat {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k} {θ : Side}
+    (h : ¬ Satisfiable c ϕ) (w : List (Fin n)) : ¬ Unsafe c ϕ x y θ w := by
+  cases θ <;> exact fun ⟨ρ, hs, _⟩ => h ⟨ρ, hs⟩
+
 /-- Entailment holds iff no word is unsafe on either side. -/
 theorem entails_iff_not_sideUnsafe (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
     Entails c ϕ x y ↔ ∀ θ w, ¬ Unsafe c ϕ x y θ w := by

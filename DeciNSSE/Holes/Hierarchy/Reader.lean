@@ -16,7 +16,7 @@ The declarations are in the namespace `DeciNSSE.LetteredHierarchy`.
 -/
 
 namespace DeciNSSE.LetteredHierarchy
-open DeciNSSE.CoAlignment DeciNSSE.Desubstitution DeciNSSE.Holes
+open DeciNSSE.CoAlignment DeciNSSE.Holes
 open scoped List
 
 section Reader
@@ -77,40 +77,35 @@ theorem isHole_ofReader_iff (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q) {w
     rw [hlab] at this
     exact this
   have hfin' : stOf M (some (runPrefix M w j, w[j])) = runPrefix M w w.length := hfin
-  rw [isReaderHole_iff_split]
-  unfold Lettered.IsHole
+  have hrel (s e : ℕ) (hs : s ≤ w.length) (he : 0 < e) (hen : e ≤ w.length) :
+      readerΛ M R ((ofReader M R T).label w s) ((ofReader M R T).label w e) ↔
+        R (runPrefix M w s) (runPrefix M w e) := by
+    obtain ⟨e', rfl⟩ : ∃ e', e = e' + 1 := ⟨e - 1, by omega⟩
+    rw [Lettered.label_succ _ _ (by omega)]
+    change R (stOf M ((ofReader M R T).label w s))
+      (stOf M (some ((ofReader M R T).core w e', w[e']))) ↔ _
+    rw [← Lettered.label_succ _ _ (by omega), hst s hs, hst _ hen]
+  unfold Lettered.IsHole IsReaderHole
   rw [hlab, exists_some_eq_iff]
-  refine and_congr (by rw [ofReader_Tf, hfin]) (and_congr ?_ ?_)
-  · constructor
-    · rintro h ⟨p, ⟨i, hi, hp⟩, hr⟩
-      refine h i hi ?_
-      rw [ofReader_Λf]
-      show R (stOf M ((ofReader M R T).label w i)) (stOf M (some (runPrefix M w j, w[j])))
-      rw [hst i hi.le, hfin']
-      have : runPrefix M w i = p := hp
-      rw [this]; exact hr
-    · intro h s hs hr
-      rw [ofReader_Λf] at hr
-      change R (stOf M ((ofReader M R T).label w s)) (stOf M (some (runPrefix M w j, w[j]))) at hr
-      rw [hst s hs.le, hfin'] at hr
-      exact h ⟨_, ⟨s, hs, rfl⟩, hr⟩
-  · constructor
-    · intro h s e hse he hc hr
-      refine h s e ⟨hse, he.le, hc⟩ he ?_
-      obtain ⟨e', rfl⟩ : ∃ e', e = e' + 1 := ⟨e - 1, by omega⟩
-      rw [ofReader_Λ, Lettered.label_succ _ _ (by omega)]
-      show R (stOf M ((ofReader M R T).label w s))
-        (stOf M (some ((ofReader M R T).core w e', w[e'])))
-      rw [← Lettered.label_succ _ _ (by omega), hst s (by omega), hst _ (by omega)]
-      exact hr
-    · intro h s e hc he hr
-      obtain ⟨e', rfl⟩ : ∃ e', e = e' + 1 := ⟨e - 1, by have := hc.1; omega⟩
-      rw [ofReader_Λ, Lettered.label_succ _ _ (by omega)] at hr
+  refine and_congr (by rw [ofReader_Tf, hfin]) ?_
+  constructor
+  · rintro ⟨hE, hI⟩ s e hc
+    rcases lt_or_eq_of_le hc.2.1 with he | rfl
+    · exact fun hr => hI s e hc he ((hrel s e (by have := hc.1; omega)
+        (by have := hc.1; omega) hc.2.1).mpr hr)
+    · intro hr
+      apply hE s hc.1
       change R (stOf M ((ofReader M R T).label w s))
-        (stOf M (some ((ofReader M R T).core w e', w[e']))) at hr
-      rw [← Lettered.label_succ _ _ (by omega), hst s (by have := hc.1; omega),
-        hst _ (by omega)] at hr
-      exact h s (e' + 1) hc.1 he hc.2.2 hr
+        (stOf M (some (runPrefix M w j, w[j])))
+      rwa [hst s hc.1.le, hfin']
+  · intro h
+    refine ⟨?_, fun s e hc _ hr => h s e hc ((hrel s e (by have := hc.1; omega)
+      (by have := hc.1; omega) hc.2.1).mp hr)⟩
+    intro s hs hr
+    apply h s w.length ⟨hs, le_rfl, by simp⟩
+    change R (stOf M ((ofReader M R T).label w s))
+      (stOf M (some (runPrefix M w j, w[j]))) at hr
+    rwa [hst s hs.le, hfin'] at hr
 
 end Reader
 

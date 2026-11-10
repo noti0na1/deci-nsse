@@ -4,6 +4,13 @@ import DeciNSSE.Solver.Reader
 
 A scout, an iterative-deepening refuter, and a refining covering-product
 search take turns on both sides. Fuel bounds the number of search turns.
+
+## Main declarations
+
+- `Solver.Search.Scout`, `Solver.Search.Refuter`, `Solver.Search.Prover`: the three
+  searches of one side.
+- `Solver.Search.search`: the interleaved search on both sides, which returns a candidate
+  certificate or nothing.
 -/
 
 namespace DeciNSSE.Solver.Search
@@ -220,7 +227,7 @@ private def interleave (window : ℕ) : ℕ → ℕ → SideSearch n k → SideS
 /-- Fairly interleave the three searches on each side. -/
 def search (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (fuel : ℕ) (window : ℕ := 0) : Option (Candidate n) :=
-  interleave window fuel 0 (newSide (packedSideReader c ϕ x y .l))
-    (newSide (packedSideReader c ϕ x y .r))
+  let readers := packedSideReaders c ϕ x y
+  interleave window fuel 0 (newSide readers.1) (newSide readers.2)
 
 end DeciNSSE.Solver.Search

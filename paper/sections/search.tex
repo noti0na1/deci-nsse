@@ -292,8 +292,8 @@ exchange types relative to $\Pi_i$.
 Let $1\le i<\Delta$, and let distinct isolated letters $a,a'$ of $u_i$
 have the same exchange type. Replace every $a$ by $a'$ at that level
 and expand using the markers of the original hierarchy below level $i$. The
-result is a hole of the same canonical depth, with every start count unchanged
-and no dictionary larger. Its level-$i$ dictionary is strictly smaller. Choosing
+result is a hole of the same canonical depth, with no dictionary larger.
+Its level-$i$ dictionary is strictly smaller. Choosing
 the direction toward the letter with shorter level-zero expansion also makes the
 word no longer.
 \end{lemma}
@@ -301,8 +301,8 @@ word no longer.
 Call a hole \emph{dictionary-normal} if, at every $1\le i<\Delta$, distinct isolated
 letters have distinct exchange types, computed in that hole's own hierarchy.
 \begin{lemma}[Dictionary normal form]\label{lem:dictionary-normal-form}
-Every nonempty hole has a dictionary-normal hole of the same depth, no greater
-length, the same start counts, and no larger dictionary at any level.
+Every nonempty hole has a dictionary-normal hole of the same depth and no
+greater length.
 \end{lemma}
 \begin{lemma}[Dictionary counting and propagation]\label{lem:dictionary-count}
 For a dictionary-normal hole of depth $\Delta\le d$, and $1\le i<\Delta$,
@@ -323,7 +323,7 @@ same depth and no greater length with $g_i\le \DictBound(N,d)$ for every
 $1\le i\le \Delta$. No bound on $g_0$ is required.
 \end{lemma}
 
-Full proofs, including preservation of start counts under the induced
+Full proofs, including the behavior of the hierarchy under the induced
 level maps, appear in \cref{app:search}. The counting idea is simple:
 dictionary normality bounds isolated letters by their types, while each remaining
 unprotected letter is a component of a boundary pair. This adds at most

@@ -1,6 +1,6 @@
 import Mathlib.Data.List.ReduceOption
 import Mathlib.Data.List.GetD
-import DeciNSSE.Holes.Desubstitution
+import DeciNSSE.Holes.Basic
 
 /-! # Finite tuples of word blocks
 
@@ -332,15 +332,15 @@ theorem isReaderHole_iff_bounded {α : Type*} (M : DFA α Q) (R : Q → Q → Pr
     IsReaderHole M R T w ↔ runPrefix M w w.length ∈ T ∧
       ∀ s ∈ Finset.range (w.length + 1), ∀ e ∈ Finset.range (w.length + 1), s < e →
         w.drop e <+: w.drop s → ¬ R (runPrefix M w s) (runPrefix M w e) := by
-  unfold IsReaderHole WitnessedPair
+  unfold IsReaderHole
   constructor
   · rintro ⟨hT, hW⟩
-    refine ⟨hT, fun s _ e he hse hc => hW _ _ ⟨s, e, hse, ?_, rfl, rfl, hc⟩⟩
+    refine ⟨hT, fun s _ e he hse hc => hW s e ⟨hse, ?_, hc⟩⟩
     rw [Finset.mem_range] at he
     omega
   · rintro ⟨hT, hB⟩
     refine ⟨hT, ?_⟩
-    rintro p q ⟨s, e, hse, hel, rfl, rfl, hc⟩
+    rintro s e ⟨hse, hel, hc⟩
     exact hB s (Finset.mem_range.mpr (by omega)) e (Finset.mem_range.mpr (by omega)) hse hc
 
 /-- Reader holes are decidable for decidable relations and targets. -/

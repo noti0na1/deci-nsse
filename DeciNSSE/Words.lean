@@ -57,34 +57,23 @@ theorem prefix_append_of_prefix_pow (n : ℕ) (h : π <+: pow μ n) : π <+: μ 
       rw [List.prefix_append_right_inj] at h
       simpa only [List.append_assoc, List.prefix_append_right_inj] using ih h
 
-/-- Letters at distance `p` agree wherever both positions exist. -/
-def HasPeriod (π : List α) (p : ℕ) : Prop :=
-  ∀ i, i + p < π.length → π[i]? = π[i + p]?
-
-/-- Bridge to Mathlib's equivalent self-overlap definition. -/
-theorem hasPeriod_iff_list_hasPeriod : HasPeriod π p ↔ List.HasPeriod π p := by
-  rw [List.hasPeriod_iff_getElem?]
-  unfold HasPeriod
-  constructor <;> intro h i hi <;> apply h i <;> omega
+/-- Letters at distance `p` agree wherever both positions exist: Mathlib's
+`List.HasPeriod`. -/
+abbrev HasPeriod (π : List α) (p : ℕ) : Prop := List.HasPeriod π p
 
 theorem fine_wilf (hp : HasPeriod w p) (hq : HasPeriod w q)
     (hlen : p + q - Nat.gcd p q ≤ w.length) : HasPeriod w (Nat.gcd p q) :=
-  hasPeriod_iff_list_hasPeriod.mpr
-    ((hasPeriod_iff_list_hasPeriod.mp hp).gcd (hasPeriod_iff_list_hasPeriod.mp hq) hlen)
-
-theorem HasPeriod.infix (h : HasPeriod w p) (hv : v <:+: w) : HasPeriod v p :=
-  hasPeriod_iff_list_hasPeriod.mpr ((hasPeriod_iff_list_hasPeriod.mp h).infix hv)
+  hp.gcd hq hlen
 
 theorem HasPeriod.mod_eq (h : HasPeriod w p) (hi : n < w.length) :
     w[n]? = w[n % p]? :=
-  ((hasPeriod_iff_list_hasPeriod.mp h).getElem?_mod p n w hi).symm
+  (h.getElem?_mod p n w hi).symm
 
 theorem HasPeriod.eq_of_mod (h : HasPeriod w p) {a b : ℕ}
     (ha : a < w.length) (hb : b < w.length) (heq : a % p = b % p) :
     w[a]? = w[b]? := by rw [h.mod_eq ha, h.mod_eq hb, heq]
 
 theorem hasPeriod_pow (u : List α) (n : ℕ) : HasPeriod (pow u n) u.length := by
-  apply hasPeriod_iff_list_hasPeriod.mpr
   cases n with
   | zero => simp
   | succ n =>
@@ -115,7 +104,7 @@ theorem fine_wilf_escape {c : List α} {N p : ℕ} {b : α}
   have he := hg.eq_of_mod (a := L - p) (b := 0)
     (by simp only [length_pow]; dsimp [L] at *; omega)
     (by simpa only [length_pow] using hL) (by simp [Nat.mod_eq_zero_of_dvd hd])
-  have hh := hper (L - p) (by
+  have hh := List.hasPeriod_iff_getElem?.mp hper (L - p) (by
     simp only [List.length_append, length_pow, List.length_singleton]
     dsimp [L] at *
     omega)
@@ -143,7 +132,6 @@ theorem cycleCopies_bounds (v c : List α) (hc : c ≠ []) :
 
 theorem comparison_period {w : List α} {s e : ℕ} (hse : s ≤ e)
     (hp : w.drop e <+: w.drop s) : HasPeriod (w.drop s) (e-s) := by
-  apply hasPeriod_iff_list_hasPeriod.mpr
   change w.drop s <+: (w.drop s).take (e-s) ++ w.drop s
   have hd : (w.drop s).drop (e-s) <+: w.drop s := by
     simpa only [List.drop_drop, Nat.add_sub_of_le hse] using hp

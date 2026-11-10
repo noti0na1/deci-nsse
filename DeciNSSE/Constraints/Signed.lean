@@ -3,8 +3,17 @@ import DeciNSSE.Constraints.Basic
 /-! # Signed translation of variance
 
 Each variable has positive and negative coordinates. Normalization turns
-variance constraints into a covariant system on these doubled variables;
-solutions fixed by sign duality decode to solutions of the original system.
+variance constraints into a covariant system on these doubled variables: a
+variance assignment solves a system exactly when its two normalizations solve
+the signed translation.
+
+## Main declarations
+
+- `sv`, `base`, `sign`: signed variables, their base variables and their signs.
+- `signedLit`, `signed`: the signed translation of a literal and of a system.
+- `normalized`: the signed assignment of the two normalizations of a variance assignment.
+- `sat_iff_signed`: a variance assignment solves a system exactly when its normalized
+  assignment solves the signed translation.
 -/
 
 namespace DeciNSSE
@@ -50,28 +59,9 @@ def signedLit (c : Fin n → Bool) : Lit n k → Constraint n (2 * k)
 def signed (c : Fin n → Bool) (ϕ : Constraint n k) : Constraint n (2 * k) :=
   ϕ.flatMap (signedLit c)
 
-/-- Complement the sign, then swap all leaves. -/
-def Signed.dual (A : V (2 * k) → Tree n) (z : V (2 * k)) : Tree n :=
-  Tree.dual (A (sv (base z) (!(sign z))))
-
-@[simp] theorem signedDual_sv (A : V (2 * k) → Tree n) (u : V k) (p : Bool) :
-    Signed.dual A (sv u p) = Tree.dual (A (sv u (!p))) := by simp [Signed.dual]
-
-@[simp] theorem signedDual_involutive (A : V (2 * k) → Tree n) :
-    Signed.dual (Signed.dual A) = A := by
-  funext z
-  obtain ⟨u, p, rfl⟩ := sv_cases z
-  simp
-
-@[simp] theorem dual_eq_bot (t : Tree n) : Tree.dual t = Tree.bot ↔ t = Tree.top := by
-  constructor
-  · intro h; have := congrArg Tree.dual h; simpa using this
-  · rintro rfl; simp
-
-@[simp] theorem dual_eq_top (t : Tree n) : Tree.dual t = Tree.top ↔ t = Tree.bot := by
-  constructor
-  · intro h; have := congrArg Tree.dual h; simpa using this
-  · rintro rfl; simp
+theorem mem_signed {c : Fin n → Bool} {ϕ : Constraint n k} {l : Lit n k} (hl : l ∈ ϕ)
+    {m : Lit n (2 * k)} (hm : m ∈ signedLit c l) : m ∈ signed c ϕ :=
+  List.mem_flatMap.mpr ⟨l, hl, hm⟩
 
 @[simp] theorem sat_signed_iff (c : Fin n → Bool) (A : V (2 * k) → Tree n)
     (ϕ : Constraint n k) :
@@ -114,44 +104,6 @@ theorem holds_iff_signedLit (c : Fin n → Bool) (ρ : V k → Tree n) (l : Lit 
 theorem sat_iff_signed (c : Fin n → Bool) (ρ : V k → Tree n) (ϕ : Constraint n k) :
     Sat c ρ ϕ ↔ Covariant.Sat (normalized c ρ) (signed c ϕ) := by
   simp only [sat_signed_iff, Sat, holds_iff_signedLit]
-
-/-- Every normalized valuation is fixed by sign duality. -/
-@[simp] theorem normalized_fixed (c : Fin n → Bool) (ρ : V k → Tree n) :
-    Signed.dual (normalized c ρ) = normalized c ρ := by
-  funext z
-  obtain ⟨u, p, rfl⟩ := sv_cases z
-  simp
-
-/-- Recover the original tree from the positive sign. -/
-def decoded (c : Fin n → Bool) (A : V (2 * k) → Tree n) (u : V k) : Tree n :=
-  Tree.normalize c false (A (sv u false))
-
-theorem normalized_decoded (c : Fin n → Bool) {A : V (2 * k) → Tree n}
-    (h : Signed.dual A = A) : normalized c (decoded c A) = A := by
-  funext z
-  obtain ⟨u, p, rfl⟩ := sv_cases z
-  cases p
-  · simp [decoded]
-  · have hh := congrFun h (sv u true)
-    simpa [decoded] using hh
-
-theorem fixed_iff_normalized (c : Fin n → Bool) (A : V (2 * k) → Tree n) :
-    Signed.dual A = A ↔ ∃ ρ, A = normalized c ρ := by
-  constructor
-  · intro h; exact ⟨decoded c A, (normalized_decoded c h).symm⟩
-  · rintro ⟨ρ, rfl⟩; exact normalized_fixed c ρ
-
-/-- Exactly the fixed signed solutions arise from variance-tree solutions. -/
-theorem fixed_solution_correspondence (c : Fin n → Bool) (ϕ : Constraint n k)
-    (A : V (2 * k) → Tree n) :
-    (Covariant.Sat A (signed c ϕ) ∧ Signed.dual A = A) ↔
-      ∃ ρ, Sat c ρ ϕ ∧ A = normalized c ρ := by
-  constructor
-  · rintro ⟨hs, hf⟩
-    obtain ⟨ρ, rfl⟩ := (fixed_iff_normalized c A).mp hf
-    exact ⟨ρ, (sat_iff_signed c ρ ϕ).mpr hs, rfl⟩
-  · rintro ⟨ρ, hs, rfl⟩
-    exact ⟨(sat_iff_signed c ρ ϕ).mp hs, normalized_fixed c ρ⟩
 
 /-- Every variance solution gives a covariant solution of the signed translation. -/
 theorem sat_implies_signed_sat (c : Fin n → Bool) (ϕ : Constraint n k)

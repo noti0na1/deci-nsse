@@ -54,7 +54,7 @@ theorem checkRefutation_eq_refutesB (cert : Refutation n) :
 
 /-- Check the finite covering product of one query side. -/
 def checkSide (θ : Side) (cert : Cover (Fin n)) : Bool :=
-  checkCover (sideReader c ϕ x y θ) admission (sideTarget c ϕ θ) cert
+  checkCover (sideReader c ϕ x y θ) admission (sideTarget c ϕ) cert
 
 /-- Check an unsatisfiability certificate or both side covers. -/
 def checkEntailment : Entailment n → Bool
@@ -75,7 +75,7 @@ theorem checkEntailment_sound (cert : Entailment n)
   | cover left right =>
     simp only [checkEntailment, Bool.and_eq_true] at h
     obtain ⟨hl, hr⟩ := h
-    apply (entails_iff_of_monitors (sideMonitor c ϕ x y .l) (sideMonitor c ϕ x y .r)).mpr
+    apply entails_iff_sideHoles.mpr
     right
     exact ⟨fun ⟨w, hw⟩ => checkCover_sound _ _ _ left hl w hw,
       fun ⟨w, hw⟩ => checkCover_sound _ _ _ right hr w hw⟩

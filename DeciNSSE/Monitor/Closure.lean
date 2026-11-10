@@ -7,11 +7,21 @@ Explicit path formulas describe derivations between old variables and spine
 positions: from a lower position to an old variable, from an old variable to an
 upper position, and from a lower to an upper position. Source and sink
 separation makes the list of possible new derivations exhaustive.
+
+## Main declarations
+
+- `Spine.Closure.UAt`, `Spine.Closure.LAt`: upper and lower path bounds at the cuts of
+  a word.
+- `Spine.Closure.BridgeF`: the bridge formula between a lower and an upper spine.
+- `Spine.Closure.Inv`, `Spine.Closure.derives_inv`: every derivation of the four-spine
+  extension satisfies the path formulas.
+- `Spine.Closure.derives_lv_of_uAt`, `Spine.Closure.derives_up_of_lAt`,
+  `Spine.Closure.derives_bridge`: conversely, the path formulas give derivations.
 -/
 
 namespace DeciNSSE.Spine.Closure
 
-open SignSelection
+open SignDuality
 
 variable {n K : ℕ}
 
@@ -19,13 +29,14 @@ section Sets
 
 variable (ψ : Constraint n K) (X : V K) (w : List (Fin n))
 
-/-- `v ∈ U_j`: an upper path bound of `X` along `w[:j]`. -/
+/-- `v ∈ U_j`: an upper path bound of `X` along `w[:j]`. The judgments `UAt` and `LAt`
+index the path bounds `UpperAt` and `LowerAt` by the cuts of a fixed word. -/
 def UAt (j : ℕ) (v : V K) : Prop := UpperAt ψ (w.take j) X v
 
 /-- `v ∈ L^Z_k`: a lower path bound of `Z` along `w[:k]`. -/
 def LAt (Z : V K) (k : ℕ) (v : V K) : Prop := LowerAt ψ (w.take k) v Z
 
-/-- The bridge formula (2): two cuts `a ≤ j`, `b ≤ k` with `j - a = k - b = d`,
+/-- The bridge formula: two cuts `a ≤ j`, `b ≤ k` with `j - a = k - b = d`,
 `w[a:j] = w[b:k]` and a common element of `U_a` and `L^Z_b`. -/
 def BridgeF (Z : V K) (j k : ℕ) : Prop :=
   ∃ a b d, a + d = j ∧ b + d = k ∧ (w.drop a).take d = (w.drop b).take d ∧
@@ -42,6 +53,10 @@ variable {ψ : Constraint n K} {X Z : V K} {w : List (Fin n)}
 
 @[simp] theorem lAt_zero {v : V K} : LAt ψ w Z 0 v ↔ Derives ψ v Z := by
   simp [LAt]
+
+/-- At the terminal cut the path is the whole word. -/
+theorem uAt_length {v : V K} : UAt ψ X w w.length v ↔ UpperAt ψ w X v := by
+  rw [UAt, List.take_length]
 
 theorem uAt_trans {j : ℕ} {u v : V K} (h : UAt ψ X w j u) (hd : Derives ψ u v) :
     UAt ψ X w j v := by
@@ -96,7 +111,7 @@ theorem take_drop_succ {a d : ℕ} (h : a + d < w.length) :
     (w.drop a).take (d + 1) = (w.drop a).take d ++ [w[a + d]] := by
   rw [List.take_add_one, List.getElem?_drop, List.getElem?_eq_getElem h]; rfl
 
-/-- Extend formula (2) by one common letter. -/
+/-- Extend the bridge formula by one common letter. -/
 theorem bridge_succ {j k : ℕ} (hj : j < w.length) (hk : k < w.length) (he : w[j] = w[k])
     (h : BridgeF ψ X w Z j k) : BridgeF ψ X w Z (j + 1) (k + 1) := by
   obtain ⟨a, b, d, ha, hb, hw, v, hu, hl⟩ := h
@@ -298,8 +313,8 @@ theorem inv_trans_old {a b : V (2 * (k + (2 * w.length + 2)))} {u : V (2 * k)}
   lu := fun s s' j j' hj hj' hu hv => bridge_base (h₁.lo s j u hj hu rfl) (h₂.ou s' u j' hj' rfl hv)
 
 /-- Every derived pair satisfies the four clauses of the closure invariant. -/
-theorem derives_inv {a b : V (2 * (k + (2 * w.length + 2)))}
-    (h : Derives (Spine.extension c ψ X Y w) a b) : Inv c ψ X Y w a b := by
+theorem derives_inv {ϕ : Constraint n k} {a b : V (2 * (k + (2 * w.length + 2)))}
+    (h : Derives (Spine.extension c ϕ X Y w) a b) : Inv c (signed c ϕ) X Y w a b := by
   induction h with
   | refl a => exact inv_refl a
   | @trans a m b h₁ h₂ ih₁ ih₂ =>
@@ -342,11 +357,14 @@ end Invariant
 
 section Backward
 
-variable {k : ℕ} {c : Fin n → Bool} {ψ : Constraint n (2 * k)} {X Y : V (2 * k)}
+variable {k : ℕ} {c : Fin n → Bool} {ϕ : Constraint n k} {X Y : V (2 * k)}
   {w : List (Fin n)}
 
+/-- The signed translation of the system. -/
+local notation "ψ" => signed c ϕ
+
 theorem derives_lv_of_uAt (s : Bool) : ∀ j, j ≤ w.length → ∀ v, UAt ψ (lroot X Y s) w j v →
-    Derives (Spine.extension c ψ X Y w) (lv c X Y w s j) (lift v)
+    Derives (Spine.extension c ϕ X Y w) (lv c X Y w s j) (lift v)
   | 0, _, v, h => by rw [lv_zero]; exact derives_lift (uAt_zero.mp h)
   | j + 1, hj, v, h => by
     unfold UAt at h
@@ -355,23 +373,23 @@ theorem derives_lv_of_uAt (s : Bool) : ∀ j, j ≤ w.length → ∀ v, UAt ψ (
     cases hp with
     | @cons _ z' b _ _ _ hd hl hp =>
       have ih := derives_lv_of_uAt s j (by omega) z hz
-      have hstep := Derives.decomp (w[j]'(by omega)) (link_mem (ψ := ψ) s (by omega))
+      have hstep := Derives.decomp (w[j]'(by omega)) (link_mem (ϕ := ϕ) s (by omega))
         (ih.trans (derives_lift hd)) (lift_mem hl)
       rw [kids_self] at hstep
       exact hstep.trans (derives_lift (upperAt_nil_iff.mp hp))
 
-theorem derives_up_of_lAt (hf : FlipClosed ψ) (s : Bool) {j : ℕ} (hj : j ≤ w.length)
+theorem derives_up_of_lAt (s : Bool) {j : ℕ} (hj : j ≤ w.length)
     {u : V (2 * k)} (h : LAt ψ w (flipV (lroot X Y s)) j u) :
-    Derives (Spine.extension c ψ X Y w) (lift u) (flipV (lv c X Y w s j)) := by
-  have hd := derives_flip (extension_flipClosed hf)
-    (derives_lv_of_uAt (c := c) s j hj _ ((lAt_flip_iff hf).mp h))
+    Derives (Spine.extension c ϕ X Y w) (lift u) (flipV (lv c X Y w s j)) := by
+  have hd := derives_flip (signed_flipClosed c (Spine.varianceExtension c ϕ X Y w))
+    (derives_lv_of_uAt s j hj _ ((lAt_flip_iff (signed_flipClosed c ϕ)).mp h))
   rwa [flipV_lift, flipV_flipV] at hd
 
 /-- Descend a lower and an upper spine along a common factor. -/
 theorem derives_descend {s s' : Bool} {a b : ℕ} :
     ∀ d, a + d ≤ w.length → b + d ≤ w.length → (w.drop a).take d = (w.drop b).take d →
-      Derives (Spine.extension c ψ X Y w) (lv c X Y w s a) (flipV (lv c X Y w s' b)) →
-      Derives (Spine.extension c ψ X Y w) (lv c X Y w s (a + d)) (flipV (lv c X Y w s' (b + d)))
+      Derives (Spine.extension c ϕ X Y w) (lv c X Y w s a) (flipV (lv c X Y w s' b)) →
+      Derives (Spine.extension c ϕ X Y w) (lv c X Y w s (a + d)) (flipV (lv c X Y w s' (b + d)))
   | 0, _, _, _, h => h
   | d + 1, ha, hb, hw, h => by
     have hw' : (w.drop a).take d = (w.drop b).take d := by
@@ -380,17 +398,17 @@ theorem derives_descend {s s' : Bool} {a b : ℕ} :
     have ih := derives_descend d (by omega) (by omega) hw' h
     have he : w[a + d]'(by omega) = w[b + d]'(by omega) :=
       getElem_of_take_drop_eq hw (by omega) (by omega) (by omega)
-    have hstep := Derives.decomp (w[a + d]'(by omega)) (link_mem (ψ := ψ) s (by omega)) ih
-      (flip_link_mem (ψ := ψ) s' (by omega : b + d < w.length))
+    have hstep := Derives.decomp (w[a + d]'(by omega)) (link_mem (ϕ := ϕ) s (by omega)) ih
+      (flip_link_mem (ϕ := ϕ) s' (by omega : b + d < w.length))
     rw [kids_self, Function.comp_apply, he, kids_self] at hstep
     exact hstep
 
-theorem derives_bridge (hf : FlipClosed ψ) {s s' : Bool} {j j' : ℕ} (hj : j ≤ w.length)
+theorem derives_bridge {s s' : Bool} {j j' : ℕ} (hj : j ≤ w.length)
     (hj' : j' ≤ w.length) (h : BridgeF ψ (lroot X Y s) w (flipV (lroot X Y s')) j j') :
-    Derives (Spine.extension c ψ X Y w) (lv c X Y w s j) (flipV (lv c X Y w s' j')) := by
+    Derives (Spine.extension c ϕ X Y w) (lv c X Y w s j) (flipV (lv c X Y w s' j')) := by
   obtain ⟨a, b, d, rfl, rfl, hw, v, hu, hl⟩ := h
   exact derives_descend d hj hj' hw
-    ((derives_lv_of_uAt s a (by omega) v hu).trans (derives_up_of_lAt hf s' (by omega) hl))
+    ((derives_lv_of_uAt s a (by omega) v hu).trans (derives_up_of_lAt s' (by omega) hl))
 
 end Backward
 

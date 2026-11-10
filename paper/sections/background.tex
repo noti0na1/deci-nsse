@@ -271,7 +271,7 @@ We reuse this system with the failing query $x\le y$ below.
 \subsection{Notation at a Glance}\label{sec:notation}
 The following table collects the main notation, including symbols
 introduced later, grouped by the part of the paper that introduces them.
-In particular, the four dual operations have different input and output
+In particular, the three dual operations have different input and output
 types.
 \begingroup
 \small
@@ -299,8 +299,7 @@ $H_q$ & trees under $\le_c$ $\to$ covariant trees & Normalize labels using $q\op
 $\operatorname{Pref}^\pm_c(t,w)$ & truth value & Top ($+$) or bottom ($-$) prefix of $t$ along $w$.\\
 $\flip$ & $V^\pm\to V^\pm$ & Variable flip: complement the sign.\\
 $S$ & signed assignments $\to$ signed assignments & Assignment involution: $(S\sigma)(v)=\mathfrak d(\sigma(\flip v))$; fixed witnesses are $S$-fixed.\\
-$\chi^{\mathfrak d}$ & covariant systems $\to$ covariant systems & Order dual: reverse inequalities and exchange constants; keep variable names.\\
-$\theta$; $\psi_\theta$, $X_\theta$, $Y_\theta$ & side; system; variables & Left or right side, its covariant system, and its two query roots.\\
+$\theta$; $X_\theta$, $Y_\theta$ & side; signed variables & Left or right side and its two query roots in $\psi$: $(x^+,y^+)$ on the left, $(y^-,x^-)$ on the right.\\
 $D_\chi$ & relation on variables & Reflexive, transitive decomposition closure.\\
 $\Up$, $\Lo$ & word $\times$ variable $\times$ variable $\to$ truth value & Supported upper and lower path bounds.\\
 $\emb_b(\eta,t)$ & tree & Embed $t$ at path $\eta$, with off-path filler $b$.\\
@@ -337,6 +336,7 @@ cycle clash & property of a system & $\Lo(\eta,a,a)$, $D_\chi(a,b)$ and $\Up(\et
 $\mathcal W$, $\Gamma_{\mathcal W}$, $\Theta$ & lettered monitor; alphabet; summary & Current monitor of the summary search, its abstract letters $1,\ldots,h$, and a column summary determining the next monitor.\\
 $\mathbb T$ & alphabet & Counter tokens $\{0,1,\#,\$\}$ of the long-hole construction.\\
 $T_P$, $T_P^m$ & trees & Top-free tree with constructor positions $P$, and its truncation at depth $m$ with $\Top$ at the cut.\\
-token encoding; $\cxcode$ & maps into $\{0,1\}^*$ & Binary encoding of counter tokens (long holes); prefix-free code of words (hardness).\\
+$\Phi^{(n)}(\mathcal A)$, $\mathcal A^\circ$ & system; automaton & Rejection system of an all-final automaton $\mathcal A$; all-final code of an automaton (hardness).\\
+token encoding; $e$ & maps into $\{0,1\}^*$ & Binary encoding of counter tokens (long holes); letter doubling $a\mapsto0a$ (hardness).\\
 \end{longtable}
 \endgroup

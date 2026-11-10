@@ -1,4 +1,4 @@
-import DeciNSSE.Holes.Desubstitution
+import DeciNSSE.Holes.Basic
 
 /-! # Expansion of block words
 
@@ -11,15 +11,14 @@ and its comparisons are aligned at block ends.
 
 - `expand`: `σ_ℓ(X_0 ⋯ X_{k-1}) = X_0 ℓ ⋯ X_{k-1} ℓ`, and `cutP`, its cuts.
 - `pos_decomp`, `pos_lt`: the positions of an expansion, by block.
+- `mark_prefix_iff`, `expand_prefix_iff`: prefix comparisons through markers.
 - `alignment`: the comparisons of an expansion, by block.
-- `mem_expand`, `prefix_map_inj`, `map_inj_on`: list facts about maps and
-  expansions.
+- `mem_expand`, `map_inj_on`: list facts about maps and expansions.
 
 The declarations are in the namespace `DeciNSSE.LetteredHierarchy`.
 -/
 
 namespace DeciNSSE.LetteredHierarchy
-open DeciNSSE.Desubstitution
 open scoped List
 
 section Expand
@@ -91,39 +90,49 @@ theorem cutP_le_length (ℓ : Γ) (v : List (List Γ)) (k : ℕ) :
   · exact cutP_mono ℓ v h.le
   · simp [cutP, List.take_of_length_le h]
 
-/-- The marker code whose bodies avoid the selected marker. -/
-def mcode (ℓ : Γ) : MarkerCode Γ {X : List Γ // ℓ ∉ X} where
-  mark := ℓ
-  body := Subtype.val
-  mark_not_mem c := c.2
-  body_injective := Subtype.val_injective
+/-- Words `y ++ a :: X` and `y' ++ a :: Y` with `a` in neither `y` nor `y'` compare
+through their first `a`: `y = y'` and `X` is a prefix of `Y`. -/
+theorem mark_prefix_iff {a : Γ} {X Y : List Γ} : ∀ {y y' : List Γ}, a ∉ y → a ∉ y' →
+    (y ++ a :: X <+: y' ++ a :: Y ↔ y = y' ∧ X <+: Y)
+  | [], [], _, _ => by simp
+  | [], b :: y', _, hy' => by
+      simp only [List.nil_append, List.cons_append, List.cons_prefix_cons, List.nil_eq,
+        reduceCtorEq, false_and, iff_false, not_and]
+      rintro rfl
+      exact absurd (List.mem_cons_self) hy'
+  | b :: y, [], hy, _ => by
+      simp only [List.nil_append, List.cons_append, List.cons_prefix_cons, reduceCtorEq,
+        false_and, iff_false, not_and]
+      rintro rfl
+      exact absurd (List.mem_cons_self) hy
+  | b :: y, b' :: y', hy, hy' => by
+      simp only [List.cons_append, List.cons_prefix_cons, List.cons.injEq]
+      rw [mark_prefix_iff (fun h => hy (List.mem_cons_of_mem _ h))
+        (fun h => hy' (List.mem_cons_of_mem _ h))]
+      tauto
 
-/-- The marker code of `ℓ` encodes by expansion. -/
-theorem mcode_enc (ℓ : Γ) (x : List {X : List Γ // ℓ ∉ X}) :
-    (mcode ℓ).enc x = expand ℓ (x.map Subtype.val) := by
-  induction x with
-  | nil => rfl
-  | cons X x ih =>
-    rw [MarkerCode.enc_cons, ih, List.map_cons, expand_cons]
-    simp [MarkerCode.code, mcode]
+/-- Marker-terminated expansion preserves and reflects prefixes. -/
+theorem expand_prefix_iff {ℓ : Γ} : ∀ {a b : List (List Γ)},
+    (∀ X ∈ a, ℓ ∉ X) → (∀ X ∈ b, ℓ ∉ X) →
+    (expand ℓ a <+: expand ℓ b ↔ a <+: b)
+  | [], _, _, _ => by simp
+  | _ :: _, [], _, _ => by simp
+  | X :: a, Y :: b, ha, hb => by
+      rw [expand_cons, expand_cons, mark_prefix_iff (ha X List.mem_cons_self)
+        (hb Y List.mem_cons_self), List.cons_prefix_cons,
+        expand_prefix_iff (fun Z hZ => ha Z (List.mem_cons_of_mem _ hZ))
+          (fun Z hZ => hb Z (List.mem_cons_of_mem _ hZ))]
 
-/-- The cuts of the marker code of `ℓ` are the cuts `P_k`. -/
-theorem mcode_cut (ℓ : Γ) (x : List {X : List Γ // ℓ ∉ X}) (k : ℕ) :
-    (mcode ℓ).cut x k = cutP ℓ (x.map Subtype.val) k := by
-  simp [MarkerCode.cut, cutP, mcode_enc, List.map_take]
-
-/-- A block word avoiding `ℓ` lifts to the alphabet of the marker code of `ℓ`. -/
-theorem lift_avoid {ℓ : Γ} {v : List (List Γ)} (h : ∀ X ∈ v, ℓ ∉ X) :
-    ∃ x : List {X : List Γ // ℓ ∉ X}, x.map Subtype.val = v :=
-  ⟨v.attach.map fun X => ⟨X.1, h X.1 X.2⟩, by simp⟩
-
-/-- An injective letter map preserves and reflects prefixes. -/
-theorem prefix_map_inj {α β : Type*} {f : α → β} (hf : Function.Injective f) {l₁ l₂ : List α} :
-    l₁.map f <+: l₂.map f ↔ l₁ <+: l₂ := by
-  refine ⟨fun h => ?_, fun h => h.map f⟩
-  obtain ⟨l, hl, he⟩ := List.prefix_map_iff.mp h
-  rw [List.map_inj_right (fun a b h => hf h)] at he
-  exact he ▸ hl
+/-- The suffix at a position inside a block. -/
+theorem drop_expand_at (ℓ : Γ) (v : List (List Γ)) (k : ℕ) (hk : k < v.length)
+    (x y : List Γ) (hxy : v[k] = x ++ y) :
+    (expand ℓ v).drop (cutP ℓ v k + x.length) = y ++ ℓ :: expand ℓ (v.drop (k + 1)) := by
+  have h : expand ℓ v = (expand ℓ (v.take k) ++ x) ++
+      (y ++ ℓ :: expand ℓ (v.drop (k + 1))) := by
+    rw [expand_split ℓ v k hk, hxy]
+    simp
+  rw [h]
+  exact List.drop_left' (by simp [cutP])
 
 /-- Every position `s < |σ_ℓ(v)|` lies in a block: `s = P_k + p` with `p ≤ |X_k|`. -/
 theorem pos_decomp (ℓ : Γ) (v : List (List Γ)) {s : ℕ} (hs : s < (expand ℓ v).length) :
@@ -160,12 +169,32 @@ theorem alignment (ℓ : Γ) (v : List (List Γ)) (hv : ∀ X ∈ v, ℓ ∉ X) 
         ∃ xs xe y, v[ks] = xs ++ y ∧ v[ke] = xe ++ y ∧
           s = cutP ℓ v ks + xs.length ∧ e = cutP ℓ v ke + xe.length ∧
           v.drop (ke + 1) <+: v.drop (ks + 1) := by
-  obtain ⟨x, rfl⟩ := lift_avoid hv
-  rw [← mcode_enc] at he ⊢
-  rw [(mcode ℓ).alignment x hse he]
-  simp only [List.length_map, List.getElem_map, mcode_cut, ← List.map_drop,
-    prefix_map_inj Subtype.val_injective]
-  rfl
+  constructor
+  · intro hc
+    obtain ⟨ks, hks, ps, hps, rfl⟩ := pos_decomp ℓ v (by omega : s < (expand ℓ v).length)
+    obtain ⟨ke, hke, pe, hpe, rfl⟩ := pos_decomp ℓ v he
+    obtain ⟨xs, ys, hs, hxs⟩ : ∃ xs ys, v[ks] = xs ++ ys ∧ xs.length = ps :=
+      ⟨v[ks].take ps, v[ks].drop ps, (List.take_append_drop _ _).symm, by simp [hps]⟩
+    obtain ⟨xe, ye, hee, hxe⟩ : ∃ xe ye, v[ke] = xe ++ ye ∧ xe.length = pe :=
+      ⟨v[ke].take pe, v[ke].drop pe, (List.take_append_drop _ _).symm, by simp [hpe]⟩
+    rw [← hxs, ← hxe, drop_expand_at ℓ v ke hke xe ye hee,
+      drop_expand_at ℓ v ks hks xs ys hs,
+      mark_prefix_iff (fun h => hv _ (List.getElem_mem _) (hee ▸ List.mem_append_right _ h))
+        (fun h => hv _ (List.getElem_mem _) (hs ▸ List.mem_append_right _ h)),
+      expand_prefix_iff (fun X hX => hv X (List.mem_of_mem_drop hX))
+        (fun X hX => hv X (List.mem_of_mem_drop hX))] at hc
+    obtain ⟨rfl, hc⟩ := hc
+    refine ⟨ks, ke, hks, hke, ?_, xs, xe, ye, hs, hee, by rw [hxs], by rw [hxe], hc⟩
+    by_contra hlt
+    have hm := cutP_mono ℓ v (show ke + 1 ≤ ks + 1 by omega)
+    rw [cutP_succ ℓ v ke hke, cutP_succ ℓ v ks hks, hs, hee] at hm
+    simp only [List.length_append] at hm
+    omega
+  · rintro ⟨ks, ke, hks, hke, -, xs, xe, y, hs, hee, rfl, rfl, hc⟩
+    rw [drop_expand_at ℓ v ke hke xe y hee, drop_expand_at ℓ v ks hks xs y hs,
+      List.prefix_append_right_inj, List.cons_prefix_cons]
+    exact ⟨rfl, (expand_prefix_iff (fun X hX => hv X (List.mem_of_mem_drop hX))
+      (fun X hX => hv X (List.mem_of_mem_drop hX))).mpr hc⟩
 
 /-- The letters of `σ_ℓ(v)` are the letters of its blocks and the marker. -/
 theorem mem_expand {ℓ a : Γ} {v : List (List Γ)} :

@@ -118,19 +118,22 @@ theorem hole_iff_bounded_length :
     · rintro ⟨w, hw, _⟩
       exact ⟨w, hw⟩
 
-/-- Finite executable search, with no default alphabet letter. -/
-theorem hole_iff_search [Fintype α] :
+/-- Hole existence is a finite search over the words of length at most
+`holeLengthBound N`, where `N` is the state count; no default alphabet letter is needed. -/
+theorem hole_iff_search [Fintype α] {N : ℕ} (hN : Fintype.card Q = N) :
     (∃ w, IsReaderHole M R T w) ↔
-      ∃ w ∈ Packets.boundedLists (Finset.univ : Finset α)
-        (holeLengthBound (Fintype.card Q)), IsReaderHole M R T w := by
+      ∃ w ∈ Packets.boundedLists (Finset.univ : Finset α) (holeLengthBound N),
+        IsReaderHole M R T w := by
+  subst hN
   rw [hole_iff_bounded_length M R T]
   simp only [Packets.mem_boundedLists, Finset.mem_univ, implies_true,
     and_true]
   exact exists_congr (fun _ => and_comm)
 
-/-- Computable decision for every finite-alphabet rejected-path instance. -/
-def decideHole [Fintype α] [DecidableRel R] [DecidablePred (· ∈ T)] :
-    Decidable (∃ w, IsReaderHole M R T w) :=
-  decidable_of_iff _ (hole_iff_search M R T).symm
+/-- Computable decision for every finite-alphabet rejected-path instance. The state
+count `N` is an argument, so the search enumerates words only. -/
+def decideHole [Fintype α] [DecidableRel R] [DecidablePred (· ∈ T)] {N : ℕ}
+    (hN : Fintype.card Q = N) : Decidable (∃ w, IsReaderHole M R T w) :=
+  decidable_of_iff _ (hole_iff_search M R T hN).symm
 
 end DeciNSSE.RejectedTail

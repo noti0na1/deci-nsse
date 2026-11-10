@@ -4,12 +4,18 @@ import DeciNSSE.Satisfiability.ShapeGraph
 /-! # Regular countermodel transfer
 
 An unsafe word of a side leaves the four-spine extension of that side without
-label clash. The selected least shape of the extension is then a solution fixed
-by sign duality, presented by a finite graph; restricted to the old variables
-it is a sign-fixed witness of the side. Decoding the witness gives a regular
-countermodel that fails the query at the same word. On the bottom-prefix side
-the witness belongs to the order dual, so the decoding reads its negative
-coordinates. Regular entailment therefore coincides with unrestricted entailment.
+label clash. The variance shape of the variance extension is then a solution,
+presented by a finite graph; restricted to the old variables it is a regular
+countermodel that fails the query at the same word. Regular entailment therefore
+coincides with unrestricted entailment.
+
+## Main declarations
+
+- `RegularTransfer.countermodel`, `RegularTransfer.countermodel_spec`,
+  `RegularTransfer.countermodel_not_le`: the regular countermodel of a side and a word; when
+  the word is unsafe it solves the system and fails the query at that word.
+- `explicit_countermodel`, `regular_countermodel`, `entailsReg_iff_entails`: every
+  failure of entailment has a regular countermodel.
 -/
 
 namespace DeciNSSE
@@ -18,51 +24,40 @@ variable {n k : ℕ}
 
 namespace RegularTransfer
 
-open Spine.Closure Events SignSelection
+open Spine.Closure Events SignDuality
 
-/-- The witness graphs of the four-spine extension: its selected least shape,
-presented by a finite graph and read at the old variables. -/
-def witnessGraph (c : Fin n → Bool) (ψ : Constraint n (2 * k)) (X Y : V (2 * k))
-    (w : List (Fin n)) (z : V (2 * k)) : RGraph n :=
-  selectGraph c (shapeGraph (Spine.extension c ψ X Y w)) (lift z)
+/-- The regular countermodel at the word `w` on side `θ`: the variance graphs of the
+variance extension of the query of that side, read at the old variables. -/
+def countermodel (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) (θ : Side)
+    (w : List (Fin n)) (z : V k) : RGraph n :=
+  varianceGraph c (shapeGraph (Spine.extension c ϕ (sideQuery x y θ).1 (sideQuery x y θ).2 w))
+    (Fin.castAdd _ z)
 
-/-- Without a label clash in the four-spine extension of a flip-closed, sign-coherent
-system, the witness graphs present a sign-fixed solution with a top of `X` and no top
-of `Y` on the prefixes of `w`. -/
-theorem witnessGraph_spec {c : Fin n → Bool} {ψ : Constraint n (2 * k)} {X Y : V (2 * k)}
-    {w : List (Fin n)} (hf : FlipClosed ψ) (hc : SignCoherent c ψ)
-    (hn : ¬ LabelClash (Spine.extension c ψ X Y w)) :
-    Covariant.Sat (RGraph.unfold ∘ witnessGraph c ψ X Y w) ψ ∧
-      Signed.dual (RGraph.unfold ∘ witnessGraph c ψ X Y w) =
-        RGraph.unfold ∘ witnessGraph c ψ X Y w ∧
-      covPrefTop w (witnessGraph c ψ X Y w X).unfold ∧
-      ¬ covPrefTop w (witnessGraph c ψ X Y w Y).unfold := by
-  obtain ⟨hs, hfix⟩ :=
-    regular_fixed_solution c (extension_flipClosed hf) (extension_signCoherent hc) hn
-  exact witness_of_sat hs hfix
-
-/-- The decoded graphs meet a polarized top exactly where the positive coordinate meets
-a top. -/
-theorem prefTop_decodedGraph (c : Fin n → Bool) (g : V (2 * k) → RGraph n) (u : V k)
+/-- The regular countermodel unfolds to the variance shape of the variance extension. -/
+theorem unfold_countermodel (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) (θ : Side)
     (w : List (Fin n)) :
-    prefTop c w (decodedGraph c g u).unfold ↔ covPrefTop w (g (sv u false)).unfold := by
-  rw [prefTop_iff_normalize, decodedGraph, RGraph.unfold_normalize, normalize_involutive]
+    RGraph.unfold ∘ countermodel c ϕ x y θ w = varianceShape c
+      (Spine.varianceExtension c ϕ (sideQuery x y θ).1 (sideQuery x y θ).2 w) ∘
+        Fin.castAdd _ :=
+  funext fun z => unfold_varianceGraph c (unfold_shapeGraph _) (Fin.castAdd _ z)
 
-/-- The decoded graphs meet a polarized bottom exactly where the positive coordinate
-meets a bottom. -/
-theorem prefBot_decodedGraph (c : Fin n → Bool) (g : V (2 * k) → RGraph n) (u : V k)
-    (w : List (Fin n)) :
-    prefBot c w (decodedGraph c g u).unfold ↔ covPrefBot w (g (sv u false)).unfold := by
-  rw [prefBot_iff_normalize, decodedGraph, RGraph.unfold_normalize, normalize_involutive]
+/-- A top-prefix witness of the query of a side fails the query at `w`: there `w` reaches a
+polarized top in `x` but not in `y`, or a polarized bottom in `y` but not in `x`. -/
+theorem not_safeAt_of_witness {c : Fin n → Bool} {x y : V k} {θ : Side} {w : List (Fin n)}
+    {ρ : V k → Tree n} (hx : covPrefTop w (normalized c ρ (sideQuery x y θ).1))
+    (hy : ¬ covPrefTop w (normalized c ρ (sideQuery x y θ).2)) :
+    ¬ ((prefTop c w (ρ x) → prefTop c w (ρ y)) ∧ (prefBot c w (ρ y) → prefBot c w (ρ x))) := by
+  intro h
+  cases θ <;> simp only [sideQuery, normalized_sv, normalize_true, covPrefTop_dual,
+    ← prefTop_iff_normalize, ← prefBot_iff_normalize] at hx hy
+  · exact hy (h.1 hx)
+  · exact hy (h.2 hx)
 
-/-- The regular countermodel at the word `w` on side `θ`: the decoded witness graphs of
-the side. On the bottom-prefix side the witness solves the order dual, and its negative
-coordinates are decoded. -/
-def countermodel (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
-    Side → List (Fin n) → V k → RGraph n
-  | .l, w => decodedGraph c (witnessGraph c (signed c ϕ) (sv x false) (sv y false) w)
-  | .r, w => decodedGraph c
-      (witnessGraph c (Constraint.dual (signed c ϕ)) (sv y false) (sv x false) w ∘ flipV)
+/-- A top-prefix witness of the query of a side fails the query. -/
+theorem not_le_of_witness {c : Fin n → Bool} {x y : V k} {θ : Side} {w : List (Fin n)}
+    {ρ : V k → Tree n} (hx : covPrefTop w (normalized c ρ (sideQuery x y θ).1))
+    (hy : ¬ covPrefTop w (normalized c ρ (sideQuery x y θ).2)) : ¬ Tree.Le c (ρ x) (ρ y) :=
+  fun hle => not_safeAt_of_witness hx hy ((treeLe_iff_safe c _ _).mp hle w)
 
 /-- If `w` is unsafe on side `θ`, the regular assignment `countermodel c ϕ x y θ w`
 solves the system and fails the query at `w`: there `w` reaches a polarized top in `x`
@@ -74,25 +69,19 @@ theorem countermodel_spec {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k}
           prefTop c w (countermodel c ϕ x y θ w y).unfold) ∧
         (prefBot c w (countermodel c ϕ x y θ w y).unfold →
           prefBot c w (countermodel c ϕ x y θ w x).unfold)) := by
-  obtain ⟨hs, hfix, hX, hY⟩ := witnessGraph_spec (sideSystem_flipClosed θ)
-    (sideSystem_signCoherent θ) ((sideUnsafe_iff_not_labelClash θ w).mp hu)
-  cases θ <;> simp only [sideSystem, sideQuery] at hs hfix hX hY
-  · refine ⟨sat_decodedGraph c hs hfix, fun h => hY ?_⟩
-    exact (prefTop_decodedGraph c _ y w).mp (h.1 ((prefTop_decodedGraph c _ x w).mpr hX))
-  · set g := witnessGraph c (Constraint.dual (signed c ϕ)) (sv y false) (sv x false) w
-    have hd : RGraph.unfold ∘ (g ∘ flipV) = Tree.dual ∘ (RGraph.unfold ∘ g) :=
-      funext fun z => fixed_flipV hfix z
-    have hfix' : Signed.dual (RGraph.unfold ∘ (g ∘ flipV)) = RGraph.unfold ∘ (g ∘ flipV) := by
-      rw [hd]
-      change Tree.dual ∘ Signed.dual (RGraph.unfold ∘ g) = _
-      rw [hfix]
-    have hbot (u : V k) : prefBot c w (decodedGraph c (g ∘ flipV) u).unfold ↔
-        covPrefTop w (g (sv u false)).unfold := by
-      rw [prefBot_decodedGraph, ← Function.comp_apply (f := RGraph.unfold), hd,
-        Function.comp_apply, covPrefBot_dual]
-      rfl
-    refine ⟨sat_decodedGraph c (hd ▸ ConstraintDual.sat_of_dual hs) hfix', fun h => hY ?_⟩
-    exact (hbot x).mp (h.2 ((hbot y).mpr hX))
+  obtain ⟨hs, hx, hy⟩ := witness_of_sat
+    (varianceShape_sat ((sideUnsafe_iff_not_labelClash θ w).mp hu))
+  rw [← unfold_countermodel] at hs hx hy
+  exact ⟨hs, not_safeAt_of_witness hx hy⟩
+
+/-- If `w` is unsafe on side `θ`, the regular assignment `countermodel c ϕ x y θ w`
+solves the system and fails the query. -/
+theorem countermodel_not_le {c : Fin n → Bool} {ϕ : Constraint n k} {x y : V k} {θ : Side}
+    {w : List (Fin n)} (hu : Unsafe c ϕ x y θ w) :
+    Sat c (RGraph.unfold ∘ countermodel c ϕ x y θ w) ϕ ∧
+      ¬ Tree.Le c (countermodel c ϕ x y θ w x).unfold (countermodel c ϕ x y θ w y).unfold :=
+  ⟨(countermodel_spec hu).1,
+    fun hle => (countermodel_spec hu).2 ((treeLe_iff_safe c _ _).mp hle w)⟩
 
 end RegularTransfer
 
@@ -106,8 +95,7 @@ theorem explicit_countermodel (c : Fin n → Bool) {ϕ : Constraint n k} {x y : 
       ¬ Tree.Le c (countermodel c ϕ x y θ w x).unfold (countermodel c ϕ x y θ w y).unfold := by
   simp only [entails_iff_not_sideUnsafe, not_forall, not_not] at hn
   obtain ⟨θ, w, hu⟩ := hn
-  obtain ⟨hs, hw⟩ := countermodel_spec hu
-  exact ⟨θ, w, hs, fun hle => hw ((treeLe_iff_safe c _ _).mp hle w)⟩
+  exact ⟨θ, w, countermodel_not_le hu⟩
 
 /-- Every non-entailment, at any arity and variance, has a regular countermodel. -/
 theorem regular_countermodel (c : Fin n → Bool) {ϕ : Constraint n k} {x y : V k}

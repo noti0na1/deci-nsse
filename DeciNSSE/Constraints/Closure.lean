@@ -1,9 +1,19 @@
 import DeciNSSE.Constraints.Basic
+import DeciNSSE.Saturation
 
 /-! # Covariant constraint closure
 
 Reflexivity, transitivity and constructor decomposition generate the variable
-closure. Finite saturation computes this relation and the supported root labels.
+closure. Finite saturation computes this relation, and the closure decides label
+clashes.
+
+## Main declarations
+
+- `Derives`, `Derives.sound`: the closure and its soundness for covariant solutions.
+- `LowerF`, `LowerTop`, `UpperF`, `UpperBot`: root bounds reached through the closure.
+- `LabelClash`, `LabelClash.unsatisfiable`: incompatible root bounds exclude solutions.
+- `derivedPairs`, `mem_derivedPairs`, `derivesB_iff`: the computed closure.
+- `labelClashB`, `labelClashB_iff`: the label-clash test.
 -/
 
 namespace DeciNSSE
@@ -234,40 +244,17 @@ theorem expand_sound (ϕ : Constraint n k) (s : Finset (V k × V k))
   · exact Derives.trans (hs (x, z) hxz) (hs (z, y) hzy)
   · exact Derives.decomp i hl (hs _ huv) hu
 
-/-- Saturate the finite set of pairs. A recursive call strictly increases its
-cardinality, so there can be at most `k * k` strict expansions. -/
-def close (ϕ : Constraint n k) (s : Finset (V k × V k)) : Finset (V k × V k) :=
-  if expand ϕ s ⊆ s then s else close ϕ (expand ϕ s)
-termination_by k * k - s.card
-decreasing_by
-  have hs : s ⊂ expand ϕ s :=
-    lt_of_le_not_ge Finset.subset_union_left (by assumption)
-  have hlt := Finset.card_lt_card hs
-  have hle := Finset.card_le_univ (s := expand ϕ s)
-  simp only [Fintype.card_prod, Fintype.card_fin] at hle
-  omega
-
-/-- Saturation contains its input, is closed under all rules, and preserves
-the invariant that every stored pair is derivable. -/
-theorem close_spec (ϕ : Constraint n k) (s : Finset (V k × V k)) :
-    s ⊆ close ϕ s ∧ expand ϕ (close ϕ s) ⊆ close ϕ s ∧
-    ((∀ p ∈ s, Derives ϕ p.1 p.2) → ∀ p ∈ close ϕ s, Derives ϕ p.1 p.2) := by
-  fun_induction close ϕ s with
-  | case1 s hs => exact ⟨Finset.Subset.refl _, hs, fun h => h⟩
-  | case2 s _ ih =>
-    exact ⟨Finset.Subset.trans Finset.subset_union_left ih.1, ih.2.1,
-      fun hs => ih.2.2 (expand_sound ϕ s hs)⟩
-
 end Closure
 
 /-- The finite closure of the constraint's variable inequalities. -/
-def derivedPairs (ϕ : Constraint n k) : Finset (V k × V k) := Closure.close ϕ ∅
+def derivedPairs (ϕ : Constraint n k) : Finset (V k × V k) :=
+  Saturation.saturate (Closure.expand ϕ) ∅
 
 theorem mem_derivedPairs (ϕ : Constraint n k) (x y : V k) :
     (x, y) ∈ derivedPairs ϕ ↔ Derives ϕ x y := by
-  have spec := Closure.close_spec ϕ ∅
+  have spec := Saturation.saturate_spec (Closure.expand ϕ) ∅
   constructor
-  · exact spec.2.2 (by simp) (x, y)
+  · exact spec.2.2 (fun p => Derives ϕ p.1 p.2) (by simp) (Closure.expand_sound ϕ) (x, y)
   · intro h
     induction h with
     | refl x =>

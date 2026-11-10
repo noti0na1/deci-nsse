@@ -1,11 +1,12 @@
 import DeciNSSE.Holes.Hierarchy.Canonical
+import DeciNSSE.Holes.Packets
 
 /-! # Unary levels and pumping
 
 A level of the canonical hierarchy is unary when it is a power of one letter.
-The words of `𝓛(d)` have a unary level at most `d`. A power `x^m` is a hole
-exactly when a power with `1 ≤ m ≤ |C|` is, since its run is the orbit of the
-start core under one transition.
+The words of `𝓛(d)` have a unary level at most `d`. Some power of a letter `x` is a
+hole exactly when some power `x^m` with `1 ≤ m ≤ |C|` is, since the run of a power is
+the orbit of the start core under one transition.
 
 ## Main declarations
 
@@ -49,32 +50,21 @@ theorem core_replicate {Γ C : Type*} (D : Lettered Γ C) (x : Γ) (m : ℕ) :
 theorem iterate_small {C : Type*} [Fintype C] (f : C → C) (c : C) :
     ∀ n, ∃ t, t ≤ n ∧ t < Fintype.card C ∧ f^[t] c = f^[n] c := by
   intro n
-  induction n using Nat.strong_induction_on with
-  | _ n ih =>
-    by_cases hn : n < Fintype.card C
-    · exact ⟨n, le_rfl, hn, rfl⟩
-    · obtain ⟨a, b, hab, he⟩ := Fintype.exists_ne_map_eq_of_card_lt
-        (fun i : Fin (Fintype.card C + 1) => f^[i.1] c) (by simp)
-      have key : ∀ a b : Fin (Fintype.card C + 1), a.1 < b.1 → f^[a.1] c = f^[b.1] c →
-          ∃ t, t ≤ n ∧ t < Fintype.card C ∧ f^[t] c = f^[n] c := by
-        intro a b hlt he
-        have hb := b.2
-        obtain ⟨t, ht, htC, hte⟩ := ih (n - (b.1 - a.1)) (by omega)
-        refine ⟨t, by omega, htC, ?_⟩
-        rw [hte]
-        have h1 : n = (n - b.1) + b.1 := by omega
-        have h2 : n - (b.1 - a.1) = (n - b.1) + a.1 := by omega
-        rw [h2, h1, Function.iterate_add_apply, Function.iterate_add_apply, he]
-        congr 1
-        omega
-      rcases Nat.lt_or_gt_of_ne (fun h => hab (Fin.ext h)) with h | h
-      · exact key a b h he
-      · exact key b a h he.symm
+  let A : DFA Unit C := ⟨fun q _ => f q, c, ∅⟩
+  have heval (w : List Unit) (q : C) : A.evalFrom q w = f^[w.length] q := by
+    induction w generalizing q with
+    | nil => rfl
+    | cons a w ih =>
+      simpa only [DFA.evalFrom_cons, List.length_cons, Function.iterate_succ_apply]
+        using ih (f q)
+  obtain ⟨w, hw, hcard, he⟩ := Packets.exists_short_evalFrom A c (List.replicate n ())
+  exact ⟨w.length, by simpa using hw.length_le, hcard, by simpa only
+    [heval, List.length_replicate] using he⟩
 
-/-- A lettered instance with finitely many cores has a unary hole
-`x^m` iff it has one with `1 ≤ m ≤ |C|`: holehood of `x^m` only depends on the vertex
-color of `x` along the orbit of `⋆`, and the final core recurs among the first `|C|`
-iterates. -/
+/-- A lettered monitor with finitely many cores has a unary hole `x^m` iff it has one
+with `1 ≤ m ≤ |C|`: the core before the last letter of `x^m` recurs at some iterate
+`t < |C|` of the orbit of `⋆`, and `x^(t+1)` has the final label of `x^m` and the labels
+of a prefix of it, so it is a hole as well. -/
 theorem exists_unary_hole_iff {Γ C : Type*} [Fintype C] (D : Lettered Γ C) (x : Γ) :
     (∃ m, D.IsHole (List.replicate m x)) ↔
       ∃ m, 1 ≤ m ∧ m ≤ Fintype.card C ∧ D.IsHole (List.replicate m x) := by

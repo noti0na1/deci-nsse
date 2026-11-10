@@ -137,7 +137,7 @@ def decideEntails {n k : ℕ} (c : Fin n → Bool)
 ```
 
 The other two have the same arguments. None requires satisfiability, positive
-arity, a supplied monitor family, or an inhabited path alphabet. Each has a
+arity or an inhabited path alphabet. Each has a
 correctness lemma; for example,
 
 ```lean
@@ -158,8 +158,9 @@ Entails c ϕ x y           -- ∀ ρ, Sat c ρ ϕ → Tree.Le c (ρ x) (ρ y)
 
 Countermodels can be computed from a supplied side `θ : Side` and word
 `w : List (Fin n)`. The assignment `extractRegular c ϕ x y θ w : V k → RGraph n`
-satisfies `ϕ` and refutes `x ≤ y` when `Monitor.satB c ϕ = true` and `w` is a
-hole of `Monitor.sideMonitor c ϕ x y θ`, by `extractRegular_spec`.
+satisfies `ϕ` and refutes `x ≤ y` when `satB c ϕ = true` and `w` is a hole of
+the side reader `Monitor.sideReader c ϕ x y θ`, that is, when
+`Monitor.SideHole c ϕ x y θ w` holds, by `extractRegular_spec`.
 The Boolean check `refutesB c ϕ x y θ w` combines these two conditions;
 `refutesB_correct` proves non-entailment, and `not_entails_iff_refutesB` states
 that every non-entailment has such a certificate. Under `SatisfiableFin c ϕ`,
@@ -191,62 +192,64 @@ procedures.
 ### API map
 
 `import DeciNSSE` makes all of the following available; `import DeciNSSE.Main`
-suffices for the three original procedures. Names are in namespace `DeciNSSE`.
+suffices for the three main procedures. Names are in namespace `DeciNSSE`.
 Each decider of the first three rows returns a `Decidable` instance and has a
 correctness theorem named by appending `_correct`, of the form of
-`decideEntails_correct` and without premises. The packed decider has no
-separate correctness theorem, since its type `Decidable (Entails c ϕ x y)`
-already determines its value; the solver is correct by `solve_correct`.
+`decideEntails_correct` and without premises. The solver is correct by
+`solve_correct`.
 
 | Interface | Declarations | Scope | Defined in |
 | --- | --- | --- | --- |
-| Original deciders | `decideEntails`, `decideEntailsReg`, `decideEntailsFin` | Every arity and variance; arbitrary, regular and finite trees. Hole search by enumeration up to `RejectedTail.holeLengthBound`. | [Main](DeciNSSE/Main.lean) |
+| Main deciders | `decideEntails`, `decideEntailsReg`, `decideEntailsFin` | Every arity and variance; arbitrary, regular and finite trees. Hole search by enumeration up to `RejectedTail.holeLengthBound`. | [Main](DeciNSSE/Main.lean) |
 | Summary deciders | `decideEntailsSummary`, `decideEntailsRegSummary`, `decideEntailsFinSummary` | Every arity and variance; the three domains. Hole search by the summary search (see [Complexity](#complexity-and-scope-of-the-algorithm)). | [Complexity/SummaryDecision](DeciNSSE/Complexity/SummaryDecision.lean) |
 | Unary deciders | `decideEntailsUnary`, `decideEntailsRegUnary`, `decideEntailsFinUnary` | Arity one only (`c : Fin 1 → Bool`); the three domains. Hole search below the reader state count. | [Complexity/Unary](DeciNSSE/Complexity/Unary.lean) |
 | Certifying solver | `solve`, `solveWithFuel`, with `solve_correct` and `solveWithFuel_correct` | Every arity and variance; arbitrary trees, hence regular trees by `entailsReg_iff_entails`. Returns checked evidence and a countermodel. | [Solver](DeciNSSE/Solver.lean) |
-| Packed decider | `Solver.decideEntailsPacked` | Every arity and variance; arbitrary trees. | [Solver/Complete](DeciNSSE/Solver/Complete.lean) |
 
-All nine deciders of the first three rows are instances of
-`Monitor.decideEntailsOfMonitors`, `Monitor.decideEntailsRegOfMonitors` and
-`Monitor.decideEntailsFinOfMonitors` in
-[Monitor/Decision.lean](DeciNSSE/Monitor/Decision.lean), which take the two side
-monitors and a side-hole decider. They are `@[instance_reducible] def`s rather
-than instances, because several of them decide the same proposition; install one
-with `letI` or pass it to `@decide`.
-
-Only `decideEntails` is redirected by the compiler. The `@[csimp]` lemma
-`Solver.decideEntails_eq_decideEntailsPacked` makes compiled code of
-`decideEntails` run `Solver.decideEntailsPacked` in every module that imports
-`DeciNSSE.Solver`, and so under `import DeciNSSE`. The decision value is the
-same. The packed decider computes the reader state count from its formula and
-enumerates only words. The other eight deciders evaluate the packaged side
-monitors, whose `Fintype` instance enumerates every reader state.
+All nine deciders of the first three rows are built from
+`Monitor.decideEntailsWith`, `Monitor.decideEntailsRegWith` and
+`Monitor.decideEntailsFinWith` in
+[Monitor/Decision.lean](DeciNSSE/Monitor/Decision.lean). These take a decider
+for the existence of holes of the reader of each side, stated with
+`Monitor.SideHole`. The three hole searches are `Monitor.decideSideHoles`,
+`Complexity.Summary.decideSideHoles` and `Complexity.Unary.decideSideHoles`.
+Each is given the state count `2 * 4^(2*k)` of a side reader as a number
+(`Monitor.card_state`), so the length bounds are computed from that number. The
+summary search still enumerates the reader states when it tests its accepting
+configurations.
+The deciders are `@[instance_reducible] def`s rather than instances, because
+several of them decide the same proposition; install one with `letI` or pass it
+to `@decide`.
 
 ## Proof overview
 
-The proof reduces a countermodel to a finite word called a *hole* in one of
-two finite monitors, then bounds the length of a hole witness. All reductions,
-bounds and transfer arguments are proved in Lean.
+The proof reduces a countermodel to a finite word called a *hole* of one of
+two finite side readers, then bounds the length of a hole witness. All
+reductions, bounds and transfer arguments are proved in Lean.
 
 ### 1. Normalize variance and translate to signed variables
 
 Normalization exchanges bottom and top according to path polarity and leaves
 tree domains unchanged. Each variable receives positive and negative copies,
 turning the system into a covariant constraint system on `2*k` variables.
-An assignment fixed by sign duality decodes to a variance solution.
+A variance assignment solves the system exactly when its two normalizations
+solve the signed translation (`sat_iff_signed`).
 See [Constraints/Signed.lean](DeciNSSE/Constraints/Signed.lean).
 
-### 2. Recover variance models by the polarity selector
+### 2. Recover variance models by the variance shape
 
-The least-shape solution of a system without label clash keeps a constructor
-only where both a lower and an upper constructor bound require it. For a
-system closed under sign duality, it has the same constructor positions as its
-sign dual. Selecting between the two by the sign of the variable and the
-polarity of the path gives a solution fixed by sign duality, provided the
-system is sign coherent: each child carries the sign of its parent shifted by
-its variance. A fixed solution decodes to a variance solution.
+The least-shape solution of a covariant system without label clash keeps a
+constructor only where both a lower and an upper constructor bound require it.
+The signed translation is closed under sign duality, which reverses a literal,
+exchanges its constants and flips the signs of its variables. Hence the least
+shapes of the two copies `u⁺` and `u⁻` of a variable have the same constructor
+positions (`SignDuality.leastShape_flip_f`). The *variance shape* of `u` reads,
+at each path, the label of the least shape of the copy whose sign is the
+polarity of the path (`varianceShape`). Without a label clash in the signed
+translation it solves the variance system (`varianceShape_sat`). A system is
+therefore satisfiable exactly when its signed translation has no label clash
+(`satisfiable_iff_signed_not_labelClash`).
 See [Satisfiability/LeastShape.lean](DeciNSSE/Satisfiability/LeastShape.lean)
-and [Semantics/Selector.lean](DeciNSSE/Semantics/Selector.lean).
+and [Satisfiability/VarianceShape.lean](DeciNSSE/Satisfiability/VarianceShape.lean).
 
 ### 3. Express unsafety by a finite spine extension
 
@@ -255,18 +258,32 @@ constructor decomposition. Upper and lower path judgments describe the
 bounds at a tree path. A label clash is exactly the obstruction to a
 covariant solution; without one, the least shape is a solution.
 
-Four fresh constraint spines enforce the prefix conditions for an unsafe
-word: a lower spine from `x⁺` ending in top, a lower spine from `y⁻` ending in
-a constructor lower bound, and their sign duals, upper spines from `x⁻` and
-`y⁺`. Spine positions carry the sign of their root shifted by the polarity of
-the prefix read so far, and the bottom and top fillers come in both signs.
-The extension is therefore closed under sign duality and sign coherent. A word
-is unsafe exactly when the extension has no label clash: the selected least
-shape of the extension restricts to a witness, and a normalized witness
-extends along the traces of its roots. Fresh lower positions are sources and
-their sign duals sinks; ranks strictly increase along new nonempty paths. At
-cut zero the roots are old variables and may coincide. The closure formulas
-cover this case without a distinctness assumption.
+After variance normalization, an unsafe word is a *top-prefix witness* of a
+query of the signed translation: a solution whose normalization has a top of
+the first root and no top of the second on the prefixes of the word
+(`Events.sideUnsafe_iff_witness`). The *variance extension*
+(`Spine.varianceExtension`) imposes this with two spines of fresh variables,
+one from each root. Position `j` of a spine is bounded by a constructor whose
+child at the letter `w[j]` is position `j + 1` and whose other children are a
+bottom or a top filler, chosen by variance. The bound is a lower or an upper
+bound according to the sign of the root shifted by the polarity of the prefix
+read so far. The first spine ends in a polarized top, the second in a
+polarized constructor bound.
+
+The signed translation of the variance extension is the *four-spine extension*
+(`Spine.extension`, `Spine.Closure.mem_extension`): for the query `(x⁺, y⁺)`, a
+lower spine from `x⁺` ending in top, a lower spine from `y⁻` ending in a
+constructor lower bound, and their sign duals, upper spines from `x⁻` and `y⁺`.
+As a signed translation it is closed under sign duality and sign coherent:
+each child carries the sign of its parent shifted by its variance. A word is
+unsafe exactly when the variance extension is satisfiable, that is, when the
+four-spine extension has no label clash
+(`Spine.Closure.witness_iff_not_labelClash`,
+`Events.sideUnsafe_iff_not_labelClash`): a solution restricts to a witness, and
+a witness extends along the traces of its roots. Fresh lower positions are
+sources and their sign duals sinks; ranks strictly increase along new nonempty
+paths. At cut zero the roots are old variables and may coincide. The closure
+formulas cover this case without a distinctness assumption.
 See [Monitor/Spine.lean](DeciNSSE/Monitor/Spine.lean) and
 [Monitor/Closure.lean](DeciNSSE/Monitor/Closure.lean).
 
@@ -281,9 +298,11 @@ self-admission includes both orientations of the sign-flipped labels.
 
 After variance normalization, an order failure has two sides: at a prefix of
 some word, `x` reaches top and `y` does not (top-prefix side), or `y` reaches
-bottom and `x` does not (bottom-prefix side). The events are defined once, for the top-prefix side of a covariant
-query; the bottom-prefix side uses the order dual of the signed system with
-the query reversed.
+bottom and `x` does not (bottom-prefix side). The events are defined once, for
+a query of the signed translation. The top-prefix side reads the query
+`(x⁺, y⁺)`. A variance solution takes dual values at the two signs of a
+variable, so the bottom-prefix side reads the query `(y⁻, x⁻)` of the same
+system (`Events.sideQuery`).
 
 For a satisfiable original system, an unsafe word is exactly a word without
 events. The satisfiability hypothesis excludes inherited clashes and is
@@ -292,19 +311,21 @@ See [Monitor/Clash.lean](DeciNSSE/Monitor/Clash.lean),
 [Monitor/Events.lean](DeciNSSE/Monitor/Events.lean) and
 [Monitor/Semantics.lean](DeciNSSE/Monitor/Semantics.lean).
 
-### 5. Read the events with a finite label monitor
+### 5. Read the events with a finite label reader
 
 A state contains upper and lower label sets and a Boolean latch for earlier
-readiness. Current readiness and the child condition complete the acceptance
-test. For `m` variables there are `2 * 4^m` states; the signed input thus uses
-`N = 2 * 4^(2*k)` states (`Monitor.card_state`, `Monitor.card_sideMonitor`).
-One reader serves both sides:
-the bottom-prefix monitor is the reader of the order dual with the query
-reversed.
+readiness. The label sets are the sets of upper and lower bounds of the query
+roots along the word read so far, updated letter by letter
+([Satisfiability/BoundSets.lean](DeciNSSE/Satisfiability/BoundSets.lean)).
+Current readiness and the child condition complete the acceptance test. For `m`
+variables there are `2 * 4^m` states; the signed input thus uses
+`N = 2 * 4^(2*k)` states (`Monitor.card_state`). One reader serves both sides:
+each side starts the reader of the signed translation at its query
+(`Monitor.sideReader`).
 
 A comparison has cuts `s < e ≤ |w|` such that `w.drop e` is a prefix of
-`w.drop s`. It is admitted when the monitor states at those cuts satisfy the
-cross or self relation. A *hole* reaches a rejected target and has no admitted
+`w.drop s`. It is admitted when the reader states at those cuts satisfy the
+cross or self relation. A *hole* ends in a rejected state and has no admitted
 comparison, including terminal comparisons. `Monitor.hole_iff_unsafe` gives
 the exact semantic bridge under satisfiability.
 
@@ -342,9 +363,11 @@ levels. Counting these plateaus bounds the first unary level by
 d = 2 * N * (B + 1) - 1.
 ```
 
-Before shortening blocks, merge isolated letters with the same finite exchange
-type. This preserves holehood and canonical depth, and does not increase length
-or any dictionary. In the resulting normal form, boundary pairs propagate
+Before shortening blocks, choose a hole of least dictionary potential among
+the holes of the same canonical depth and no greater length. In it no two
+isolated letters have the same finite exchange type, since merging them
+preserves holehood and depth, does not increase length, and lowers the potential
+(`NormalForm.exists_normal_form`). In this normal form, boundary pairs propagate
 linearly between levels. If `D` is the first unary level, then for
 `1 ≤ i < D ≤ d` the checked bounds are
 
@@ -407,26 +430,30 @@ See [RejectedTail/Decision.lean](DeciNSSE/RejectedTail/Decision.lean),
 
 The least-shape label at a path depends only on the sets of lower and upper
 bounds at that path, and both sets are updated letter by letter. Pairs of such
-sets are the states of a finite graph whose unfolding is the least shape; a
-polarity bit realizes the selector and decoding on graphs. For an unsafe word,
-the selected least shape of the four-spine extension is therefore regular, and
-decoding its restriction gives a regular countermodel at the same word. Hence
-regular entailment coincides with unrestricted entailment.
+sets are the states of a finite graph whose unfolding is the least shape
+(`shapeGraph`). Pairing the graphs of the two copies `u⁺` and `u⁻` with a
+polarity bit gives a finite graph of the variance shape (`varianceGraph`). For
+an unsafe word, the variance shape of the variance extension is therefore
+regular, and its restriction to the old variables is a regular countermodel at
+the same word (`RegularTransfer.countermodel_spec`). Hence regular entailment
+coincides with unrestricted entailment.
 See [Satisfiability/ShapeGraph.lean](DeciNSSE/Satisfiability/ShapeGraph.lean)
 and [Transfer/Regular.lean](DeciNSSE/Transfer/Regular.lean).
 
-Finite satisfiability additionally excludes cycle clashes. Without them the
-least-shape solution has bounded depth, and the polarity selector keeps its
-domain, so it produces a finite fixed solution. The same argument transfers
-countermodels. Since the spine extension is ranked, a nonempty cycle cannot
-pass through its sources or sinks, so it adds no cycle clash. When the original
-system has a finite solution, the selected least shape of the extension of an
-unsafe word is therefore finite, and its decoding is a finite countermodel.
+Finite satisfiability additionally excludes cycle clashes, which are found by
+reachability in a finite graph on pairs of variables. Without them the
+least-shape solution has bounded depth, and so does the variance shape, which
+is therefore a finite solution. The same argument transfers countermodels. Since
+the spine extension is ranked, a nonempty cycle cannot pass through its sources
+or sinks, so it adds no cycle clash. When the original system has a finite
+solution, the regular countermodel of an unsafe word therefore has bounded
+depth, and its truncation at the depth bound is a finite countermodel
+(`FiniteTransfer.countermodel_spec`).
 
 The finite procedure first tests finite satisfiability. If it fails, entailment
 is vacuous; otherwise unrestricted entailment gives the answer. All arities
 use this same construction. See [Transfer](DeciNSSE/Transfer) and
-[Satisfiability/FiniteVariance.lean](DeciNSSE/Satisfiability/FiniteVariance.lean).
+[Satisfiability/Variance.lean](DeciNSSE/Satisfiability/Variance.lean).
 
 ## Complexity and scope of the algorithm
 
@@ -441,7 +468,7 @@ count. Substituting the reader size gives the explicit path-length
 allowance `2^(2^(1280 * (2 * 4^(2*k) + 1)^5))`. This bounds the unsafe path
 used to construct a countermodel, not the number of nodes in an expanded tree.
 
-The exhaustive hole searches of the original deciders enumerate words up to
+The exhaustive hole searches of the main deciders enumerate words up to
 `RejectedTail.holeLengthBound N`.
 These universal searches remain unsuitable for practical type inference; the
 [Lean solver](#lean-solver) uses them only as a fallback.
@@ -459,7 +486,7 @@ machines and Savitch's theorem, are not formalized.
   doubly exponential space. These configuration bounds support the usual
   space-bounded reachability argument for the 2-EXPSPACE bound. The executable
   implementation `Complexity.Summary.summarySearch` computes the set of
-  reachable configurations by saturation (`Complexity.reachSet`) and is not
+  reachable configurations by saturation (`Saturation.reachSet`) and is not
   proved to meet that space bound. `decideEntailsSummary`,
   `decideEntailsRegSummary` and `decideEntailsFinSummary` decide entailment
   through this search.
@@ -469,16 +496,21 @@ machines and Savitch's theorem, are not formalized.
   the first rejected cut, which lies below `N`, and test that one word
   (`Complexity.Unary.hole_iff_firstRejectedCut`).
 * **Hardness.** For every arity `n ≥ 2` and the covariant constructor,
-  `Complexity.hardnessSystem n M` has linearly many literals
-  (`Complexity.hardnessSystem_length_le`) and entails `x ≤ r` exactly when the
-  binary automaton `M` accepts every word, over arbitrary, regular and finite
-  trees (`Complexity.entails_hardnessSystem_iff` and its two variants).
-  Universality of nondeterministic automata is PSPACE-hard, so entailment is
-  PSPACE-hard for every fixed arity at least two.
+  `Complexity.hardnessSystem n M` entails `x ≤ y` exactly when the binary
+  automaton `M` accepts every word, over arbitrary, regular and finite trees
+  (`Complexity.entails_hardnessSystem_iff` and its two variants). It is the
+  rejection system (`Complexity.rejectionSystem`) of an automaton whose states
+  are all final and which accepts every word exactly when `M` does
+  (`Complexity.allFinalCode`, `Complexity.allFinalCode_universal_iff`). For `m`
+  states and `T` transitions of `M` it has `2m + 7` variables and at most
+  `6m + 2T + 17` literals (`Complexity.Hardness.numVars_eq`,
+  `Complexity.hardnessSystem_length_le`). Universality of nondeterministic
+  automata is PSPACE-hard, so entailment is PSPACE-hard for every fixed arity
+  at least two.
 * **Long witnesses.** For every `n ≥ 2` and `k`, the system
   `Complexity.expSystem n k` has `9k + 31` variables, a finite solution and no
   entailment in any domain, and its shortest counterexample word has length
-  exactly `2(k+1)2^k`, both among the holes of the side monitors
+  exactly `2(k+1)2^k`, both among the holes of the side readers
   (`Complexity.expSystem_shortest_hole`) and among the words accepted by
   `refutesB` (`Complexity.expSystem_shortest_refutesB`). Every answer of the
   Lean solver on it is a refutation at least that long
@@ -587,16 +619,16 @@ comparisons. The search uses arrays, bit masks and hash sets and needs no
 correctness proof: only a certificate accepted by the checkers yields an
 answer. If the search exhausts its fuel or a candidate is rejected,
 `decideEntails` supplies the answer and `used_fallback` is `true`; this
-fallback uses the proved length bound and can be impractically slow. In
-compiled code it runs `Solver.decideEntailsPacked`, by the `@[csimp]` lemma
-`Solver.decideEntails_eq_decideEntailsPacked`; only `decideEntails` is
-redirected in this way (see the [API map](#api-map)). Fuel bounds the search,
-not the total running time.
+fallback enumerates words up to the proved length bound and can be
+impractically slow. Fuel bounds the search, not the total running time.
 
 The checkers use packed closure rows, shared reader transition tables and
 cached prefix states. Refinement lemmas connect them to the finite-set closure
 and reader of the proof; neither checking nor countermodel validation
-enumerates the reader's state space. The countermodel is the reachable part
+enumerates the reader's state space. The one compiler redirection in the
+library, the `@[csimp]` lemma `Solver.derivedPairs_fast`, makes compiled code
+compute the closure `derivedPairs` with packed rows; it is a proved equality of
+the two functions. The countermodel is the reachable part
 of `extractRegular` from [Countermodels.lean](DeciNSSE/Countermodels.lean)
 with the same unfolding (`Solver.extractReachable_unfold`), so it is part of
 the verified result.
@@ -605,7 +637,8 @@ the verified result.
 
 `nsse-check problem.json certificate.json` checks a certificate produced by
 `nsse` or by another tool. The second file is either a complete `nsse` result
-or a bare certificate:
+or a bare certificate. A result of the fallback search carries no certificate
+(`{"kind":"complete"}`), so there is nothing to check for it:
 
 ```json
 {"kind":"unsat"}
@@ -720,7 +753,8 @@ completeness proof. The direct route is also better in its own right:
 - **One construction replaces several.** The chains of fresh variables that
   the earlier proof used in its completeness argument and its transfers
   became the four-spine extension. Its clash analysis defines the reader, and
-  its selected least shape gives the countermodels in all three domains. Cap
+  the variance shape of its variance form gives the countermodels in all three
+  domains. Cap
   automata, the finality convention and cap elimination are no longer needed.
 - **Admissions have a semantic reading.** They are cross and self events of
   the constraints, rather than closed P-edges in a transition monoid.
@@ -779,7 +813,7 @@ procedures also relies on the compiler.
 
 ## Repository layout
 
-The library has 112 Lean files under `DeciNSSE/`, with 21,223 lines including
+The library has 106 Lean files under `DeciNSSE/`, with 19,378 lines including
 the root module `DeciNSSE.lean`; the counts include comments, docstrings and the
 three executable front-end modules. Namespaces are relative to `DeciNSSE`;
 "top level" means `DeciNSSE` itself, and dotted names such as `Tree.Le` live
@@ -788,42 +822,43 @@ in the namespace of their prefix.
 | Module | Namespace | Purpose |
 | --- | --- | --- |
 | [Words](DeciNSSE/Words.lean) | `Words` | Finite-alphabet paths, powers and periods |
+| [Saturation](DeciNSSE/Saturation.lean) | `Saturation` | Saturation of finite sets under an operator, and reachable sets of finite graphs |
 | [Semantics](DeciNSSE/Semantics): Sym, Tree, Finite, Regular, Order, Normalization, Safety | top level, `Sym`, `Tree`, `FTree`, `RGraph`, `Safety` | Labels, trees, finite terms, regular graphs, the variance order, normalization and finite witnesses to order failure |
-| [Semantics/Selector](DeciNSSE/Semantics/Selector.lean) | `SignSelection` | Polarity selection for signed solutions |
 | [Semantics/Characterization](DeciNSSE/Semantics/Characterization.lean) | `Characterization` | Fixed points, representation domains and flat expressiveness |
-| [Constraints](DeciNSSE/Constraints) | top level, `Covariant`, `Closure`, `ConstraintDual`, `PathBounds`, `Signs` | Flat syntax, satisfaction, entailment, closure, duals, path bounds and the signed translation |
-| [Satisfiability](DeciNSSE/Satisfiability) | top level, `PathDecision`, `FiniteSat`, `FiniteVariance`, `RGraph` | Least shapes, their finite graphs, label clashes, cycle clashes and finite satisfiability |
+| [Constraints](DeciNSSE/Constraints) | top level, `Covariant`, `Closure`, `PathBounds`, `Signs` | Flat syntax, satisfaction, entailment, closure, path bounds and the signed translation |
+| [Satisfiability](DeciNSSE/Satisfiability): LeastShape, BoundSets, ShapeGraph, Cycle, Finite, Decide | top level, `PathDecision`, `FiniteSat`, `RGraph` | Least shapes, bound sets and the finite graphs of least shapes, label clashes, cycle clashes and finite satisfiability |
+| [Satisfiability](DeciNSSE/Satisfiability): VarianceShape, Variance | top level, `SignDuality` | Sign duality, the variance shape, and the satisfiability tests for every variance |
 | [Transfer/Safety](DeciNSSE/Transfer/Safety.lean) | top level | The query sides `Side`, unsafe words `Unsafe`, and `entails_iff_not_sideUnsafe` |
 | [Transfer](DeciNSSE/Transfer): RankedExtension, Cycle | `Ranked` | Ranked source and sink extensions, cycle clashes under extension |
 | [Transfer](DeciNSSE/Transfer): Regular, Finite | `RegularTransfer`, `FiniteTransfer` | Countermodel transfer to regular and finite trees |
 | [Monitor](DeciNSSE/Monitor): Spine, Closure, Clash | `Spine.Closure` | The four-spine extension, its closure and its clashes |
 | [Monitor](DeciNSSE/Monitor): Events, Semantics | `Events` | Clash events and their semantics |
-| [Monitor](DeciNSSE/Monitor): Reader, Bridge, Interface, Decision | `Monitor` | Label readers, side readers and monitors, the semantic bridge and the monitor deciders |
-| [Holes/Basic](DeciNSSE/Holes/Basic.lean) | `Holes` | Readers, comparisons and holes |
+| [Monitor](DeciNSSE/Monitor): Reader, Bridge, Decision | `Monitor` | Label readers, side readers and their holes, the semantic bridge and the deciders from a side-hole decider |
+| [Holes/Basic](DeciNSSE/Holes/Basic.lean) | `Holes`, `CoAlignment` | Readers, comparisons and holes |
 | [Holes/Hierarchy](DeciNSSE/Holes/Hierarchy.lean) and [Holes/Hierarchy/](DeciNSSE/Holes/Hierarchy): Expansion, Derived, Canonical, Starts, Unary, Reader | `LetteredHierarchy` | The canonical hierarchy: expansion, derived monitors, canonical decomposition, start cores, unary levels and readers as lettered monitors |
 | [Holes/Depth](DeciNSSE/Holes/Depth.lean) | `HierarchyDepth` | Canonical depth |
 | [Holes](DeciNSSE/Holes): Cores, StartCores, CoreOccurrences, Supports | `Cores`, `StartCores`, `CoreOccurrences`, `Supports` | Cores, start cores and supports of hierarchy levels |
-| [Holes](DeciNSSE/Holes): Packets, Desubstitution | `Packets`, `Desubstitution` | Tuples of blocks, marker codes and desubstitution |
+| [Holes/Packets](DeciNSSE/Holes/Packets.lean) | `Packets` | Tuples of blocks and bounded lists of words |
 | [Holes](DeciNSSE/Holes): CoAlignment, Exchange | `CoAlignment`, `CoAlignment.Lettered`, `Exchange` | Lettered monitors, comparison alignment and exchange types |
 | [Holes](DeciNSSE/Holes): LevelMaps, NormalForm, BoundaryPairs | `LevelMaps`, `NormalForm`, `BoundaryPairs` | Level maps, the isolated-letter normal form and boundary-pair propagation |
 | [Holes](DeciNSSE/Holes): Agree, Columns, BoundedDepth | `BoundedDepth` | Agreement on a support, the column automaton and compression at bounded depth |
 | [Holes/ElementaryBound](DeciNSSE/Holes/ElementaryBound.lean) | `ElementaryBound` | Dictionary and length bounds for holes of bounded depth |
 | [RejectedTail](DeciNSSE/RejectedTail) | `RejectedTail` | Rejected-path property, tail bound, return gap, depth and finite search |
 | [Instances](DeciNSSE/Instances.lean) | top level | Product and arrow variance maps |
-| [Main](DeciNSSE/Main.lean) | top level | The three original decision procedures |
+| [Main](DeciNSSE/Main.lean) | top level | The three main decision procedures |
 | [Countermodels](DeciNSSE/Countermodels.lean) | top level | `refutesB` and computable regular and finite countermodels |
 | [Certificates](DeciNSSE/Certificates.lean) and [Certificates/Product](DeciNSSE/Certificates/Product.lean) | `Certificates` | Certificate formats, covering products, specification checkers and their soundness |
 | [Certificates/Json](DeciNSSE/Certificates/Json.lean) | `Certificates.Json` | JSON problems and certificate verification with the packed checkers |
 | [Certificates/Command](DeciNSSE/Certificates/Command.lean) | none (`main`) | The executable `nsse-check` |
-| [Solver](DeciNSSE/Solver.lean) and [Solver/](DeciNSSE/Solver) | top level, `Solver`, `Solver.Checked`, `Solver.Graph`, `Solver.Mask`, `Solver.Search` | The certifying solver: packed readers and checks, the packed decider, the search and reachable countermodels |
+| [Solver](DeciNSSE/Solver.lean) and [Solver/](DeciNSSE/Solver) | top level, `Solver`, `Solver.Checked`, `Solver.Graph`, `Solver.Mask`, `Solver.Search` | The certifying solver: packed readers and checks, the search and reachable countermodels |
 | [Solver/Command](DeciNSSE/Solver/Command.lean) | `Solver.Command` (and `main`) | The executable `nsse` |
 | [Complexity](DeciNSSE/Complexity.lean) | none | Overview and imports of the complexity modules |
-| [Complexity](DeciNSSE/Complexity): Reach, SummaryTables, SummaryColumns, SummaryGraph, SummarySound, SummaryComplete, SummaryBounds, SummaryDecision | `Complexity`, `Complexity.Summary`; deciders top level | Reachable sets, the summary search, its correctness and configuration bounds, and the summary deciders |
+| [Complexity](DeciNSSE/Complexity): SummaryTables, SummaryColumns, SummaryGraph, SummarySound, SummaryComplete, SummaryBounds, SummaryDecision | `Complexity.Summary`; deciders top level | The summary search, its correctness and configuration bounds, and the summary deciders |
 | [Complexity](DeciNSSE/Complexity): Unary, UnaryExamples | `Complexity.Unary`; deciders top level | Holes over one letter and the arity-one deciders, with kernel-checked examples |
 | [Complexity](DeciNSSE/Complexity): BinNFA, Directions, FiniteTrees | `Complexity`, `Complexity.BinNFA`, `Complexity.Directions`, `Complexity.FiniteTrees` | Binary automata, child layouts and finite trees shared by the lower bounds |
-| [Complexity](DeciNSSE/Complexity): HardnessCode, HardnessSystem, HardnessSolutions, HardnessCountermodel, Hardness | `Complexity`, `Complexity.Hardness` | The PSPACE-hardness reduction from universality of binary automata |
+| [Complexity](DeciNSSE/Complexity): AllFinalCode, Hardness | `Complexity`, `Complexity.AllFinal`, `Complexity.Hardness` | The PSPACE-hardness reduction from universality of binary automata, through automata whose states are all final |
 | [Complexity](DeciNSSE/Complexity): Counter, CounterBinary | `Complexity.Counter` | The counter automaton and its binary coding |
-| [Complexity](DeciNSSE/Complexity): RejectionSystem, RejectionSolutions, RejectionCountermodel, RejectionCertificates, RejectionExamples, ExpWitness | `Complexity`, `Complexity.Rejection` | Rejection systems and exponentially long holes |
+| [Complexity](DeciNSSE/Complexity): RejectionSystem, RejectionSolutions, RejectionCountermodel, RejectionCertificates, RejectionExamples, ExpWitness | `Complexity`, `Complexity.Rejection` | Rejection systems, shared by the hardness reduction, and exponentially long holes |
 
 The root module `DeciNSSE.lean` imports the proof library and the solver. Every
 module is reachable from `import DeciNSSE` except the executable front ends

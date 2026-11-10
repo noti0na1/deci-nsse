@@ -1,5 +1,5 @@
 import DeciNSSE.Complexity.SummaryColumns
-import DeciNSSE.Complexity.Reach
+import DeciNSSE.Saturation
 import DeciNSSE.Holes.Exchange
 
 /-! # The summary search graph
@@ -29,7 +29,7 @@ configuration by saturation.
 -/
 
 namespace DeciNSSE.Complexity.Summary
-open CoAlignment LetteredHierarchy BoundedDepth
+open CoAlignment LetteredHierarchy BoundedDepth Saturation
 
 universe u
 

@@ -165,8 +165,9 @@ polynomial in $\beta$.
 
 \subsection{The Embedding of Binary Trees}
 
-The proof of \cref{prop:cx-length} for $n\ge3$ compares the systems
-$\Phi_\beta^{(n)}$ with $\Phi_\beta$ by an embedding of binary trees. Let
+The remark on padding in \cref{sec:complexity-lower} compares systems over
+a binary constructor with their padded versions by an embedding of binary
+trees; no other result depends on it. Let
 $n\ge3$, let $f$ be covariant of arity $n$, and let $f_2$ be binary and
 covariant. For a binary tree $t$, let $\cxlift(t)$ be the tree over $\Dir$
 with domain $\operatorname{dom}(t)\cup\{wi:w\in\Pos(t),\ 2\le i<n\}$, the
@@ -250,175 +251,72 @@ every $w$, and if $\widehat{\sigma'(x)}(w)\ne\bot$ then
 $w\in\Pos(\sigma'(x))\subseteq\{0,1\}^*$ by \cref{lem:cx-topfree}(1).
 \end{proof}
 
-\subsection{Exponentially Long Holes}
+\subsection{Rejection Systems}
 
-\begin{proof}[Proof of \cref{prop:cx-length}]
-Let $n=2$ first, and let $L_q$ be the set of words accepted from $q$, for
-$q\in Q\cup\{q_{\mathrm{in}}\}$; it is prefix closed because all states are final. By
-\cref{lem:cx-counter}, $L_{q_{\mathrm{in}}}=\{0,1\}^*\setminus\mathsf W_\beta\{0,1\}^*$.
+\begin{proof}[Proof of \cref{lem:cx-rejection}]
+Let $\mathcal A=(Q,I,Q,\delta)$ be all-final, and for
+$q\in Q\cup\{q_{\mathrm{in}}\}$ let $L_q$ be the set of words that label a
+path from $q$. Each $L_q$ is prefix closed and contains $\eps$, and
+$aL_{q'}\subseteq L_q$ for every transition $q\xrightarrow{a}q'$. Moreover
+$L_{q_{\mathrm{in}}}=L(\mathcal A)$: a nonempty word has a path from
+$q_{\mathrm{in}}$ iff it has one from some state of $I$, and $\eps$ belongs
+to both sets because $I\ne\varnothing$. Recall that the systems are
+covariant, so a word $w$ is left unsafe iff some solution $\sigma$ has
+$\widehat{\sigma(x)}(w)=\top\ne\widehat{\sigma(y)}(w)$, and right unsafe iff
+some solution has $\widehat{\sigma(y)}(w)=\bot\ne\widehat{\sigma(x)}(w)$.
 
-\emph{Claim A.} Every solution $\sigma$ of $\Phi_\beta$ has $\sigma(x)$ top
-free with $\Pos(\sigma(x))\subseteq\{0,1\}^*$, and
+(1) Put $\sigma(x)=\sigma(g)=\sigma(b)=\Bot$ and $\sigma(Y_q)=\Top$ for every
+$q\in Q\cup\{q_{\mathrm{in}}\}$. The literal $b=\Bot$ holds, the two upper
+literals have $\Bot$ on the left, and every lower literal has $\Top$ on the
+right. These trees are finite.
+
+\emph{Claim A.} Every solution $\sigma$ of $\Phi$ has $\sigma(x)$ top free
+with $\Pos(\sigma(x))\subseteq\{0,1\}^*$, and
 $\widehat{\sigma(Y_q)}(v)\ne\bot$ for every $q\in Q\cup\{q_{\mathrm{in}}\}$ and
-$v\in L_q$. The first part is \cref{lem:cx-topfree}(3). For the second, use
-induction on $v$. For $v=\eps$, the literal $f(b,b)\le Y_q$ and
-\eqref{eq:g11} give $\widehat{\sigma(Y_q)}(\eps)\ge f$. For $v=av'$, some
-transition $q\xrightarrow{a}q'$ has $v'\in L_{q'}$. The corresponding
-literal, say $f(Y_{q'},b)\le Y_q$ for $a=0$, and \eqref{eq:g11} give
-$\widehat{\sigma(Y_q)}(0v')\ge\widehat{\sigma(Y_{q'})}(v')$, which is not $\bot$
-by induction; the case $a=1$ is symmetric.
+$v\in L_q$. The first part is \cref{lem:cx-topfree}(3), applied to the
+literals $b=\Bot$, $g\le f(g,g,\bar b)$, and $x\le f(g,g,\bar b)$. For the
+second, use induction on $v$. For $v=\eps$, the literal
+$f(b,b,\bar b)\le Y_q$ and \eqref{eq:g11} give
+$\widehat{\sigma(Y_q)}(\eps)\ge f$. For $v=av'$, some transition
+$q\xrightarrow{a}q'$ has $v'\in L_{q'}$. The left side $s$ of the
+corresponding literal, say $f(Y_{q'},b,\bar b)\le Y_q$ for $a=0$, has
+$\widehat s(0v')=\widehat{\sigma(Y_{q'})}(v')$, so \eqref{eq:g11} gives
+$\widehat{\sigma(Y_q)}(0v')\ge\widehat{\sigma(Y_{q'})}(v')$, which is not
+$\bot$ by induction; the case $a=1$ is symmetric.
 
-(2) By Claim A, $\widehat{\sigma(x)}(w)\ne\top$ for every solution $\sigma$ and
-every $w$, so no word is left unsafe. If $w$ is right unsafe, witnessed by
-$\sigma$, then $\widehat{\sigma(x)}(w)\ne\bot$, so
-$w\in\Pos(\sigma(x))\subseteq\{0,1\}^*$ by \cref{lem:cx-topfree}(1), and
-$\widehat{\sigma(y)}(w)=\bot$, so $w\notin L_{q_{\mathrm{in}}}$ by Claim A. Hence
-$w\in\mathsf W_\beta\{0,1\}^*$. Conversely, let
-$w\in\mathsf W_\beta\{0,1\}^*$ and $m=\len w+1$, and put
+(2) Let $\sigma$ be a solution. By Claim A and \cref{lem:cx-topfree}(1),
+$\widehat{\sigma(x)}(w)\in\{\bot,f\}$ for every word $w$, so no word is left
+unsafe. If $w$ is right unsafe, witnessed by $\sigma$, then
+$\widehat{\sigma(x)}(w)\ne\bot$, so $w\in\Pos(\sigma(x))\subseteq\{0,1\}^*$ by
+\cref{lem:cx-topfree}(1), and $\widehat{\sigma(y)}(w)=\bot$, so
+$w\notin L_{q_{\mathrm{in}}}=L(\mathcal A)$ by Claim A.
+
+(3) Let $w\in\{0,1\}^*\setminus L(\mathcal A)$ and $m=\len w+1$, and put
 \[
  \sigma_w(b)=\Bot,\qquad \sigma_w(g)=T_{\{0,1\}^{<m}},\qquad
  \sigma_w(x)=T_{\pr(w)},\qquad \sigma_w(Y_q)=T_{L_q}^m\ \ (q\in Q\cup\{q_{\mathrm{in}}\}).
 \]
-These trees are finite. The literal $b=\Bot$ holds. By
-\cref{lem:cx-topfree}(1), $g\le f(g,g)$ holds because
-$\{0,1\}^{<m}\subseteq\{\eps\}\cup\{0,1\}\{0,1\}^{<m}$, and $x\le f(g,g)$ holds
+These trees are finite. The literal $b=\Bot$ holds. The tree
+$s=f(\sigma_w(g),\sigma_w(g),\Bot,\ldots,\Bot)$ is top free with
+$\Pos(s)=\{\eps\}\cup\{0,1\}\{0,1\}^{<m}=\{0,1\}^{\le m}$. By
+\cref{lem:cx-topfree}(1), $g\le f(g,g,\bar b)$ holds because
+$\{0,1\}^{<m}\subseteq\{0,1\}^{\le m}$, and $x\le f(g,g,\bar b)$ holds
 because $\pr(w)\subseteq\{0,1\}^{\le m}$. Each lower literal holds by
-\cref{lem:cx-topfree}(4): $\eps\in L_q$, the literal $f(b,b)\le Y_q$ is the case
-$P'=\varnothing$, and $q\xrightarrow{a}q'$ gives $aL_{q'}\subseteq L_q$. Thus
-$\sigma_w$ solves $\Phi_\beta$. Finally $\widehat{\sigma_w(x)}(w)=f$, while
-$\len w<m$ and $w\notin L_{q_{\mathrm{in}}}$ give $\widehat{\sigma_w(y)}(w)=\bot$ by the
-formula in the proof of \cref{lem:cx-topfree}(4). So $w$ is right unsafe.
+\cref{lem:cx-topfree}(4) with $P=L_q$: the literal $f(b,b,\bar b)\le Y_q$
+is the case $P'=\varnothing$, where $T_\varnothing^m=\Bot$, and the literal
+of a transition $q\xrightarrow{a}q'$ is the case $P'=L_{q'}$. Thus
+$\sigma_w$ solves $\Phi$. Finally $\widehat{\sigma_w(x)}(w)=f$, since
+$w\in\pr(w)=\Pos(\sigma_w(x))$, while $\len w<m$ and
+$w\notin L_{q_{\mathrm{in}}}$ give $\widehat{\sigma_w(y)}(w)=\bot$ by the
+formula in the proof of \cref{lem:cx-topfree}(4). So $w$ is right unsafe,
+and $\sigma_w(x)\not\le\sigma_w(y)$ by \eqref{eq:g11}.
 
-(1) The solution $\sigma_{\mathsf W_\beta}$ is finite, hence regular, and lies in
-each domain. By \eqref{eq:g11}, $\widehat{\sigma(x)}(\mathsf W_\beta)=f>\bot=
-\widehat{\sigma(y)}(\mathsf W_\beta)$ gives $\sigma(x)\not\le\sigma(y)$ for
-$\sigma=\sigma_{\mathsf W_\beta}$.
-
-(3) The system is satisfiable, so by \cref{thm:holes} the holes of each
-label reader are exactly the unsafe words of its side, and~(2) identifies them. The
-search of \cref{fig:algorithm} returns its answer from such a hole in each
-domain: by~(1), the finite-satisfiability test succeeds.
-
-For $n\ge3$, read the binary constructor of $\Phi_\beta$ as $f_2$. Then the
-system $\Phi_\beta^{(n)}$ is $(\Phi_\beta)^{(n)}$ in the notation of
-\cref{prop:cx-embedding}, with $o=b$. By \cref{prop:cx-embedding}(2), the
-finite assignment $\cxlift\circ\sigma_w$ solves $\Phi_\beta^{(n)}$, and the unsafe words
-in $\{0,1\}^*$ of the two systems coincide. By \cref{prop:cx-embedding}(3),
-every unsafe word of $\Phi_\beta^{(n)}$ is right unsafe and lies in $\{0,1\}^*$.
-So~(1)--(3) carry over.
-
-For every $n\ge2$ there are $k=9\beta+31$ variables, so $\beta+1=(k-22)/9$ and
-$\lambda_\beta=(\beta+1)2^{\beta+1}\ge2^{(k-22)/9}$.
-\end{proof}
-
-\subsection{PSPACE-Hardness}
-
-\begin{proof}[Proof of \cref{thm:cx-hard}]
-Let $\mathcal A=(Q,q_0,F,\delta)$ and $\mathcal A'=(Q',q_0,\{q_{\mathrm f}\},\delta')$
-be as in \cref{sec:complexity-lower}. From $Q$, the automaton $\mathcal A'$
-reads $0$ into a middle state or, from a final state, $1$ into $q_{\mathrm f}$; a
-middle state of $(q,a,q')$ reads only $a$, into $q'$; and $q_{\mathrm f}$ has no
-transition. Since $q_{\mathrm f}$ is the only final state, the accepting runs
-from $q_0$ are exactly those that read $0a_10a_2\cdots0a_t1$ through states
-$q_0,\mu_1,q_1,\ldots,\mu_t,q_t,q_{\mathrm f}$, where $\mu_i$ is the middle state
-of the transition $(q_{i-1},a_i,q_i)$ and $q_0,\ldots,q_t$ is an accepting run
-of $\mathcal A$ on $a_1\cdots a_t$. Hence $\mathcal A'$ accepts exactly
-$\cxcode(L(\mathcal A))$. Let $P=\{e(u),e(u)0:u\in\{0,1\}^*\}$ be the set of proper prefixes of codes and
-$C=\cxcode(\{0,1\}^*)$ the set of codes. The set $P$ is prefix closed and
-contains $\eps$. If $\pi\in P$ and $\pi a\notin P$ for a letter $a\in\Dir$, then
-$a\ge2$ or $\pi a\in C$, since $e(u)0\in P$ and $e(u)0a'=e(ua')\in P$ for
-$a'\in\{0,1\}$.
-
-\emph{Universal automata.} Let $\mathcal A$ be universal, and let $\sigma$ be a
-solution of $\chi(\mathcal A')$, in any domain.
-
-First, $\widehat{\sigma(r)}(\pi)\in\{f,\top\}$ for every $\pi\in P$. Let
-$\mathsf s(\pi)=r$ for $\pi=e(u)$ and $\mathsf s(\pi)=r'$ for $\pi=e(u)0$. We show
-by induction on $\pi\in P$ that $\widehat{\sigma(r)}(\pi)=\top$, or
-$\pi\in\operatorname{dom}(\sigma(r))$ and $\sigma(\mathsf s(\pi))\le\sigma(r)|_\pi$,
-where $t|_\pi$ is the subtree at $\pi$. This holds at $\eps$. Let $\pi=\pi'a\in P$
-with $\pi'\in P$. If $\widehat{\sigma(r)}(\pi')=\top$, then also
-$\widehat{\sigma(r)}(\pi)=\top$. Otherwise the lower literal of $\mathsf s(\pi')$
-puts a constructor below $\sigma(r)|_{\pi'}$, so the label of $\sigma(r)$ at $\pi'$
-is $f$ or $\top$. If it is $\top$, then $\widehat{\sigma(r)}(\pi)=\top$. If it is
-$f$, decomposing at the child $a$ gives the claim: for $\mathsf s(\pi')=r$, the
-only child in $P$ is $a=0$, $\mathsf s(\pi)=r'$, and
-$f(\sigma r',\Bot,\ldots,\Bot)\le\sigma(r)|_{\pi'}$ gives $\sigma(r')\le\sigma(r)|_\pi$;
-for $\mathsf s(\pi')=r'$, $a\in\{0,1\}$, $\mathsf s(\pi)=r$, and
-$f(\sigma r,\sigma r,\Bot,\ldots,\Bot)\le\sigma(r)|_{\pi'}$ gives
-$\sigma(r)\le\sigma(r)|_\pi$. In the second alternative, the lower literal of
-$\mathsf s(\pi)$ makes the label of $\sigma(r)$ at $\pi$ at least $f$.
-
-Second, let $w\in(P\cup C)\cap\operatorname{dom}(\sigma(x))$. Then
-$\sigma(x)(w)\ne\top$; if $w\in P$ and $\sigma(x)(w)=f$, then $\sigma(x)(wi)=\bot$
-for $2\le i<n$; and if $w\in C$, then $\sigma(x)(w)=\bot$. Indeed, $w$ is a prefix
-of a code $v$, which is accepted because $\mathcal A$ is universal; take an
-accepting run $p_0=q_0,p_1,\ldots,p_{|v|}=q_{\mathrm f}$ of $\mathcal A'$ on $v$.
-By induction on $j\le\len w$, if $\wpre wj\in\operatorname{dom}(\sigma(x))$ then
-$\sigma(x)|_{\wpre wj}\le\sigma(X_{p_j})$. This holds for $j=0$, as $x=X_{q_0}$. If
-$\wpre w{j+1}\in\operatorname{dom}(\sigma(x))$, then $\sigma(x)$ has the label $f$ at
-$\wpre wj$, and the transition from $p_j$ to $p_{j+1}$ on the letter $w[j]$ gives a
-literal $X_{p_j}\le f(\ldots)$ with $X_{p_{j+1}}$ in the argument $w[j]$. So
-$\sigma(X_{p_j})$ lies between two trees with the root label $f$ and has this root
-label itself, and decomposing both inequalities at the child $w[j]$ gives
-$\sigma(x)|_{\wpre w{j+1}}\le\sigma(X_{p_{j+1}})$. At $j=\len w$: if
-$w\in P$, then $p_{|w|}$ has a transition on $v[\len w]$, whose literal bounds
-$\sigma(x)|_w$ by a constructor tree with the children $\sigma(b)=\Bot$ in the
-arguments $2,\ldots,n-1$; if $w\in C$, then $p_{|w|}=q_{\mathrm f}$ and
-$\sigma(x)|_w\le\sigma(X_{q_{\mathrm f}})=\Bot$.
-
-Now let $w$ be a common position of $\sigma(x)$ and $\sigma(r)$. If $w\in P$, the
-two facts give $\sigma(x)(w)\le f\le\sigma(r)(w)$. Otherwise, let $\pi a$ be the
-shortest prefix of $w$ outside $P$, with $\pi\in P$. Then $\pi a$ is a position
-of $\sigma(x)$ with $a\ge2$ or $\pi a\in C$, so $\sigma(x)(\pi a)=\bot$ by the
-second fact. A leaf has no children, so $w=\pi a$ and
-$\sigma(x)(w)=\bot\le\sigma(r)(w)$. By \eqref{eq:g3}, $\sigma(x)\le\sigma(r)$. Thus
-$\chi(\mathcal A')\models_{\mathcal D}x\le r$ in each domain.
-
-\emph{Rejecting automata.} Let $\mathcal A$ reject $w_0$, and put
-$c_0=\cxcode(w_0)$. A prefix of $c_0$ accepted by $\mathcal A'$ would be a
-code, hence equal to $c_0$ by prefix freeness; but $c_0$ is not accepted, since
-$w_0\notin L(\mathcal A)$ and the code is injective. For $q\in Q'$ let $J_q$ be
-the set of cuts $j\le\len{c_0}$ such that $q$ is reachable from $q_0$ on
-$\wpre{c_0}j$, and put $P_q=\bigcup_{j\in J_q}\pr(\wsuf{c_0}j)$. Define
-\[
- \sigma(X_q)=T_{P_q},\qquad \sigma(z)=\Top,\qquad \sigma(b)=\Bot,\qquad
- \sigma(r)=r_m,\qquad \sigma(r')=r'_m,\qquad m=\len{c_0},
-\]
-where $r_0=r'_0=\Top$, $r_{j+1}=f(r'_j,\Bot,\ldots,\Bot)$, and
-$r'_{j+1}=f(r_j,r_j,\Bot,\ldots,\Bot)$. All these trees are finite. We check the
-literals. No prefix of $c_0$ is accepted, so $J_{q_{\mathrm f}}=\varnothing$ and
-$\sigma(X_{q_{\mathrm f}})=T_\varnothing=\Bot$. For a transition $q\xrightarrow0q'$
-with $P_q\ne\varnothing$, the tree $T_{P_q}$ has the label $f$ at its root, its
-children in the arguments $i\ge2$ are $\Bot$ because $P_q\subseteq\{0,1\}^*$, its
-child $1$ lies below $\sigma(z)=\Top$, and its child $0$ is $T_{P'}$ with
-$P'=\bigcup\{\pr(\wsuf{c_0}{j+1}):j\in J_q,\ j<\len{c_0},\ c_0[j]=0\}$. Each
-such $j$
-has $j+1\in J_{q'}$, so $P'\subseteq P_{q'}$, and $T_{P'}\le T_{P_{q'}}$ by
-\cref{lem:cx-topfree}(1). Hence $\sigma(X_q)\le f(\sigma X_{q'},\sigma z,\Bot,\ldots,\Bot)$;
-for $P_q=\varnothing$ this is immediate. The letter $1$ is symmetric. The
-literal $b=\Bot$ holds. By induction, $r_{j+1}\le r_j$ and $r'_{j+1}\le r'_j$:
-both hold at $j=0$ against $\Top$, and the constructor is monotone. So
-$f(r'_m,\Bot,\ldots,\Bot)=r_{m+1}\le r_m$ and
-$f(r_m,r_m,\Bot,\ldots,\Bot)=r'_{m+1}\le r'_m$.
-
-It remains to refute the query. Since $0\in J_{q_0}$, we have $c_0\in\Pos(\sigma(x))$.
-For $u\in\{0,1\}^*$ and $j\ge2\len u+1$, the tree $r_j$ has the label $f$ along
-$e(u)$, and its subtree at $e(u)$ is $r_{j-2\len u}$, because $r_i$ has the child
-$r'_{i-1}$ at $0$ and $r'_i$ has the child $r_{i-1}$ at $0$ and at $1$, for
-$i\ge1$. With $m=2\len{w_0}+1$, the subtree of $r_m$ at $e(w_0)$ is
-$r_1=f(\Top,\Bot,\ldots,\Bot)$, so $c_0=e(w_0)1$ is a common position at which
-$\sigma(x)$ has the label $f$ and $\sigma(r)$ has $\bot$. By \eqref{eq:g3},
-$\sigma(x)\not\le\sigma(r)$. This finite countermodel lies in every domain.
-
-\emph{The reduction.} The assignment with $X_q=z=b=\Bot$ and $r=r'=\Top$ solves
-$\chi(\mathcal A')$, so the system is satisfiable. It has $\len{Q'}+4$ variables
-with $\len{Q'}=\len Q+\len\delta+1$, and $2\len\delta+\len F+4$ literals, each
-containing at most $n+1$ variable occurrences, and it is computed in polynomial
-time for fixed $n$. Universality of nondeterministic automata over $\{0,1\}$
-with one initial state is PSPACE-hard
-\citep[Theorem~3]{KrotzschMasopustThomazo16}, as explained before
-\cref{thm:cx-hard}. Hence entailment is PSPACE-hard in each domain.
-The covariant instances are instances of the problem with the variance as
-part of the input, so that problem is PSPACE-hard as well.
+\emph{The equivalence.} By~(2) and~(3), the right-unsafe words are exactly
+the words of $\{0,1\}^*\setminus L(\mathcal A)$. If $\mathcal A$ is
+universal, no word is left or right unsafe, so $\Phi\models x\le y$ over
+arbitrary trees by \eqref{eq:g13}. Regular and finite solutions are in
+particular solutions over arbitrary trees, so the entailment holds in each
+domain. If $\mathcal A$ rejects a word $w$, then $\sigma_w$ is a finite
+solution, hence a regular one, with $\sigma_w(x)\not\le\sigma_w(y)$, and the
+entailment fails in each domain.
 \end{proof}

@@ -3,18 +3,14 @@ import DeciNSSE.Holes.Depth
 
 /-! # Shape preservation under level maps
 
-Maps preserving comparisons and the start prefix preserve the canonical depth
-and every start count, including levels where the start prefix is the whole word.
+Comparison-preserving maps with images in the original dictionary preserve
+canonical depth and cannot increase any dictionary.
 
 ## Main declarations
 
 - `NoCollapse`: maps that identify no boundary pair.
-- `start_below`: equal markers and start prefixes at one level give equal start
-  counts below, by `exists_common_prefix_below` and `sCount_le_of_full_prefix`.
-- `hierOf_add_of_map`, `sCount_add_of_map`, `isUnary_add_iff_of_map`: the
-  hierarchy above a mapped level.
-- `LevelMapResult`, `levelMap_spec`: a level map preserves holehood, canonical
-  shape and start counts.
+- `hierOf_add_of_map`, `isUnary_add_iff_of_map`: the hierarchy above a mapped level.
+- `LevelMapResult`, `levelMap_spec`: holehood, dictionary containment, and canonical shape.
 
 The declarations are in the namespace `DeciNSSE.LevelMaps`.
 -/
@@ -100,24 +96,6 @@ theorem drop_expand_cutP (ℓ : Γ) (V : List (List Γ)) (k : ℕ) :
     rw [← expand_append, List.take_append_drop]
   rw [h]; exact List.drop_left' rfl
 
-omit [DecidableEq Γ] in
-
-/-- Blocks avoiding the marker are determined by a prefix comparison through the marker. -/
-theorem eq_of_append_marker_prefix {ℓ : Γ} : ∀ {A B X Y : List Γ}, ℓ ∉ A → ℓ ∉ B →
-    A ++ ℓ :: X <+: B ++ ℓ :: Y → A = B
-  | [], [], _, _, _, _, _ => rfl
-  | [], b :: B, X, Y, _, hB, h => by
-      rw [List.nil_append, List.cons_append, List.cons_prefix_cons] at h
-      exact absurd (h.1 ▸ List.mem_cons_self) hB
-  | a :: A, [], X, Y, hA, _, h => by
-      rw [List.nil_append, List.cons_append, List.cons_prefix_cons] at h
-      exact absurd (h.1.symm ▸ List.mem_cons_self) hA
-  | a :: A, b :: B, X, Y, hA, hB, h => by
-      rw [List.cons_append, List.cons_append, List.cons_prefix_cons] at h
-      obtain ⟨rfl, h⟩ := h
-      rw [eq_of_append_marker_prefix (fun h' => hA (List.mem_cons_of_mem _ h'))
-        (fun h' => hB (List.mem_cons_of_mem _ h')) h]
-
 /-- Comparison preservation passes to the next packet alphabet. -/
 theorem noCollapse_cutAt {Γ' : Type*} {F : Γ → Γ'} {ℓ : Γ} {u : List Γ}
     (hu : u.getLast? = some ℓ) (h : NoCollapse F u) : NoCollapse (List.map F) (cutAt ℓ u) := by
@@ -145,8 +123,8 @@ theorem noCollapse_cutAt {Γ' : Type*} {F : Γ → Γ'} {ℓ : Γ} {u : List Γ}
     rw [← List.map_append, ← expand_append, ht]
   have hcu := ((h.isComp_iff _ _).mp hcF).2.2
   rw [hdrop e he, hdrop s hs] at hcu
-  exact (eq_of_append_marker_prefix (hav _ (List.getElem_mem _)) (hav _ (List.getElem_mem _))
-    hcu).symm
+  exact ((mark_prefix_iff (hav _ (List.getElem_mem _))
+    (hav _ (List.getElem_mem _))).mp hcu).1.symm
 
 /-- Cutting a power of the marker gives empty blocks. -/
 theorem cutAt_replicate (ℓ : Γ) : ∀ n, cutAt ℓ (List.replicate n ℓ) = List.replicate n []
@@ -194,213 +172,8 @@ theorem depth_eq_of_isUnary_iff {w w' : List α}
 def liftMap {j j' : ℕ} (φ : Alph α j' → Alph α j) : (r : ℕ) → Alph α (j' + r) → Alph α (j + r)
   | 0 => φ
   | r + 1 => List.map (liftMap φ r)
-/-- Truncating a word does not change the earlier cores. -/
-theorem core_take {Γ C : Type*} (D : Lettered Γ C) (u : List Γ) {L x : ℕ} (hx : x ≤ L) :
-    D.core (u.take L) x = D.core u x := by
-  rw [core_eq_kst, core_eq_kst, List.take_take, Nat.min_eq_left hx]
-
-/-- A map injective at `a` preserves the number of occurrences of `a`. -/
-theorem count_map_of_injOn {β γ : Type*} [DecidableEq β] [DecidableEq γ] (f : β → γ) {a : β} :
-    ∀ {l : List β}, (∀ x ∈ l, f x = f a → x = a) → (l.map f).count (f a) = l.count a
-  | [], _ => rfl
-  | x :: l, h => by
-      have ih := count_map_of_injOn f (l := l) (fun y hy => h y (List.mem_cons_of_mem _ hy))
-      rw [List.map_cons, List.count_cons, List.count_cons, ih]
-      by_cases hx : x = a
-      · subst hx; simp
-      · have : f x ≠ f a := fun h' => hx (h x List.mem_cons_self h')
-        simp [hx, this]
-/-- A start prefix covering a whole level also covers the next level. -/
-theorem start_cap_up (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) (k : ℕ)
-    (h : sCount D0 w k = (hierOf w k).length) :
-    sCount D0 w (k + 1) = (hierOf w (k + 1)).length := by
-  rw [sCount_succ D0 hw k, h, List.take_length, ← expand_hierOf hw k,
-    count_expand _ (avoid_hierOf k)]
-  omega
-
-/-- The start count of every positive level is positive. -/
-theorem sCount_pos (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) (k : ℕ) :
-    1 ≤ sCount D0 w (k + 1) := by
-  rw [sCount_succ D0 hw k]
-  have := List.length_pos_iff.mpr (hierOf_ne_nil hw (k + 1))
-  omega
 
 end
-section StartBelow
-variable {α : Type u} {Q : Type v} [DecidableEq α] [Inhabited α]
-
-/-- The cut calculation of `start_below`. If the start prefix of level `i + 1` has length at
-most `L ≤ |u_{i+1}|`, the cut `P_L` of `u_i` lies beyond the start prefix of level `i`, or
-covers all of `u_i`. -/
-theorem sCount_lt_cutP_or_eq_length (D0 : Lettered α Q) {w : List α} (hw : w ≠ []) (i : ℕ)
-    {L : ℕ} (hsL : sCount D0 w (i + 1) ≤ L) (hLn : L ≤ (hierOf w (i + 1)).length) :
-    sCount D0 w i < cutP (markOf w i) (hierOf w (i + 1)) L ∨
-      cutP (markOf w i) (hierOf w (i + 1)) L = (hierOf w i).length := by
-  rcases Nat.lt_or_ge (sCount D0 w (i + 1)) (hierOf w (i + 1)).length with hlt | hge
-  · left
-    have hs := sCount_succ D0 hw i
-    have hpos := sCount_pos D0 hw i
-    have hk : sCount D0 w (i + 1) - 1 < (hierOf w (i + 1)).length := by omega
-    have hc := count_take_expand (markOf w i) (avoid_hierOf i) hk (sCount D0 w i)
-    rw [expand_hierOf hw i, Nat.sub_add_cancel hpos] at hc
-    have h1 : ¬ cutP (markOf w i) (hierOf w (i + 1)) (sCount D0 w (i + 1)) ≤
-        sCount D0 w i := by
-      rw [← hc]; omega
-    have h2 := cutP_mono (markOf w i) (hierOf w (i + 1)) hsL
-    omega
-  · right
-    have hL' : L = (hierOf w (i + 1)).length := by omega
-    rw [hL', ← length_expand, expand_hierOf hw i]
-
-/-- Common prefixes below a level. Let `w'` have the markers of `w` below `j`, and let the
-level-`j` words agree on the start prefix of `w`. Then at every level `i ≤ j` they agree on a
-prefix of some length `L` between the start prefix of `w` and `|u_i|`; below `j`, this prefix
-extends beyond the start prefix or covers `u_i`. -/
-theorem exists_common_prefix_below (D0 : Lettered α Q) {w w' : List α} (hw0 : w ≠ [])
-    (hw'0 : w' ≠ []) (j : ℕ) (hmk : ∀ i < j, markOf w' i = markOf w i)
-    (hpref : (hierOf w' j).take (sCount D0 w j) = (hierOf w j).take (sCount D0 w j)) :
-    ∀ i ≤ j, ∃ L, sCount D0 w i ≤ L ∧ L ≤ (hierOf w i).length ∧
-      (hierOf w' i).take L = (hierOf w i).take L ∧
-      (i = j ∨ sCount D0 w i < L ∨ L = (hierOf w i).length) := by
-  suffices H : ∀ d i, i + d = j → ∃ L, sCount D0 w i ≤ L ∧ L ≤ (hierOf w i).length ∧
-      (hierOf w' i).take L = (hierOf w i).take L ∧
-      (i = j ∨ sCount D0 w i < L ∨ L = (hierOf w i).length) from
-    fun i hi => H (j - i) i (by omega)
-  intro d
-  induction d with
-  | zero =>
-    intro i hi
-    obtain rfl : i = j := by omega
-    exact ⟨sCount D0 w i, le_rfl, (startCore_invariants D0 hw0 i).2.1, hpref, Or.inl rfl⟩
-  | succ d ih =>
-    intro i hi
-    obtain ⟨L, hsL, hLn, hLeq, -⟩ := ih (i + 1) (by omega)
-    have hu := expand_hierOf hw0 i
-    have hu' := expand_hierOf hw'0 i
-    rw [hmk i (by omega)] at hu'
-    have hcut := sCount_lt_cutP_or_eq_length D0 hw0 i hsL hLn
-    refine ⟨cutP (markOf w i) (hierOf w (i + 1)) L, ?_, ?_, ?_, Or.inr hcut⟩
-    · rcases hcut with h | h
-      · exact h.le
-      · rw [h]; exact (startCore_invariants D0 hw0 i).2.1
-    · rw [← hu]; exact cutP_le_length _ _ _
-    · rw [← hu, ← hu', take_expand_cutP]
-      have : cutP (markOf w i) (hierOf w (i + 1)) L =
-          cutP (markOf w i) (hierOf w' (i + 1)) L := by
-        simp only [cutP, hLeq]
-      rw [this, take_expand_cutP, hLeq]
-
-/-- Full start prefixes below a level. Under the hypotheses of `exists_common_prefix_below`,
-and with equal start counts at level `j`, the start count of `w'` does not exceed that of `w`
-at any level `i ≤ j` where the start prefix of `w` is all of `u_i`. -/
-theorem sCount_le_of_full_prefix (D0 : Lettered α Q) {w w' : List α} (hw0 : w ≠ [])
-    (hw'0 : w' ≠ []) (j : ℕ) (hmk : ∀ i < j, markOf w' i = markOf w i)
-    (hpref : (hierOf w' j).take (sCount D0 w j) = (hierOf w j).take (sCount D0 w j))
-    (hj : sCount D0 w' j = sCount D0 w j) :
-    ∀ i ≤ j, sCount D0 w i = (hierOf w i).length → sCount D0 w' i ≤ sCount D0 w i := by
-  have hL := exists_common_prefix_below D0 hw0 hw'0 j hmk hpref
-  suffices H : ∀ d i, i + d = j → sCount D0 w i = (hierOf w i).length →
-      sCount D0 w' i ≤ sCount D0 w i from
-    fun i hi => H (j - i) i (by omega)
-  intro d
-  induction d with
-  | zero =>
-    intro i hi _
-    obtain rfl : i = j := by omega
-    omega
-  | succ d ih =>
-    intro i hi hcapi
-    by_contra hlt
-    push Not at hlt
-    obtain ⟨L, hsL, hLn, hLeq, -⟩ := hL i (by omega)
-    obtain ⟨L1, hsL1, hLn1, hLeq1, -⟩ := hL (i + 1) (by omega)
-    have hcap1 := start_cap_up D0 hw0 i hcapi
-    have hm := hmk i (by omega)
-    have hu := expand_hierOf hw0 i
-    have hu' := expand_hierOf hw'0 i
-    rw [hm] at hu'
-    have hLi : L = (hierOf w i).length := by omega
-    have hlen' : (hierOf w i).length < (hierOf w' i).length := by
-      have := (startCore_invariants D0 hw'0 i).2.1; omega
-    have hpref0 : (hierOf w' i).take (hierOf w i).length = hierOf w i := by
-      rw [← hLi, hLeq, hLi, List.take_length]
-    have hL1 : L1 = (hierOf w (i + 1)).length := by omega
-    have hpref1 : (hierOf w' (i + 1)).take (hierOf w (i + 1)).length = hierOf w (i + 1) := by
-      rw [← hL1, hLeq1, hL1, List.take_length]
-    have hlen1 : (hierOf w (i + 1)).length < (hierOf w' (i + 1)).length := by
-      rcases Nat.lt_or_ge (hierOf w (i + 1)).length (hierOf w' (i + 1)).length with h | h
-      · exact h
-      · exfalso
-        rw [List.take_of_length_le h] at hpref1
-        rw [← hu, ← hu', hpref1] at hlen'
-        omega
-    have hle := ih (i + 1) (by omega) hcap1
-    rw [sCount_succ D0 hw'0 i, hcap1] at hle
-    have hcnt : (hierOf w (i + 1)).length ≤
-        ((hierOf w' i).take (sCount D0 w' i)).count (markOf w' i) := by
-      obtain ⟨t, ht⟩ := List.take_prefix_take_left (l := hierOf w' i)
-        (show (hierOf w i).length ≤ sCount D0 w' i by omega)
-      rw [← ht, List.count_append, hpref0, hmk i (by omega), ← hu,
-        count_expand _ (avoid_hierOf i)]
-      omega
-    omega
-
-/-- Equal markers and start prefixes at one level preserve all lower start counts and
-prefixes. -/
-theorem start_below (D0 : Lettered α Q) {w w' : List α} (hw0 : w ≠ []) (hw'0 : w' ≠ [])
-    (j : ℕ) (hmk : ∀ i < j, markOf w' i = markOf w i)
-    (hpref : (hierOf w' j).take (sCount D0 w j) = (hierOf w j).take (sCount D0 w j))
-    (hj : sCount D0 w' j = sCount D0 w j) :
-    ∀ i ≤ j, sCount D0 w' i = sCount D0 w i ∧
-      (hierOf w' i).take (sCount D0 w i) = (hierOf w i).take (sCount D0 w i) := by
-  have htw : ∀ i ≤ j, tower D0 (markOf w') i = tower D0 (markOf w) i :=
-    fun i hi => tower_congr D0 i (fun k hk => hmk k (by omega))
-  have hpre' : ∀ i ≤ j, ∀ x < (hierOf w' i).length,
-      isStart i ((tower D0 (markOf w) i).core (hierOf w' i) x) = true ↔
-        x < sCount D0 w' i := by
-    intro i hi
-    rw [← htw i hi]
-    exact (startCore_invariants D0 hw'0 i).1
-  have hpre := fun i => (startCore_invariants D0 hw0 i).1
-  intro i hi
-  obtain ⟨L, hsL, hLn, hLeq, hdisj⟩ := exists_common_prefix_below D0 hw0 hw'0 j hmk hpref i hi
-  have hlenL : L ≤ (hierOf w' i).length := by
-    have := congrArg List.length hLeq
-    simp only [List.length_take] at this
-    omega
-  have hcore : ∀ x ≤ L, (tower D0 (markOf w) i).core (hierOf w' i) x =
-      (tower D0 (markOf w) i).core (hierOf w i) x := by
-    intro x hx
-    rw [← core_take _ _ hx, hLeq, core_take _ _ hx]
-  have hge : sCount D0 w i ≤ sCount D0 w' i := by
-    rcases Nat.eq_zero_or_pos (sCount D0 w i) with h0 | hpos
-    · omega
-    · have hx : sCount D0 w i - 1 < sCount D0 w i := by omega
-      have := (hpre i _ (by have := (startCore_invariants D0 hw0 i).2.1; omega)).mpr hx
-      rw [← hcore _ (by omega)] at this
-      have := (hpre' i hi _ (by omega)).mp this
-      omega
-  have hle : sCount D0 w' i ≤ sCount D0 w i := by
-    rcases Nat.lt_or_ge (sCount D0 w i) (hierOf w i).length with hs | hs
-    · by_contra hlt
-      push Not at hlt
-      have hsL' : sCount D0 w i < L ∨ L = (hierOf w i).length := by
-        rcases hdisj with h | h | h
-        · subst h
-          omega
-        · exact Or.inl h
-        · exact Or.inr h
-      have hnot := mt (hpre i _ hs).mp (lt_irrefl _)
-      rw [← hcore _ hsL] at hnot
-      exact hnot ((hpre' i hi _ (by omega)).mpr hlt)
-    · exact sCount_le_of_full_prefix D0 hw0 hw'0 j hmk hpref hj i hi
-        (by have := (startCore_invariants D0 hw0 i).2.1; omega)
-  have heq : sCount D0 w' i = sCount D0 w i := le_antisymm hle hge
-  refine ⟨heq, ?_⟩
-  have := congrArg (List.take (sCount D0 w i)) hLeq
-  simpa [List.take_take, Nat.min_eq_left hsL] using this
-
-end StartBelow
 section LevelMap
 variable {α : Type u} {Q : Type v} [DecidableEq α] [Inhabited α]
 
@@ -441,23 +214,15 @@ theorem length_expandTo_eq_sum (ℓ : (i : ℕ) → Alph α i) (j : ℕ) :
         length_expandTo_eq_sum ℓ j u]
       simp
 
-/-- Holehood, canonical shape, and start counts preserved by a level map. -/
+/-- Holehood, dictionary containment, and canonical shape preserved by a level map. -/
 structure LevelMapResult (D0 : Lettered α Q) (w : List α) (i : ℕ) (f : Alph α i → Alph α i)
     (w' : List α) : Prop where
   /-- The decoded word is a hole. -/
   hole : D0.IsHole w'
-  /-- Markers below the mapped level are unchanged. -/
-  mark_lt : ∀ k < i, markOf w' k = markOf w k
   /-- Lower alphabets only lose letters. -/
   mem_le : ∀ k ≤ i, ∀ a ∈ hierOf w' k, a ∈ hierOf w k
   /-- Higher level words are images under iterated letter maps. -/
   level : ∀ r, hierOf w' (i + r) = (hierOf w (i + r)).map (liftMap f r)
-  /-- Higher markers follow the same maps. -/
-  mark_ge : ∀ r, markOf w' (i + r) = liftMap f r (markOf w (i + r))
-  /-- No higher map collapses a boundary pair. -/
-  noCollapse : ∀ r, NoCollapse (liftMap f r) (hierOf w (i + r))
-  /-- Every canonical start count is unchanged. -/
-  sCount_eq : ∀ k, sCount D0 w' k = sCount D0 w k
   /-- Exactly the same levels are unary. -/
   unary_iff : ∀ k, IsUnary (hierOf w' k) ↔ IsUnary (hierOf w k)
 
@@ -481,37 +246,6 @@ theorem hierOf_add_of_map {w w' : List α} (hw0 : w ≠ []) {i : ℕ} {f : Alph 
       (cutAt (markOf w (i + r)) (hierOf w (i + r))).map (List.map (liftMap f r))
     rw [hmr, hr, cutAt_map_reflect _ (hc.reflect_last hlast)]
 
-/-- Above the mapped level, the markers of `w'` are the images of those of `w`. -/
-theorem markOf_add_of_map {w w' : List α} (hw0 : w ≠ []) {i : ℕ} {f : Alph α i → Alph α i}
-    (hup : ∀ r, hierOf w' (i + r) = (hierOf w (i + r)).map (liftMap f r)) (r : ℕ) :
-    markOf w' (i + r) = liftMap f r (markOf w (i + r)) := by
-  rw [markOf, hup r, List.getLastD_eq_getLast?, List.getLast?_map, getLast?_hierOf hw0 (i + r)]
-  rfl
-
-/-- Above the mapped level, the start counts of `w'` and `w` agree once they agree at it. -/
-theorem sCount_add_of_map (D0 : Lettered α Q) {w w' : List α} (hw0 : w ≠ []) (hw'0 : w' ≠ [])
-    {i : ℕ} {f : Alph α i → Alph α i}
-    (hup : ∀ r, hierOf w' (i + r) = (hierOf w (i + r)).map (liftMap f r) ∧
-      NoCollapse (liftMap f r) (hierOf w (i + r)))
-    (hsi : sCount D0 w' i = sCount D0 w i) :
-    ∀ r, sCount D0 w' (i + r) = sCount D0 w (i + r) := by
-  intro r
-  induction r with
-  | zero => exact hsi
-  | succ r ih =>
-    obtain ⟨hr, hc⟩ := hup r
-    have hr1 := (hup (r + 1)).1
-    show sCount D0 w' ((i + r) + 1) = sCount D0 w ((i + r) + 1)
-    rw [sCount_succ D0 hw'0, sCount_succ D0 hw0, ih,
-      markOf_add_of_map hw0 (fun r => (hup r).1) r, hr]
-    have hl1 : (hierOf w' (i + r + 1)).length = (hierOf w (i + r + 1)).length := by
-      have := congrArg List.length hr1
-      rw [List.length_map] at this
-      exact this
-    rw [hl1, ← List.map_take, count_map_of_injOn]
-    intro x hx hfx
-    exact hc.reflect_last (getLast?_hierOf hw0 _) x (List.mem_of_mem_take hx) hfx
-
 /-- Above the mapped level, exactly the same levels of `w'` and `w` are unary. -/
 theorem isUnary_add_iff_of_map {w w' : List α} (hw0 : w ≠ []) {i : ℕ}
     {f : Alph α i → Alph α i}
@@ -532,15 +266,11 @@ theorem isUnary_add_iff_of_map {w w' : List α} (hw0 : w ≠ []) {i : ℕ}
     obtain ⟨b', hb', rfl⟩ := List.mem_map.mp hb
     rw [h a' ha' b' hb']
 
-/-- A comparison-preserving level map fixing the start prefix preserves canonical shape and all
-start counts. -/
+/-- A comparison-preserving level map within the dictionary preserves canonical shape. -/
 theorem levelMap_spec (D0 : Lettered α Q) {w : List α} (hw : D0.IsHole w) (i : ℕ)
     (f : Alph α i → Alph α i) (hcol : NoCollapse f (hierOf w i))
     (hhole : (tower D0 (markOf w) i).IsHole ((hierOf w i).map f))
-    (hsub : ∀ a ∈ hierOf w i, f a ∈ hierOf w i)
-    (hpre : ∀ a ∈ (hierOf w i).take (sCount D0 w i), f a = a)
-    (hcore : ∀ k, (tower D0 (markOf w) i).core ((hierOf w i).map f) k =
-      (tower D0 (markOf w) i).core (hierOf w i) k) :
+    (hsub : ∀ a ∈ hierOf w i, f a ∈ hierOf w i) :
     LevelMapResult D0 w i f (expandTo (markOf w) i ((hierOf w i).map f)) := by
   have hw0 : w ≠ [] := hw.ne_nil
   have hvne : (hierOf w i).map f ≠ [] := by simpa using hierOf_ne_nil hw0 i
@@ -554,25 +284,6 @@ theorem levelMap_spec (D0 : Lettered α Q) {w : List α} (hw : D0.IsHole w) (i :
   obtain ⟨hlev, hmk⟩ := hierOf_expandTo (markOf w) i ((hierOf w i).map f) hadm hvne
   rw [← hw'] at hlev hmk
   have hup := hierOf_add_of_map hw0 hlev hcol
-  have htw : tower D0 (markOf w') i = tower D0 (markOf w) i :=
-    tower_congr D0 i (fun k hk => hmk k hk)
-  have hsi : sCount D0 w' i = sCount D0 w i := by
-    unfold sCount
-    rw [htw, hlev, List.length_map]
-    refine List.countP_congr fun x _ => ?_
-    rw [hcore x]
-  have hpref : (hierOf w' i).take (sCount D0 w i) = (hierOf w i).take (sCount D0 w i) := by
-    rw [hlev, ← List.map_take]
-    conv_rhs => rw [← List.map_id ((hierOf w i).take (sCount D0 w i))]
-    exact List.map_congr_left hpre
-  have hbelow := start_below D0 hw0 hw'0 i hmk hpref hsi
-  have habove := sCount_add_of_map D0 hw0 hw'0 hup hsi
-  have hcount : ∀ k, sCount D0 w' k = sCount D0 w k := by
-    intro k
-    rcases Nat.lt_or_ge k i with hk | hk
-    · exact (hbelow k hk.le).1
-    · obtain ⟨r, rfl⟩ := Nat.exists_eq_add_of_le hk
-      exact habove r
   have hunary : ∀ k, IsUnary (hierOf w' k) ↔ IsUnary (hierOf w k) := by
     intro k
     rcases Nat.lt_or_ge k i with hk | hk
@@ -597,8 +308,7 @@ theorem levelMap_spec (D0 : Lettered α Q) {w : List α} (hw : D0.IsHole w) (i :
     intro a ha
     obtain ⟨b, hb, rfl⟩ := List.mem_map.mp ha
     exact hsub b hb
-  exact ⟨hhole', hmk, hmem, fun r => (hup r).1, markOf_add_of_map hw0 (fun r => (hup r).1),
-    fun r => (hup r).2, hcount, hunary⟩
+  exact ⟨hhole', hmem, fun r => (hup r).1, hunary⟩
 
 /-- Preserving all unary levels preserves canonical depth. -/
 theorem LevelMapResult.depth_eq {D0 : Lettered α Q} {w w' : List α} {i : ℕ}

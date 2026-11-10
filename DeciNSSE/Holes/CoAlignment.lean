@@ -7,7 +7,8 @@ introduces no new boundary comparison preserves the hole condition.
 
 ## Main declarations
 
-- `IsComp`, `isComp_map_iff`: comparisons, and letter maps that preserve them.
+- `isComp_map_iff`: a letter map that collapses no boundary pair preserves and reflects
+  comparisons.
 - `Lab`, `Lettered`, `Lettered.IsHole`: labels, lettered monitors and their
   holes.
 - `IsLeftMax`, `CoAligned`, `CoAlignedNT`: left-maximal comparisons and
@@ -23,9 +24,6 @@ open scoped List
 
 section Comparisons
 variable {α β : Type*}
-
-/-- A comparison `(s,e)` of `u`: `s < e ≤ |u|` and `u[e:] ⪯ u[s:]`. -/
-def IsComp (u : List α) (s e : ℕ) : Prop := s < e ∧ e ≤ u.length ∧ u.drop e <+: u.drop s
 
 /-- One step to the left: for `a < b < |u|`, `u[b:] ⪯ u[a:]` iff the letters agree and
 `u[b+1:] ⪯ u[a+1:]`. -/

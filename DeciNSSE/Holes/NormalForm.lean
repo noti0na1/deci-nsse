@@ -52,7 +52,7 @@ variable [Fintype Q] [DecidableEq Q]
 
 /-- An isolated merge preserves shape, decreases its dictionary, and can preserve length. -/
 theorem isolated_merge_spec {D0 : Lettered α Q} {w : List α} {i : ℕ} {x y : Alph α i}
-    (hw : D0.IsHole w) (_hi : 1 ≤ i) (_hid : i < depth w)
+    (hw : D0.IsHole w)
     (hx : Isolated (hierOf w i) (Pset D0 w i) x)
     (hy : Isolated (hierOf w i) (Pset D0 w i) y) (hxy : x ≠ y)
     (ht : exType D0 w i (Pset D0 w i) x = exType D0 w i (Pset D0 w i) y)
@@ -62,7 +62,7 @@ theorem isolated_merge_spec {D0 : Lettered α Q} {w : List α} {i : ℕ} {x y : 
     w'.length ≤ w.length ∧ (∀ j, alphCard w' j ≤ alphCard w j) ∧
       alphCard w' i < alphCard w i := by
   dsimp only
-  obtain ⟨hhole, hcore⟩ := isolated_merge D0 hw hx hy.2.1 ht
+  obtain ⟨hhole, _⟩ := isolated_merge D0 hw hx hy.2.1 ht
   have hcomp : ∀ s e, IsComp ((hierOf w i).map (identify x y)) s e ↔
       IsComp (hierOf w i) s e :=
     isComp_identify_iff (fun h => hx.partners_protected hw.ne_nil D0 y hy.2.1 h.symm)
@@ -71,15 +71,8 @@ theorem isolated_merge_spec {D0 : Lettered α Q} {w : List α} {i : ℕ} {x y : 
     by_cases hax : a = x
     · rw [hax, identify_self_left]; exact hy.1
     · rw [identify_of_ne hax]; exact ha
-  have hpre : ∀ a ∈ (hierOf w i).take (sCount D0 w i), identify x y a = a := by
-    intro a ha
-    apply identify_of_ne
-    intro he
-    apply hx.2.1
-    rw [← he]
-    exact Finset.mem_insert_of_mem (List.mem_toFinset.mpr ha)
   have hres := levelMap_spec D0 hw i (identify x y) (noCollapse_of_isComp_iff hcomp)
-    hhole hsub hpre hcore
+    hhole hsub
   refine ⟨hres, ?_, alphCard_le_of_levelMap hres, ?_⟩
   · rw [length_expandTo_eq_sum]
     have h := Lettered.sum_map_identify_le (letterWeight w i) hlen (hierOf w i)
@@ -117,44 +110,31 @@ theorem dictionaryPotential_lt {w w' : List α} (hd : depth w' = depth w)
   rw [hd]
   exact Finset.sum_lt_sum (fun j _ => hle j) ⟨i, Finset.mem_range.mpr (by omega), hlt⟩
 
-/-- Every hole has a normal form of the same depth, with no larger length or dictionary. -/
+/-- Every hole has a normal form of the same depth and no greater length. -/
 theorem exists_normal_form {D0 : Lettered α Q} {w : List α} (hw : D0.IsHole w) :
-    ∃ w', D0.IsHole w' ∧ depth w' = depth w ∧ w'.length ≤ w.length ∧
-      (∀ i, sCount D0 w' i = sCount D0 w i) ∧
-      (∀ i, alphCard w' i ≤ alphCard w i) ∧ Normal D0 w' := by
+    ∃ v, D0.IsHole v ∧ depth v = depth w ∧ v.length ≤ w.length ∧ Normal D0 v := by
   classical
-  suffices H : ∀ n (v : List α), dictionaryPotential v = n → D0.IsHole v →
-      ∃ v', D0.IsHole v' ∧ depth v' = depth v ∧ v'.length ≤ v.length ∧
-        (∀ i, sCount D0 v' i = sCount D0 v i) ∧
-        (∀ i, alphCard v' i ≤ alphCard v i) ∧ Normal D0 v' from H _ w rfl hw
-  intro n
-  induction n using Nat.strong_induction_on with
-  | h n ih =>
-    intro v hvn hv
-    by_cases hn : Normal D0 v
-    · exact ⟨v, hv, rfl, le_rfl, fun _ => rfl, fun _ => le_rfl, hn⟩
-    · simp only [Normal, NormalAt, not_forall] at hn
-      obtain ⟨i, hn⟩ := hn
-      push Not at hn
-      obtain ⟨hi, hid, x, y, hx, hy, ht, hxy⟩ := hn
-      have step : ∀ x y : Alph α i,
-          Isolated (hierOf v i) (Pset D0 v i) x →
-          Isolated (hierOf v i) (Pset D0 v i) y → x ≠ y →
-          exType D0 v i (Pset D0 v i) x = exType D0 v i (Pset D0 v i) y →
-          letterWeight v i y ≤ letterWeight v i x →
-          ∃ v', D0.IsHole v' ∧ depth v' = depth v ∧ v'.length ≤ v.length ∧
-            (∀ j, sCount D0 v' j = sCount D0 v j) ∧
-            (∀ j, alphCard v' j ≤ alphCard v j) ∧ Normal D0 v' := by
-        intro x y hx hy hxy ht hlen
-        obtain ⟨hr, hl, hc, hlt⟩ := isolated_merge_spec hv hi hid hx hy hxy ht hlen
-        have hp := dictionaryPotential_lt hr.depth_eq hc hid.le hlt
-        rw [hvn] at hp
-        obtain ⟨v', hv', hd', hl', hs', hc', hn'⟩ := ih _ hp _ rfl hr.hole
-        exact ⟨v', hv', hd'.trans hr.depth_eq, hl'.trans hl,
-          fun j => (hs' j).trans (hr.sCount_eq j), fun j => (hc' j).trans (hc j), hn'⟩
-      rcases le_total (letterWeight v i y) (letterWeight v i x) with hlen | hlen
-      · exact step x y hx hy hxy ht hlen
-      · exact step y x hy hx hxy.symm ht.symm hlen
+  have hex : ∃ m, ∃ v, D0.IsHole v ∧ depth v = depth w ∧ v.length ≤ w.length ∧
+      dictionaryPotential v = m := ⟨_, w, hw, rfl, le_rfl, rfl⟩
+  obtain ⟨v, hv, hd, hl, hp⟩ := Nat.find_spec hex
+  refine ⟨v, hv, hd, hl, ?_⟩
+  by_contra hn
+  simp only [Normal, NormalAt, not_forall] at hn
+  push Not at hn
+  obtain ⟨i, _, hid, x, y, hx, hy, ht, hxy⟩ := hn
+  have contra : ∀ x y : Alph α i,
+      Isolated (hierOf v i) (Pset D0 v i) x →
+      Isolated (hierOf v i) (Pset D0 v i) y → x ≠ y →
+      exType D0 v i (Pset D0 v i) x = exType D0 v i (Pset D0 v i) y →
+      letterWeight v i y ≤ letterWeight v i x → False := by
+    intro x y hx hy hxy ht hlen
+    obtain ⟨hr, hl', hc', hlt⟩ := isolated_merge_spec hv hx hy hxy ht hlen
+    have hlt' := dictionaryPotential_lt hr.depth_eq hc' hid.le hlt
+    have hmin := Nat.find_min' hex ⟨_, hr.hole, hr.depth_eq.trans hd, hl'.trans hl, rfl⟩
+    omega
+  rcases le_total (letterWeight v i y) (letterWeight v i x) with hlen | hlen
+  · exact contra x y hx hy hxy ht hlen
+  · exact contra y x hy hx hxy.symm ht.symm hlen
 
 /-- The closed exchange-type allowance at depth at most `d`. -/
 def normalTypeBound (N d : ℕ) : ℕ := typeBound N (N + d) (d + 1)

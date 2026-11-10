@@ -4,8 +4,17 @@ import DeciNSSE.Solver.Graph
 
 /-! # Reachable regular countermodels
 
-Packed bound sets present the same least shape. Restricting the selected,
-decoded graphs to reachable states preserves their unfolding.
+Packed bound sets present the same least shape. Restricting the variance
+graphs to reachable states preserves their unfolding.
+
+## Main declarations
+
+- `Solver.shapeReader`: the packed bound-set automaton of a covariant system.
+- `Solver.packedShapes`, `Solver.unfold_packedShapes`: packed graphs of the least shapes.
+- `Solver.packedRegular`, `Solver.unfold_packedRegular`: the packed graphs of the regular
+  countermodel `extractRegular`.
+- `Solver.extractReachable`, `Solver.extractReachable_unfold`: their reachable parts, with
+  the unfolding of `extractRegular`.
 -/
 
 namespace DeciNSSE.Solver
@@ -13,35 +22,24 @@ open Mask
 attribute [-simp] BitVec.getLsbD_eq_getElem
 variable {n m k : ℕ}
 
-/-- Extend lower labels by one literal and its closure row. -/
-def shapeStep (ψ : Constraint n m) (d : Rows m) (s : BitVec m) (i : Fin n) : BitVec m :=
-  union (lowerLits ψ) fun p => if s.getLsbD p.2 then d (p.1 i) else BitVec.zero _
-
-theorem shapeStep_spec (ψ : Constraint n m) (s : BitVec m) (i : Fin n) :
-    decode (shapeStep ψ (inverseRows (derivedRows ψ)) s i) = DeciNSSE.step ψ (decode s) i := by
-  ext x
-  simp only [mem_decode, shapeStep, bit_union, DeciNSSE.step, Finset.mem_filter,
-    Finset.mem_univ, true_and, derivesB_iff, mem_decode]
-  apply exists_congr; intro p
-  apply and_congr_right; intro _
-  split <;> rename_i h
-  · simp [h]
-  · simp [h]
-
 /-- Cached predicates and transitions for the least-shape graph. -/
 structure ShapeReader (n m : ℕ) where
   initial : V m → BitVec m × BitVec m
   next : (BitVec m × BitVec m) → Fin n → BitVec m × BitVec m
   label : (BitVec m × BitVec m) → Sym
 
+/-- The packed bound-set automaton of `ψ`, with the transition matrices of the packed
+label reader. -/
 def shapeReader (ψ : Constraint n m) : ShapeReader n m :=
-  let dl := inverseRows (derivedRows ψ)
-  let du := inverseRows (derivedRows (Constraint.dual ψ))
+  let d := derivedRows ψ
+  let di := inverseRows d
+  let lower := lowerRows ψ d
+  let upper := upperRows ψ d
   let lo := ofList ((lowerLits ψ).map Prod.snd)
-  let up := ofList ((lowerLits (Constraint.dual ψ)).map Prod.snd)
-  let bot := ofList (topVars (Constraint.dual ψ))
-  ⟨fun z => (dl z, du z),
-    fun s i => (shapeStep ψ dl s.1 i, shapeStep (Constraint.dual ψ) du s.2 i),
+  let up := ofList ((upperLits ψ).map Prod.fst)
+  let bot := ofList (botVars ψ)
+  ⟨fun z => (di z, d z),
+    fun s i => (image (lower i) s.1, image (upper i) s.2),
     fun s => if meets s.1 lo && meets s.2 up then .f
       else if !(meets s.1 lo) && (meets s.2 bot || meets s.2 up) then .bot else .top⟩
 
@@ -50,25 +48,29 @@ private def decodePair (s : BitVec m × BitVec m) : Finset (V m) × Finset (V m)
 
 theorem shapeReader_initial (ψ : Constraint n m) (z : V m) :
     decodePair ((shapeReader ψ).initial z) = boundSets ψ z [] := by
-  apply Prod.ext <;> ext x <;>
-    simp [decodePair, shapeReader, boundSets, lowerSet, derivesB_iff]
+  apply Prod.ext <;> ext x <;> simp [decodePair, shapeReader, boundSets]
 
 theorem shapeReader_next (ψ : Constraint n m) (s : BitVec m × BitVec m) (i : Fin n) :
-    decodePair ((shapeReader ψ).next s i) =
-      (DeciNSSE.step ψ (decodePair s).1 i,
-       DeciNSSE.step (Constraint.dual ψ) (decodePair s).2 i) := by
-  exact Prod.ext (shapeStep_spec ψ s.1 i) (shapeStep_spec (Constraint.dual ψ) s.2 i)
+    decodePair ((shapeReader ψ).next s i) = boundStep ψ (decodePair s) i := by
+  apply Prod.ext <;> ext x
+  · simp only [shapeReader, decodePair, boundStep, mem_decode, bit_image, lowerStep,
+      Finset.mem_filter, Finset.mem_univ, true_and, lowerRows_spec]
+  · simp only [shapeReader, decodePair, boundStep, mem_decode, bit_image, upperStep,
+      Finset.mem_filter, Finset.mem_univ, true_and, upperRows_spec]
 
 theorem shapeReader_label (ψ : Constraint n m) (s : BitVec m × BitVec m) :
     (shapeReader ψ).label s = shapeLabelOf ψ (decodePair s) := by
-  have hf (φ : Constraint n m) (v : BitVec m) :
-      meets v (ofList ((lowerLits φ).map Prod.snd)) = true ↔ SupportsF φ (decode v) := by
+  have hl (v : BitVec m) :
+      meets v (ofList ((lowerLits ψ).map Prod.snd)) = true ↔ SupportsF ψ (decode v) := by
     simp only [meets_iff, bit_ofList, List.mem_map, SupportsF, mem_decode]
-  have ht (φ : Constraint n m) (v : BitVec m) :
-      meets v (ofList (topVars φ)) = true ↔ SupportsTop φ (decode v) := by
-    simp [SupportsTop]
+  have hu (v : BitVec m) :
+      meets v (ofList ((upperLits ψ).map Prod.fst)) = true ↔ LimitsF ψ (decode v) := by
+    simp only [meets_iff, bit_ofList, List.mem_map, LimitsF, mem_decode]
+  have hb (v : BitVec m) :
+      meets v (ofList (botVars ψ)) = true ↔ LimitsBot ψ (decode v) := by
+    simp [LimitsBot]
   simp only [shapeReader, shapeLabelOf, decodePair, Bool.and_eq_true, Bool.or_eq_true,
-    Bool.not_eq_true', Bool.eq_false_iff, ne_eq, hf, ht]
+    Bool.not_eq_true', Bool.eq_false_iff, ne_eq, hl, hu, hb]
   rfl
 
 /-- Changing the state representation preserves a graph's unfolding. -/
@@ -111,34 +113,21 @@ theorem unfold_packedShapes (ψ : Constraint n m) (z : V m) :
   rw [← shapeReader_initial]
   exact unfold_ofEquiv_map _ _ decodePair _ _ _ _ _ (shapeReader_label ψ) (shapeReader_next ψ)
 
-/-- Selection and decoding of the packed least shape of the spine extension. -/
+/-- The variance graphs of the packed least shapes of the four-spine extension of a side
+and a word. -/
 def packedRegular (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (w : List (Fin n)) : GraphFamily n k :=
-  let ψ := Events.sideSystem c ϕ θ
   let q := Events.sideQuery x y θ
-  let graphs := selectGraph c (packedShapes (Spine.extension c ψ q.1 q.2 w))
-  let witness := fun z => graphs (Spine.Closure.lift z)
-  match θ with
-  | .l => table (decodedGraph c witness)
-  | .r => table (decodedGraph c (witness ∘ SignSelection.flipV))
+  let graphs := packedShapes (Spine.extension c ϕ q.1 q.2 w)
+  table fun z => varianceGraph c graphs (Fin.castAdd _ z)
 
 theorem unfold_packedRegular (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (w : List (Fin n)) (z : V k) :
     (packedRegular c ϕ x y θ w z).unfold = (extractRegular c ϕ x y θ w z).unfold := by
-  have hm {j : ℕ} (ψ : Constraint n (2 * j)) (hf : SignSelection.FlipClosed ψ)
-      (u : V (2 * j)) :
-      (selectGraph c (packedShapes ψ) u).unfold =
-        (selectGraph c (shapeGraph ψ) u).unfold := by
-    have hg : RGraph.unfold ∘ packedShapes ψ = leastShape ψ :=
-      funext fun v => (unfold_packedShapes ψ v).trans (unfold_shapeGraph ψ v)
-    exact congrFun ((unfold_selectGraph c hg (SignSelection.leastShape_sameShape_dual hf)).trans
-      (unfold_selectGraph_shapeGraph c hf).symm) u
-  have hf := Spine.Closure.extension_flipClosed (c := c) (X := (Events.sideQuery x y θ).1)
-    (Y := (Events.sideQuery x y θ).2) (w := w) (Events.sideSystem_flipClosed (c := c) (ϕ := ϕ) θ)
-  cases θ <;> simp only [packedRegular, table_eq, extractRegular, RegularTransfer.countermodel,
-    RegularTransfer.witnessGraph, Events.sideSystem, Events.sideQuery, decodedGraph,
-    RGraph.unfold_normalize, Function.comp_apply] at *
-  all_goals congr 1; exact hm _ hf _
+  simp only [packedRegular, table_eq, extractRegular, RegularTransfer.countermodel]
+  exact (unfold_varianceGraph c
+    (fun v => (unfold_packedShapes _ v).trans (unfold_shapeGraph _ v)) _).trans
+    (unfold_varianceGraph c (unfold_shapeGraph _) _).symm
 
 /-- Extract only the reachable part of each regular countermodel graph. -/
 def extractReachable (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)

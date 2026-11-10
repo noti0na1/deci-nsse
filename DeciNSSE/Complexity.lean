@@ -30,13 +30,13 @@ headline declarations, with their fully qualified names and modules:
     with the correctness theorems `DeciNSSE.decideEntailsUnary_correct` and its two
     variants.
 * **Hardness.** For every arity `n ≥ 2` and the covariant constructor,
-  `DeciNSSE.Complexity.hardnessSystem n M` (module `Complexity.HardnessSystem`) has
+  `DeciNSSE.Complexity.hardnessSystem n M` (module `Complexity.Hardness`) has
   linearly many literals and entails `x ≤ r` exactly when the binary automaton `M` is
   universal, in each domain.
   - `DeciNSSE.Complexity.entails_hardnessSystem_iff`,
     `DeciNSSE.Complexity.entailsReg_hardnessSystem_iff` and
     `DeciNSSE.Complexity.entailsFin_hardnessSystem_iff` (module `Complexity.Hardness`).
-  - `DeciNSSE.Complexity.hardnessSystem_length_le` (module `Complexity.HardnessSystem`).
+  - `DeciNSSE.Complexity.hardnessSystem_length_le` (module `Complexity.Hardness`).
 * **Long witnesses.** For every `n ≥ 2` and `k`,
   `DeciNSSE.Complexity.expSystem n k` (module `Complexity.ExpWitness`) has `9 k + 31`
   variables and refutes entailment in each domain, and its shortest counterexample word
@@ -46,9 +46,9 @@ headline declarations, with their fully qualified names and modules:
     `DeciNSSE.Complexity.expSystem_result` (module `Complexity.ExpWitness`).
 
 The supporting modules are `Complexity.BinNFA` (binary automata),
-`Complexity.Directions` and `Complexity.FiniteTrees` (the shared constructions of
-the reductions), `Complexity.Counter` and `Complexity.CounterBinary` (the counter
-automaton), and the `Complexity.Rejection*` modules (the rejection system behind
-`expSystem`). The modules `Complexity.UnaryExamples` and `Complexity.RejectionExamples`
-hold checks only.
+`Complexity.AllFinalCode` (automata whose states are all final), `Complexity.Directions` and
+`Complexity.FiniteTrees` (binary directions and finite trees), `Complexity.Counter`
+and `Complexity.CounterBinary` (the counter automaton), and the `Complexity.Rejection*`
+modules (the rejection system behind both `hardnessSystem` and `expSystem`). The modules
+`Complexity.UnaryExamples` and `Complexity.RejectionExamples` hold checks only.
 -/

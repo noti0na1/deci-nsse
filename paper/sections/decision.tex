@@ -35,8 +35,8 @@ and query $x\le y$.\\
 \begin{enumerate}[leftmargin=*,itemsep=2pt]
 \item Form $\psi=\phi^\pm$, compute its closure, and test for a label clash.
 If a clash exists, return \emph{yes}.
-\item Instantiate the reader of \cref{sec:label-reader} on $\psi,(x^+,y^+)$
-and on $\psi^{\mathfrak d},(y^+,x^+)$.
+\item Instantiate the reader of \cref{sec:label-reader} on $\psi$ with the
+roots $(x^+,y^+)$ and with the roots $(y^-,x^-)$.
 Use $N=2\cdot4^{2k}$ and compute $B,d,H$ from \eqref{eq:bounds}.
 \item Enumerate all words in $\Dir^*$ of length at most $H$, including
 $\eps$. If either reader has a hole, return \emph{no}; otherwise return

@@ -60,8 +60,8 @@ are both constructors or both extreme; stop at the extreme outputs.
 Induction on retained paths gives \eqref{eq:g60}, including its
 domain. At most $2|G|^2$ states suffice.
 Decoding $H_0$ uses another polarity bit, initially zero, to flip output
-labels. Pointwise tree duality flips labels and restriction just selects roots,
-so these operations also preserve graph finiteness.
+labels. Restriction just selects roots, so these operations also preserve
+graph finiteness.
 The fixed solution and four prefix conditions proved in
 \cref{thm:four-spine} therefore give a regular countermodel after decoding,
 on either side. Conversely, a regular countermodel is an arbitrary one.
@@ -193,15 +193,14 @@ old cycle remains. This proves cycle-clash equivalence for the extension.
 \par\noindent\emph{The selected witness is finite.}
 Choose an unsafe word $w$ from the arbitrary countermodel.
 By \cref{thm:four-spine}, its existing four-spine extension has no label
-clash. Normalizing the assumed finite solution, and dualizing it on the
-right side, gives a finite solution of the side system, so that system has no cycle clash. The rank argument
+clash. Normalizing the assumed finite solution gives a finite solution of
+$\psi$, so $\psi$ has no cycle clash. The rank argument
 above excludes cycle clashes in the extension. Its least shape therefore
 has depth at most $(2k+4|w|+4)^2+1$ by the depth proof of
 \cref{thm:finite-sat}. The selector keeps precisely this finite domain.
 It satisfies the whole extension and is fixed, so restriction supplies
 all four conditions \eqref{eq:g18}; decoding gives a finite countermodel
-at the same word. For the right side dualize the side solution back before
-decoding. Duality preserves both domains and fixedness.
+at the same word, on either side.
 
 The assumed finite solution is used only to exclude cycles in the base
 constraints. The spine extension preserves this exclusion, so the

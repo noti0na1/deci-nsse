@@ -9,6 +9,8 @@ solutions.
 ## Main declarations
 
 - `CycleClash`: a nonempty lower self-path below a matching upper self-path.
+- `CycleStep`, `cycleClash_iff_transGen`: a cycle clash is a derived pair on a cycle of
+  the graph of letter steps on pairs of variables.
 - `FTree.height`, `FTree.length_le_height`: the height of a finite tree bounds its paths.
 - `CycleClash.no_finite_solution`: a cycle clash excludes finite solutions.
 -/
@@ -20,6 +22,43 @@ variable {n k : ℕ} {ϕ : Constraint n k}
 /-- A nonempty lower self-path lies below a matching upper self-path. -/
 def CycleClash (ϕ : Constraint n k) : Prop :=
   ∃ π x y, π ≠ [] ∧ LowerAt ϕ π x x ∧ Derives ϕ x y ∧ UpperAt ϕ π y y
+
+/-- One step of the cycle graph on pairs of variables: along a common letter, the first
+variable passes to a lower bound and the second to an upper bound. -/
+def CycleStep (ϕ : Constraint n k) (p q : V k × V k) : Prop :=
+  ∃ i : Fin n, LowerAt ϕ [i] q.1 p.1 ∧ UpperAt ϕ [i] p.2 q.2
+
+/-- A cycle clash is a derived pair of variables on a cycle of the cycle graph. -/
+theorem cycleClash_iff_transGen (ϕ : Constraint n k) :
+    CycleClash ϕ ↔ ∃ p : V k × V k, Derives ϕ p.1 p.2 ∧
+      Relation.TransGen (CycleStep ϕ) p p := by
+  have path {π : List (Fin n)} (hπ : π ≠ []) : ∀ {p q : V k × V k},
+      LowerAt ϕ π q.1 p.1 → UpperAt ϕ π p.2 q.2 → Relation.TransGen (CycleStep ϕ) p q := by
+    induction π with
+    | nil => exact (hπ rfl).elim
+    | cons i π ih =>
+      intro p q hl hu
+      cases π with
+      | nil => exact .single ⟨i, hl, hu⟩
+      | cons j π =>
+        obtain ⟨x, hix, hx⟩ := hl.factor (π := [i]) (π' := j :: π)
+        obtain ⟨y, hiy, hy⟩ := hu.factor (π := [i]) (π' := j :: π)
+        exact .head (b := (x, y)) ⟨i, hix, hiy⟩ (ih (by simp) hx hy)
+  constructor
+  · rintro ⟨π, x, y, hπ, hl, hd, hu⟩
+    exact ⟨(x, y), hd, path hπ hl hu⟩
+  · rintro ⟨p, hd, hp⟩
+    suffices h : ∀ q, Relation.TransGen (CycleStep ϕ) p q →
+        ∃ π, π ≠ [] ∧ LowerAt ϕ π q.1 p.1 ∧ UpperAt ϕ π p.2 q.2 by
+      obtain ⟨π, hπ, hl, hu⟩ := h p hp
+      exact ⟨π, p.1, p.2, hπ, hl, hd, hu⟩
+    intro q hq
+    induction hq with
+    | single h => obtain ⟨i, hl, hu⟩ := h; exact ⟨[i], by simp, hl, hu⟩
+    | tail _ h ih =>
+      obtain ⟨π, _, hl, hu⟩ := ih
+      obtain ⟨i, hli, hui⟩ := h
+      exact ⟨π ++ [i], by simp, hli.comp hl, hu.comp hui⟩
 
 namespace PathBounds
 

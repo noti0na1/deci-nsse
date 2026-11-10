@@ -52,17 +52,18 @@ The reconstruction also proves both inverse identities. \end{proof}
 
 
 \subsection{Fixed Witnesses}\label{sec:fixed-witness}
-For a covariant system $\chi$, its \emph{order dual} $\chi^{\mathfrak d}$ reverses every
-inequality and exchanges bottom and top, leaving variable names unchanged.
-Pointwise tree duality maps its solutions bijectively to those of $\chi$.
 Write $\theta\in\{\mathsf l,\mathsf r\}$ for the left and right sides;
-$\mathsf l$-unsafe means left unsafe, and similarly on the right. Put
+$\mathsf l$-unsafe means left unsafe, and similarly on the right. Both sides
+read the same signed system $\psi$, from different query roots:
 \[
- (\psi_{\mathsf l},X_{\mathsf l},Y_{\mathsf l})=(\psi,x^+,y^+),\qquad
- (\psi_{\mathsf r},X_{\mathsf r},Y_{\mathsf r})=(\psi^{\mathfrak d},y^+,x^+).
+ (X_{\mathsf l},Y_{\mathsf l})=(x^+,y^+),\qquad
+ (X_{\mathsf r},Y_{\mathsf r})=(y^-,x^-).
 \]
+The right side exchanges the roots and uses their negative copies, because
+the two copies of a variable denote dual trees: a bottom prefix of $y$ is a
+top prefix of $y^-$.
 
-We call a covariant solution $\sigma\models\psi_\theta$ a \emph{fixed
+We call a covariant solution $\sigma\models\psi$ a \emph{fixed
 witness} for $w$ on side $\theta$ if $S\sigma=\sigma$ and
 \begin{equation}\label{eq:fixed-witness}
  \widehat{\sigma(X_\theta)}(w)=\top,\qquad
@@ -76,14 +77,19 @@ For either side $\theta$, a word $w$ is $\theta$-unsafe iff it has a fixed
 witness on side $\theta$.
 \end{lemma}
 \begin{proof}
-For the left side this is exactly signed correspondence and the definition
-of unsafe words after normalization. For the right side, normalize a
-variance solution and dualize every resulting tree. A bottom prefix at
-$y^+$ becomes a top prefix, and absence of a bottom prefix at $x^+$ becomes
-absence of a top prefix. Pointwise tree duality commutes with $S$, so fixedness
-is preserved. Conversely, dualize back and decode by \cref{lem:signed}.
-These operations are inverse and prove both directions, including paths
-that terminate before the end of $w$.
+By \cref{lem:signed}, the $S$-fixed solutions of $\psi$ are exactly the
+assignments $\sigma_0^{\pm}$ for solutions $\sigma_0$ of $\phi$, with
+$\sigma_0^{\pm}(v^+)=H_0(\sigma_0v)$ and, by \eqref{eq:g9},
+$\sigma_0^{\pm}(v^-)=H_1(\sigma_0v)=\mathfrak d(H_0(\sigma_0v))$. For the left
+side, \eqref{eq:fixed-witness} for $\sigma_0^{\pm}$ therefore says that
+$\sigma_0(x)$ has a top prefix along $w$ and $\sigma_0(y)$ has none, which is
+the definition of a left-unsafe word for $\sigma_0$. For the right side, tree
+duality exchanges the labels $\bot$ and $\top$ at every node, so
+$\widehat{\mathfrak d(t)}(w)=\top$ iff $\widehat t(w)=\bot$. Hence
+\eqref{eq:fixed-witness} at the roots $y^-$ and $x^-$ says that $\sigma_0(y)$
+has a bottom prefix along $w$ and $\sigma_0(x)$ has none, which is the
+definition of a right-unsafe word for $\sigma_0$. Both equivalences include
+paths that terminate before the end of $w$.
 \end{proof}
 
 \begin{example}[The signed running witness]\label{ex:running-signed}
@@ -107,9 +113,9 @@ root also reverses the inequality. The assignment of
 \end{array}
 \]
 and each column consists of dual trees, so $S\sigma^{\pm}=\sigma^{\pm}$.
-At $w=0$, the positive $x,y$ labels are $\Top,\Bot$, giving the left
-fixed witness. Dualizing this assignment and exchanging the query roots
-gives the right fixed witness for the same word.
+At $w=0$, the labels at $x^+$ and $y^+$ are $\Top$ and $\Bot$, giving the
+left fixed witness. The labels at $y^-$ and $x^-$ are also $\Top$ and
+$\Bot$, so the same assignment is the right fixed witness for this word.
 \end{example}
 
 A covariant solution need not itself be fixed. \Cref{sec:spines} constructs

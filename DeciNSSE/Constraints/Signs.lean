@@ -1,14 +1,20 @@
-import DeciNSSE.Semantics.Selector
+import DeciNSSE.Satisfiability.VarianceShape
 
 /-! # Sign coherence of path bounds
 
 Closure preserves variable signs in a sign-coherent system. Upper and lower
-path judgements change sign by exactly the accumulated path polarity.
+path judgments change sign by exactly the accumulated path polarity.
+
+## Main declarations
+
+- `Signs.derives_sign`: closure preserves signs.
+- `Signs.upperAt_sign`, `Signs.lowerAt_sign`: path judgments shift the sign by the
+  polarity of the path.
 -/
 
 namespace DeciNSSE.Signs
 
-open SignSelection
+open SignDuality
 
 variable {n k : ℕ}
 

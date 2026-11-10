@@ -13,7 +13,7 @@ literals, and it has finite solutions.
 Its unsafe words are exactly the binary words that extend `counterWord k`, all on
 the right side. So entailment fails over finite, regular and arbitrary trees,
 and every counterexample word has length at least `2 (k + 1) 2^k`: every hole of
-a side monitor, every word passing `refutesB`, and the word of every refutation
+a side reader, every word passing `refutesB`, and the word of every refutation
 accepted by the solver's packed checker, in particular of every answer of the
 solver. The word `counterWord k` attains the bound. With `K = 9 k + 31`
 variables, the shortest holes thus have length at least `2^((K - 22) / 9)`,
@@ -64,26 +64,26 @@ theorem expSystem_unsafe_iff (θ : Side) (w : List (Fin n)) :
       θ = .r ∧ ∃ v, w = (counterWord k ++ v).map (embedDir hn) :=
   unsafe_iff hn counterNFA_final (counterWord_ne_nil k) counterNFA_accepts_iff θ w
 
-/-- The left monitor has no hole, and the holes of the right monitor are exactly the binary
+/-- The left side has no hole, and the holes of the right side are exactly the binary
 words that extend the counter word. -/
 theorem expSystem_hole_iff (θ : Side) (w : List (Fin n)) :
-    (Monitor.sideMonitor (fun _ => false) (expSystem n k) xVar yVar θ).Hole w ↔
+    Monitor.SideHole (fun _ => false) (expSystem n k) xVar yVar θ w ↔
       θ = .r ∧ ∃ v, w = (counterWord k ++ v).map (embedDir hn) :=
   hole_iff hn counterNFA_final (counterWord_ne_nil k) counterNFA_accepts_iff θ w
 
 include hn in
-/-- Every hole of a side monitor has length at least `2 (k + 1) 2^k`. -/
+/-- Every hole of a side reader has length at least `2 (k + 1) 2^k`. -/
 theorem expSystem_hole_length {θ : Side} {w : List (Fin n)}
-    (hw : (Monitor.sideMonitor (fun _ => false) (expSystem n k) xVar yVar θ).Hole w) :
+    (hw : Monitor.SideHole (fun _ => false) (expSystem n k) xVar yVar θ w) :
     2 * (k + 1) * 2 ^ k ≤ w.length := by
   simpa [length_counterWord] using
     (prefix_of_hole hn (fun u => (counterNFA_accepts_iff u).mpr) hw).length_le
 
 include hn in
-/-- The shortest holes of the side monitors have length `2 (k + 1) 2^k`. -/
+/-- The shortest holes of the side readers have length `2 (k + 1) 2^k`. -/
 theorem expSystem_shortest_hole :
     IsLeast {ℓ | ∃ θ w,
-      (Monitor.sideMonitor (fun _ => false) (expSystem n k) xVar yVar θ).Hole w ∧
+      Monitor.SideHole (fun _ => false) (expSystem n k) xVar yVar θ w ∧
         w.length = ℓ} (2 * (k + 1) * 2 ^ k) := by
   refine ⟨⟨.r, (counterWord k).map (embedDir hn),
     (expSystem_hole_iff hn k _ _).mpr ⟨rfl, [], by simp⟩, by simp [length_counterWord]⟩, ?_⟩

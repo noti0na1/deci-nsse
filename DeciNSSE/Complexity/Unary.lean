@@ -14,21 +14,18 @@ The rejected-path property is not needed.
 
 The hole search reads the single letter for fewer than `N` steps to the first
 rejected cut `J`, and tests the one word `a^J`. With this hole decision for the
-side monitors, the deciders of `Monitor.Decision` give decision procedures at
+side readers, the deciders of `Monitor.Decision` give decision procedures at
 arity one in each tree domain, whose hole searches stop below the state count
-`2 * 4^(2*k)` of the label monitors.
+`2 * 4^(2*k)` of the label readers.
 
 ## Main declarations
 
 - `Unary.exists_hole_length_le`: a hole of a reader with `N` states over a
   one-letter alphabet yields a hole of length at most `N - 1`.
-- `Unary.hole_iff_length_le_card_sub_one`: hole existence within that bound.
 - `Unary.firstRejectedCut`, `Unary.hole_iff_firstRejectedCut`: hole existence as a
   test of the word up to the first rejected cut, which lies below `N`.
 - `Unary.decideHole`, `Unary.decideSideHoles`: the resulting computable hole
   decisions.
-- `Unary.unsafe_iff_bounded`: at arity one, unsafe words of a satisfiable
-  system have a witness of length at most `2 * 4^(2*k) - 1`.
 - `decideEntailsUnary`, `decideEntailsRegUnary`, `decideEntailsFinUnary`:
   entailment at arity one over arbitrary, regular and finite trees, with the
   correctness theorems `decideEntailsUnary_correct`,
@@ -108,12 +105,6 @@ theorem exists_hole_length_le [Fintype Q] {w : List α} (hw : IsReaderHole M R T
   rw [List.length_take_of_le hJ.1]
   omega
 
-/-- Hole existence is witnessed within the length bound `N - 1`. -/
-theorem hole_iff_length_le_card_sub_one [Fintype Q] :
-    (∃ w, IsReaderHole M R T w) ↔
-      ∃ w, IsReaderHole M R T w ∧ w.length ≤ Fintype.card Q - 1 :=
-  ⟨fun ⟨_, hw⟩ => exists_hole_length_le M R T hw, fun ⟨w, hw, _⟩ => ⟨w, hw⟩⟩
-
 end Bound
 
 section Scan
@@ -164,12 +155,14 @@ section Search
 variable {α Q : Type*} [Unique α] [Fintype Q] (M : DFA α Q) (R : Q → Q → Prop) (T : Set Q)
   [DecidablePred (· ∈ T)]
 
-/-- A hole exists exactly when the run of the single letter reaches the target
-within `N` letters and the word up to the first rejected cut is a hole. -/
-theorem hole_iff_firstRejectedCut :
+/-- For a reader with `N` states, a hole exists exactly when the run of the single letter
+reaches the target after fewer than `N` letters and the word up to the first rejected cut
+is a hole. -/
+theorem hole_iff_firstRejectedCut {N : ℕ} (hN : Fintype.card Q = N) :
     (∃ w, IsReaderHole M R T w) ↔
-      ∃ J ∈ (firstRejectedCut M T default (Fintype.card Q) M.start).toList,
+      ∃ J ∈ (firstRejectedCut M T default N M.start).toList,
         IsReaderHole M R T (List.replicate J default) := by
+  subst hN
   simp only [Option.mem_toList, firstRejectedCut_eq_some_iff]
   constructor
   · rintro ⟨w, hw⟩
@@ -183,11 +176,11 @@ theorem hole_iff_firstRejectedCut :
   · rintro ⟨J, -, hJ⟩
     exact ⟨_, hJ⟩
 
-/-- The hole decision over a one-letter alphabet. It reads fewer than `N`
-letters to the first rejected cut and tests the single word up to that cut. -/
-@[instance_reducible] def decideHole [DecidableEq α] [DecidableRel R] :
-    Decidable (∃ w, IsReaderHole M R T w) :=
-  decidable_of_iff _ (hole_iff_firstRejectedCut M R T).symm
+/-- The hole decision over a one-letter alphabet, for a reader with `N` states. It reads
+fewer than `N` letters to the first rejected cut and tests the single word up to that cut. -/
+@[instance_reducible] def decideHole [DecidableEq α] [DecidableRel R] {N : ℕ}
+    (hN : Fintype.card Q = N) : Decidable (∃ w, IsReaderHole M R T w) :=
+  decidable_of_iff _ (hole_iff_firstRejectedCut M R T hN).symm
 
 end Search
 
@@ -195,24 +188,12 @@ section Monitors
 
 open Monitor
 
-variable {c : Fin 1 → Bool} {k : ℕ} {ϕ : Constraint 1 k} {x y : V k}
+variable {k : ℕ}
 
-/-- The hole decision of a side monitor at arity one. -/
-@[instance_reducible] def decideSideHoles {θ : Side} (P : SideMonitor 1 c ϕ x y θ) :
-    Decidable (∃ w, P.Hole w) :=
-  Unary.decideHole P.M P.R P.T
-
-/-- At arity one, unsafe words of a satisfiable system have a witness of length
-at most `2 * 4^(2*k) - 1`, the label state count minus one. -/
-theorem unsafe_iff_bounded {θ : Side} (hs : Satisfiable c ϕ) :
-    (∃ w, Unsafe c ϕ x y θ w) ↔
-      ∃ w, Unsafe c ϕ x y θ w ∧ w.length ≤ 2 * 4 ^ (2 * k) - 1 := by
-  let P := Monitor.sideMonitor c ϕ x y θ
-  have h := hole_iff_length_le_card_sub_one P.M P.R P.T
-  have hc : Fintype.card P.Q = 2 * 4 ^ (2 * k) := card_sideMonitor c ϕ x y θ
-  simp only [hc] at h
-  exact (exists_congr fun w => (P.hole_iff_unsafe hs w).symm).trans
-    (h.trans (exists_congr fun w => and_congr_left' (P.hole_iff_unsafe hs w)))
+/-- The hole decision of one side at arity one. -/
+@[instance_reducible] def decideSideHoles (c : Fin 1 → Bool) (ϕ : Constraint 1 k) (x y : V k)
+    (θ : Side) : Decidable (∃ w, SideHole c ϕ x y θ w) :=
+  Unary.decideHole _ _ _ (card_state (2 * k))
 
 end Monitors
 
@@ -223,24 +204,21 @@ section Deciders
 variable {k : ℕ}
 
 /-- Decide entailment at arity one over arbitrary trees for the given variance,
-searching the label monitors for holes of length below their state count.
+searching the label readers for holes of length below their state count.
 Satisfiability is tested first; the hole searches run only on satisfiable systems. -/
 @[instance_reducible] def decideEntailsUnary (c : Fin 1 → Bool) (ϕ : Constraint 1 k)
     (x y : V k) : Decidable (Entails c ϕ x y) :=
-  Monitor.decideEntailsOfMonitors ((Monitor.family c).monitor ϕ x y .l)
-    ((Monitor.family c).monitor ϕ x y .r) Complexity.Unary.decideSideHoles
+  Monitor.decideEntailsWith (Complexity.Unary.decideSideHoles c ϕ x y)
 
 /-- Decide entailment at arity one over regular trees for the given variance. -/
 @[instance_reducible] def decideEntailsRegUnary (c : Fin 1 → Bool) (ϕ : Constraint 1 k)
     (x y : V k) : Decidable (EntailsReg c ϕ x y) :=
-  Monitor.decideEntailsRegOfMonitors ((Monitor.family c).monitor ϕ x y .l)
-    ((Monitor.family c).monitor ϕ x y .r) Complexity.Unary.decideSideHoles
+  Monitor.decideEntailsRegWith (Complexity.Unary.decideSideHoles c ϕ x y)
 
 /-- Decide entailment at arity one over finite trees for the given variance. -/
 @[instance_reducible] def decideEntailsFinUnary (c : Fin 1 → Bool) (ϕ : Constraint 1 k)
     (x y : V k) : Decidable (EntailsFin c ϕ x y) :=
-  Monitor.decideEntailsFinOfMonitors ((Monitor.family c).monitor ϕ x y .l)
-    ((Monitor.family c).monitor ϕ x y .r) Complexity.Unary.decideSideHoles
+  Monitor.decideEntailsFinWith (Complexity.Unary.decideSideHoles c ϕ x y)
 
 /-- The arity-one decision returns true exactly when unrestricted entailment holds. -/
 theorem decideEntailsUnary_correct (c : Fin 1 → Bool) (ϕ : Constraint 1 k) (x y : V k) :

@@ -16,11 +16,10 @@ states.
 
 ## Main declarations
 
-- `CS`: the states, with projections `CS.exit`, `CS.terminalAdmission`,
-  `CS.equalTracks` and `CS.ladderAdmission`.
-- `colStep`, `colStart`, `colDFA`: the column automaton.
+- `ColumnSummary`: Boolean states recording exits, admissions, and track equality.
+- `ColumnSummary.step`, `ColumnSummary.start`, `colDFA`: the column automaton.
 - `summ`, `colEval`: the intended summary of a tuple, computed by the automaton.
-- `colBound`, `card_CS`: the number of states.
+- `colBound`, `card_columnSummary`: the number of states.
 - `der_type_of_summ`: the summary determines the derived atomic type.
 - `exists_short_tuple`, `exists_short_letters`: short tuples with the same
   summary, and short letters with the same derived atomic type.
@@ -166,120 +165,122 @@ theorem derΛ_snoc_snoc (c c' : Option C) (X Y : List Γ) (z z' : Γ) :
       rwa [zlab_snoc_le D ℓ c X z (p := x.length) (by rw [hX]; simp),
         zlab_snoc_le D ℓ c' Y z' (p := x'.length) (by rw [hY]; simp)]
 
-/-- States of the column automaton for `k` tracks over cores `C`: the exits `fc(c, X_a)`, the
-sets `B_a(c) ∋ d` (some label of the shifted block `Ẑ_a(c)` is `Λ^f`-related to `(d, ℓ)`),
-the equality relation of the tracks, and the ladders `Λ'` for all pairs of tracks and start
-cores. The components are `CS.exit`, `CS.terminalAdmission`, `CS.equalTracks` and
-`CS.ladderAdmission`. -/
-abbrev CS (C : Type*) (k : ℕ) :=
-  (Fin k → Option C → C) × (Fin k → Option C → C → Prop) × (Fin k → Fin k → Prop) ×
-    (Fin k → Fin k → Option C → Option C → Prop)
+/-- Boolean summaries of a tuple of blocks. -/
+@[ext]
+structure ColumnSummary (C : Type*) (k : ℕ) where
+  /-- The exit core of each track from each start core. -/
+  exit : Fin k → Option C → C
+  /-- `terminalAdmission a c d`: some label of the shifted block of track `a` from `c` is
+  admitted against the final label `(d, ℓ)`. -/
+  terminalAdmission : Fin k → Option C → C → Bool
+  /-- `equalTracks a b`: tracks `a` and `b` carry the same block. -/
+  equalTracks : Fin k → Fin k → Bool
+  /-- `ladderAdmission a b c c'`: the ladder relates block `a` from `c` and block `b`
+  from `c'`. -/
+  ladderAdmission : Fin k → Fin k → Option C → Option C → Bool
 
-namespace CS
+namespace ColumnSummary
+variable {Γ C : Type*} (q₀ : C) (κ : Γ → C → C)
+  (Λ Λf : Lab Γ C → Lab Γ C → Bool) (ℓ : Γ) {k : ℕ}
+
+/-- The summary of empty tracks. -/
+def start (k : ℕ) : ColumnSummary C k where
+  exit _ c := c.elim q₀ (κ ℓ)
+  terminalAdmission _ c d := Λf (lab0 ℓ c) (some (d, ℓ))
+  equalTracks _ _ := true
+  ladderAdmission _ _ c c' := Λ (lab0 ℓ c) (lab0 ℓ c')
+
+variable [DecidableEq Γ]
+
+/-- Read a column, where padding occurs only before the first letter of a track. -/
+def step (x : ColumnSummary C k) (col : Fin k → Option Γ) : ColumnSummary C k where
+  exit a c := match col a with
+    | none => x.exit a c
+    | some z => κ z (x.exit a c)
+  terminalAdmission a c d := match col a with
+    | none => x.terminalAdmission a c d
+    | some z => x.terminalAdmission a c d || Λf (some (x.exit a c, z)) (some (d, ℓ))
+  equalTracks a b := x.equalTracks a b && decide (col a = col b)
+  ladderAdmission a b c c' := match col a, col b with
+    | none, none => x.ladderAdmission a b c c'
+    | none, some z' => Λ (lab0 ℓ c) (some (x.exit b c', z'))
+    | some z, none => Λ (some (x.exit a c, z)) (lab0 ℓ c')
+    | some z, some z' =>
+        Λ (some (x.exit a c, z)) (some (x.exit b c', z')) ||
+          (decide (z = z') && x.ladderAdmission a b c c')
+
 variable {k : ℕ}
 
-/-- The exit core `fc(c, X_a)` of track `a` from start core `c`. -/
-def exit (x : CS C k) : Fin k → Option C → C := x.1
+/-- Summaries as tuples of their fields. -/
+def equivProd : ColumnSummary C k ≃ (Fin k → Option C → C) × (Fin k → Option C → C → Bool) ×
+    (Fin k → Fin k → Bool) × (Fin k → Fin k → Option C → Option C → Bool) where
+  toFun s := (s.exit, s.terminalAdmission, s.equalTracks, s.ladderAdmission)
+  invFun p := ⟨p.1, p.2.1, p.2.2.1, p.2.2.2⟩
+  left_inv _ := rfl
+  right_inv _ := rfl
 
-/-- `x.terminalAdmission a c d`: some label of the shifted block `Ẑ_a(c)` is `Λ^f`-related to
-the final label `(d, ℓ)`. -/
-def terminalAdmission (x : CS C k) : Fin k → Option C → C → Prop := x.2.1
-
-/-- `x.equalTracks a b`: tracks `a` and `b` carry the same block. -/
-def equalTracks (x : CS C k) : Fin k → Fin k → Prop := x.2.2.1
-
-/-- `x.ladderAdmission a b c c'`: the ladder `Λ'` relates block `a` from `c` and block `b`
-from `c'`. -/
-def ladderAdmission (x : CS C k) : Fin k → Fin k → Option C → Option C → Prop := x.2.2.2
-
-variable (e : Fin k → Option C → C) (t : Fin k → Option C → C → Prop)
-  (q : Fin k → Fin k → Prop) (l : Fin k → Fin k → Option C → Option C → Prop)
-
-/-- The exits of a state given as a tuple. -/
-@[simp] theorem exit_mk : exit ((e, t, q, l) : CS C k) = e := rfl
-
-/-- The terminal admissions of a state given as a tuple. -/
-@[simp] theorem terminalAdmission_mk : terminalAdmission ((e, t, q, l) : CS C k) = t := rfl
-
-/-- The track equalities of a state given as a tuple. -/
-@[simp] theorem equalTracks_mk : equalTracks ((e, t, q, l) : CS C k) = q := rfl
-
-/-- The ladders of a state given as a tuple. -/
-@[simp] theorem ladderAdmission_mk : ladderAdmission ((e, t, q, l) : CS C k) = l := rfl
-
-end CS
+end ColumnSummary
 
 variable (k : ℕ)
 
-/-- The transition of the column automaton on a column (`none` = padding; columns are
-right-aligned, so a padded track is still empty). -/
-def colStep (x : CS C k) (col : Fin k → Option Γ) : CS C k :=
-  (fun a c => match col a with
-      | none => x.exit a c
-      | some z => D.κ z (x.exit a c),
-   fun a c d => match col a with
-      | none => x.terminalAdmission a c d
-      | some z => x.terminalAdmission a c d ∨ D.Λf (some (x.exit a c, z)) (some (d, ℓ)),
-   fun a b => x.equalTracks a b ∧ col a = col b,
-   fun a b c c' => match col a, col b with
-      | none, none => x.ladderAdmission a b c c'
-      | none, some z' => D.Λ (lab0 ℓ c) (some (x.exit b c', z'))
-      | some z, none => D.Λ (some (x.exit a c, z)) (lab0 ℓ c')
-      | some z, some z' =>
-          D.Λ (some (x.exit a c, z)) (some (x.exit b c', z')) ∨
-            (z = z' ∧ x.ladderAdmission a b c c'))
-
-/-- The initial state (all tracks empty). -/
-def colStart : CS C k :=
-  (fun _ c => fcore D ℓ c [], fun _ c d => D.Λf (lab0 ℓ c) (some (d, ℓ)), fun _ _ => True,
-    fun _ _ c c' => D.Λ (lab0 ℓ c) (lab0 ℓ c'))
-
-/-- The finite reader that accumulates a summary of padded word columns. -/
-def colDFA : DFA (Fin k → Option Γ) (CS C k) where
-  step := colStep D ℓ k
-  start := colStart D ℓ k
+/-- A column reader with Boolean admission tests. -/
+def colDFA [DecidableEq Γ] (Λ Λf : Lab Γ C → Lab Γ C → Bool) :
+    DFA (Fin k → Option Γ) (ColumnSummary C k) where
+  step := ColumnSummary.step D.κ Λ Λf ℓ
+  start := ColumnSummary.start D.start D.κ Λ Λf ℓ k
   accept := ∅
 
-/-- The intended value of the column automaton on a tuple of level-`(j+1)` letters. -/
-def summ (Ws : Fin k → List Γ) : CS C k :=
-  (fun a c => fcore D ℓ c (Ws a),
-   fun a c d => ∃ p ≤ (Ws a).length, D.Λf (zlab D ℓ c (Ws a) p) (some (d, ℓ)),
-   fun a b => Ws a = Ws b,
-   fun a b c c' => derΛ D ℓ (some (c, Ws a)) (some (c', Ws b)))
+/-- The semantic summary of a tuple of blocks. -/
+noncomputable def summ (Ws : Fin k → List Γ) : ColumnSummary C k := by
+  classical
+  exact ⟨fun a c => fcore D ℓ c (Ws a),
+    fun a c d => decide (∃ p ≤ (Ws a).length, D.Λf (zlab D ℓ c (Ws a) p) (some (d, ℓ))),
+    fun a b => decide (Ws a = Ws b),
+    fun a b c c' => decide (derΛ D ℓ (some (c, Ws a)) (some (c', Ws b)))⟩
 
 /-- On a valid column word, the column automaton computes the summary of the decoded tuple. -/
-theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
-    (colDFA D ℓ k).eval w = summ D ℓ k (dec w) := by
+theorem colEval [DecidableEq Γ] (Λ Λf : Lab Γ C → Lab Γ C → Bool)
+    (hΛ : ∀ L L', Λ L L' = true ↔ D.Λ L L')
+    (hΛf : ∀ L L', Λf L L' = true ↔ D.Λf L L') (w : List (Fin k → Option Γ)) (hw : Valid w) :
+    (colDFA D ℓ k Λ Λf).eval w = summ D ℓ k (dec w) := by
+  classical
   induction w using List.reverseRecOn with
   | nil =>
     have hd : ∀ a, dec ([] : List (Fin k → Option Γ)) a = [] := fun _ => rfl
-    show colStart D ℓ k = summ D ℓ k (dec [])
-    simp only [colStart, summ, hd]
-    refine Prod.ext rfl (Prod.ext ?_ (Prod.ext ?_ ?_))
-    · funext a c d; exact propext (blockΛf_nil D ℓ c _).symm
+    show ColumnSummary.start D.start D.κ Λ Λf ℓ k = summ D ℓ k (dec [])
+    simp only [ColumnSummary.start, summ, hd]
+    refine ColumnSummary.ext ?_ ?_ ?_ ?_
+    · funext a c; cases c <;> rfl
+    · funext a c d
+      apply Bool.eq_iff_iff.mpr
+      simpa only [decide_eq_true_eq] using (hΛf _ _).trans (blockΛf_nil D ℓ c _).symm
     · funext a b; simp
-    · funext a b c c'; exact propext (derΛ_nil_nil D ℓ c c').symm
+    · funext a b c c'
+      apply Bool.eq_iff_iff.mpr
+      simpa only [decide_eq_true_eq] using (hΛ _ _).trans (derΛ_nil_nil D ℓ c c').symm
   | append_singleton w col ih =>
     rw [DFA.eval_append_singleton, ih (hw.sublist (List.sublist_append_left _ _))]
     have hpad : ∀ a, col a = none → dec w a = [] := dec_eq_nil_of_pad hw
-    show colStep D ℓ k (summ D ℓ k (dec w)) col = summ D ℓ k (dec (w ++ [col]))
-    simp only [colStep, summ, dec_snoc, CS.exit_mk, CS.terminalAdmission_mk, CS.equalTracks_mk,
-      CS.ladderAdmission_mk]
-    refine Prod.ext ?_ (Prod.ext ?_ (Prod.ext ?_ ?_))
+    show ColumnSummary.step D.κ Λ Λf ℓ (summ D ℓ k (dec w)) col = summ D ℓ k (dec (w ++ [col]))
+    simp only [ColumnSummary.step, summ, dec_snoc]
+    refine ColumnSummary.ext ?_ ?_ ?_ ?_
     · funext a c
       dsimp only
       rcases col a with _ | z
       · simp
       · simp [fcore_snoc]
     · funext a c d
+      apply Bool.eq_iff_iff.mpr
       dsimp only
       rcases col a with _ | z
       · simp
-      · simp only [Option.toList_some]
-        exact propext (blockΛf_snoc D ℓ c _ z _).symm
+      · simp only [Option.toList_some, Bool.or_eq_true, decide_eq_true_eq, hΛf]
+        exact (blockΛf_snoc D ℓ c (dec w a) z (some (d, ℓ))).symm.trans
+          (decide_eq_true_iff).symm
     · funext a b
       dsimp only
-      apply propext
+      apply Bool.eq_iff_iff.mpr
+      simp only [Bool.and_eq_true, decide_eq_true_eq]
       rcases hca : col a with _ | z <;> rcases hcb : col b with _ | z'
       · rw [hpad a hca, hpad b hcb]; simp
       · rw [hpad a hca]; simp
@@ -293,33 +294,49 @@ theorem colEval (w : List (Fin k → Option Γ)) (hw : Valid w) :
           exact ⟨e1, e2⟩
     · funext a b c c'
       dsimp only
-      apply propext
+      apply Bool.eq_iff_iff.mpr
       rcases hca : col a with _ | z <;> rcases hcb : col b with _ | z'
       · simp
       · rw [hpad a hca]
         simp only [Option.toList_none, Option.toList_some, List.append_nil]
-        exact (derΛ_nil_snoc D ℓ c c' _ z').symm
+        simpa only [decide_eq_true_eq, hΛ] using (derΛ_nil_snoc D ℓ c c' _ z').symm
       · rw [hpad b hcb]
         simp only [Option.toList_none, Option.toList_some, List.append_nil]
-        exact (derΛ_snoc_nil D ℓ c c' _ z).symm
-      · simp only [Option.toList_some]
-        exact (derΛ_snoc_snoc D ℓ c c' _ _ z z').symm
-
-/-- The column automaton has finitely many states. -/
-instance instFintypeCS [Fintype C] [DecidableEq C] : Fintype (CS C k) :=
-  @instFintypeProd _ _ inferInstance
-    (@instFintypeProd _ _ inferInstance (@instFintypeProd _ _ inferInstance inferInstance))
+        simpa only [decide_eq_true_eq, hΛ] using (derΛ_snoc_nil D ℓ c c' _ z).symm
+      · simp only [Option.toList_some, Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq, hΛ]
+        exact (derΛ_snoc_snoc D ℓ c c' (dec w a) (dec w b) z z').symm.trans
+          (decide_eq_true_iff).symm
 
 /-- The number of column-automaton states for `N` cores and `k` tracks. -/
 def colBound (N k : ℕ) : ℕ :=
   (N ^ (N + 1)) ^ k * ((2 ^ N) ^ (N + 1)) ^ k * (2 ^ k) ^ k *
     (((2 ^ (N + 1)) ^ (N + 1)) ^ k) ^ k
 
-/-- The column automaton has `colBound |C| k` states. -/
-theorem card_CS [Fintype C] [DecidableEq C] :
-    Fintype.card (CS C k) = colBound (Fintype.card C) k := by
-  rw [Fintype.card_prod, Fintype.card_prod, Fintype.card_prod]
+section Card
+variable {C : Type*} [Fintype C] [DecidableEq C] (k : ℕ)
+
+/-- The product of the fields, with its `Fintype` instance spelled out. -/
+@[instance_reducible] private def fieldsFintype :
+    Fintype ((Fin k → Option C → C) × (Fin k → Option C → C → Bool) ×
+      (Fin k → Fin k → Bool) × (Fin k → Fin k → Option C → Option C → Bool)) :=
+  @instFintypeProd _ _ inferInstance
+    (@instFintypeProd _ _ inferInstance (@instFintypeProd _ _ inferInstance inferInstance))
+
+instance instFintypeColumnSummary : Fintype (ColumnSummary C k) :=
+  @Fintype.ofEquiv _ _ (fieldsFintype k) ColumnSummary.equivProd.symm
+
+instance instDecEqColumnSummary : DecidableEq (ColumnSummary C k) := fun s s' =>
+  decidable_of_iff (s.exit = s'.exit ∧ s.terminalAdmission = s'.terminalAdmission ∧
+      s.equalTracks = s'.equalTracks ∧ s.ladderAdmission = s'.ladderAdmission)
+    (by cases s; cases s'; simp)
+
+/-- The number of Boolean summaries is the number of column-automaton states. -/
+theorem card_columnSummary : Fintype.card (ColumnSummary C k) = colBound (Fintype.card C) k := by
+  rw [@Fintype.card_congr _ _ _ (fieldsFintype k) ColumnSummary.equivProd, fieldsFintype,
+    Fintype.card_prod, Fintype.card_prod, Fintype.card_prod]
   simp [Fintype.card_option, colBound, mul_assoc]
+
+end Card
 
 /-- The summary determines the atomic type at level `j + 1`:
 two `k`-tuples with the same column summary have the same equality pattern and the same
@@ -334,16 +351,18 @@ theorem der_type_of_summ {Ws Ws' : Fin k → List Γ} (hs : summ D ℓ k Ws' = s
     (∀ c c', (der D ℓ).Λf (some (c, Ws' a)) (some (c', Ws' b)) ↔
       (der D ℓ).Λf (some (c, Ws a)) (some (c', Ws b))) := by
   have h1 : ∀ a c, fcore D ℓ c (Ws' a) = fcore D ℓ c (Ws a) := fun a c =>
-    congrFun (congrFun (congrArg CS.exit hs) a) c
+    congrArg (fun s => s.exit a c) hs
   have h2 : ∀ a c d, (∃ p ≤ (Ws' a).length, D.Λf (zlab D ℓ c (Ws' a) p) (some (d, ℓ))) ↔
-      ∃ p ≤ (Ws a).length, D.Λf (zlab D ℓ c (Ws a) p) (some (d, ℓ)) := fun a c d =>
-    Iff.of_eq (congrFun (congrFun (congrFun (congrArg CS.terminalAdmission hs) a) c) d)
-  have h3 : ∀ a b, Ws' a = Ws' b ↔ Ws a = Ws b := fun a b =>
-    Iff.of_eq (congrFun (congrFun (congrArg CS.equalTracks hs) a) b)
+      ∃ p ≤ (Ws a).length, D.Λf (zlab D ℓ c (Ws a) p) (some (d, ℓ)) := fun a c d => by
+    simpa only [summ, decide_eq_true_eq] using
+      Bool.eq_iff_iff.mp (congrArg (fun s => s.terminalAdmission a c d) hs)
+  have h3 : ∀ a b, Ws' a = Ws' b ↔ Ws a = Ws b := fun a b => by
+    simpa only [summ, decide_eq_true_eq] using
+      Bool.eq_iff_iff.mp (congrArg (fun s => s.equalTracks a b) hs)
   have h4 : ∀ a b c c', derΛ D ℓ (some (c, Ws' a)) (some (c', Ws' b)) ↔
-      derΛ D ℓ (some (c, Ws a)) (some (c', Ws b)) := fun a b c c' =>
-    Iff.of_eq (congrFun (congrFun (congrFun (congrFun
-      (congrArg CS.ladderAdmission hs) a) b) c) c')
+      derΛ D ℓ (some (c, Ws a)) (some (c', Ws b)) := fun a b c c' => by
+    simpa only [summ, decide_eq_true_eq] using
+      Bool.eq_iff_iff.mp (congrArg (fun s => s.ladderAdmission a b c c') hs)
   refine ⟨h3 a b, fun c => ?_, fun c => ?_, fun c c' => h4 a b c c', fun c c' => ?_⟩
   · rw [der_κ, der_κ, h1]
   · simp only [der_Tf, derTf]
@@ -356,11 +375,16 @@ sub-words, each shorter than `colBound |C| k`, with the same column summary. -/
 theorem exists_short_tuple [Fintype C] [DecidableEq C] (Ws : Fin k → List Γ) :
     ∃ Ws' : Fin k → List Γ, (∀ a, (Ws' a).Sublist (Ws a)) ∧
       (∀ a, (Ws' a).length < colBound (Fintype.card C) k) ∧ summ D ℓ k Ws' = summ D ℓ k Ws := by
-  obtain ⟨Ws', h1, h2, h3⟩ := exists_short_conv (fun x => (colDFA D ℓ k).eval x)
+  classical
+  let Λ := fun L L' => decide (D.Λ L L')
+  let Λf := fun L L' => decide (D.Λf L L')
+  have hΛ : ∀ L L', Λ L L' = true ↔ D.Λ L L' := fun _ _ => decide_eq_true_iff
+  have hΛf : ∀ L L', Λf L L' = true ↔ D.Λf L L' := fun _ _ => decide_eq_true_iff
+  obtain ⟨Ws', h1, h2, h3⟩ := exists_short_conv (fun x => (colDFA D ℓ k Λ Λf).eval x)
     (fun x y a h => by simp only [DFA.eval_append_singleton]; rw [h]) Ws
-  refine ⟨Ws', h1, fun a => (h2 a).trans_eq (card_CS k), ?_⟩
-  have e1 := colEval D ℓ k _ (valid_conv Ws')
-  have e2 := colEval D ℓ k _ (valid_conv Ws)
+  refine ⟨Ws', h1, fun a => (h2 a).trans_eq (card_columnSummary k), ?_⟩
+  have e1 := colEval D ℓ k Λ Λf hΛ hΛf _ (valid_conv Ws')
+  have e2 := colEval D ℓ k Λ Λf hΛ hΛf _ (valid_conv Ws)
   rw [dec_conv] at e1 e2
   rw [← e1, ← e2]
   exact h3

@@ -8,7 +8,7 @@ A configuration of the summary search stores a level, a table over at most
 a marker letter, a track count `h ≤ g`, a column summary over `h` tracks and
 the started flags of the tracks. The number of bits for each part is
 polynomial, so a configuration takes `O((N + d + 1)^2 (n + g + 1)^2)` bits.
-For the label monitors of a system with `k` variables, `N = 2 * 4^(2k)`, and
+For the label readers of a system with `k` variables, `N = 2 * 4^(2k)`, and
 the depth and dictionary bounds of the bounded-depth search make this
 `(n + 1)^2 * 2^2^(20k + 20)` bits.
 
@@ -20,7 +20,7 @@ the depth and dictionary bounds of the bounded-depth search make this
 - `configBits_le`: the polynomial bound with constant `11`.
 - `configBits_hole_le`: the bound at the depth and dictionary bounds of a
   reader with `N` states.
-- `configBits_label_le`: the doubly exponential bound for the label monitors.
+- `configBits_label_le`: the doubly exponential bound for the label readers.
 -/
 
 namespace DeciNSSE.Complexity.Summary
@@ -175,7 +175,7 @@ theorem configBits_hole_le (N n : ℕ) :
     _ ≤ (n + 1) ^ 2 * 2 ^ (1024 * X) :=
       Nat.mul_le_mul_left _ (Nat.pow_le_pow_right (by decide) (by omega))
 
-/-- For the label monitors of a system with `k` variables, a configuration
+/-- For the label readers of a system with `k` variables, a configuration
 takes at most `(n + 1)^2 * 2^2^(20k + 20)` bits. -/
 theorem configBits_label_le (n k : ℕ) :
     configBits (2 * 4 ^ (2 * k)) n (holeDepthBound (2 * 4 ^ (2 * k)))

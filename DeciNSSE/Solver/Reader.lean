@@ -13,7 +13,8 @@ preserves acceptance and admissions, so the packed reader has the same hole lang
 - `Solver.PackedState`, `Solver.PackedState.decode`: packed label states and their
   decoding into `Monitor.State`.
 - `Solver.PackedReader`, `Solver.packedReader`: the packed reader of a covariant system
-  and query, and `Solver.packedSideReader` for one side of a query.
+  and query, `Solver.packedSideReader` for one side of a query, and
+  `Solver.packedSideReaders` for both sides over one closure.
 - `Solver.admitted`: the packed admission test.
 - `Solver.packedReader_eval`: decoding commutes with evaluation.
 - `Solver.packedReader_hole`, `Solver.packedSideReader_hole`: the packed and the
@@ -101,7 +102,7 @@ theorem ready_spec (ψ : Constraint n m) (s : PackedState m) :
 /-- Admission is an intersection with lower or sign-flipped upper labels. -/
 def admitted (s t : PackedState (2 * k)) : Bool :=
   meets s.lower t.upper || meets
-    (image (fun i => singleton (SignSelection.flipV i)) s.upper) t.upper
+    (image (fun i => singleton (SignDuality.flipV i)) s.upper) t.upper
 
 /-- The packed admission test is the admission of the decoded states. -/
 theorem admitted_spec (s t : PackedState (2 * k)) :
@@ -131,12 +132,15 @@ structure PackedReader (n m : ℕ) where
   /-- The start state. -/
   start : PackedState m
 
+/-- The packed reader of `ψ ⊨? X ≤ Y` over the closure rows `d`. -/
+def packedReaderOf (ψ : Constraint n m) (d : Rows m) (X Y : V m) : PackedReader n m :=
+  ⟨upperRows ψ d, lowerRows ψ d, ofList (botVars ψ), ofList (topVars ψ),
+    ofList ((upperLits ψ).map Prod.fst), ⟨d X, inverseRows d Y, false⟩⟩
+
 /-- The packed reader of `ψ ⊨? X ≤ Y`, the packed counterpart of `Monitor.reader ψ X Y`.
 The closure and the transition matrices are computed once. -/
 def packedReader (ψ : Constraint n m) (X Y : V m) : PackedReader n m :=
-  let d := derivedRows ψ
-  ⟨upperRows ψ d, lowerRows ψ d, ofList (botVars ψ), ofList (topVars ψ),
-    ofList ((upperLits ψ).map Prod.fst), ⟨d X, inverseRows d Y, false⟩⟩
+  packedReaderOf ψ (derivedRows ψ) X Y
 
 /-- One reader transition: extend both label sets and update the latch. -/
 def PackedReader.step (r : PackedReader n m) (s : PackedState m) (a : Fin n) : PackedState m :=
@@ -158,7 +162,7 @@ private theorem state_ext {a b : Monitor.State m} (hu : a.U = b.U)
 /-- Decoding the packed start state gives the start state of the finite-set reader. -/
 theorem packedReader_start (ψ : Constraint n m) (X Y : V m) :
     (packedReader ψ X Y).start.decode = (Monitor.reader ψ X Y).start := by
-  apply state_ext <;> simp [packedReader, PackedState.decode, Monitor.reader_start,
+  apply state_ext <;> simp [packedReader, packedReaderOf, PackedState.decode, Monitor.reader_start,
     Finset.ext_iff, mem_derivedPairs]
 
 /-- Decoding commutes with one transition. -/
@@ -166,22 +170,23 @@ theorem packedReader_step (ψ : Constraint n m) (X Y : V m) (s : PackedState m) 
     ((packedReader ψ X Y).step s a).decode = (Monitor.reader ψ X Y).step s.decode a := by
   apply state_ext
   · ext i
-    simp only [PackedReader.step, packedReader, PackedState.decode, mem_decode, bit_image,
-      Monitor.reader_step, Monitor.upperStep, Finset.mem_filter, Finset.mem_univ,
+    simp only [PackedReader.step, packedReader, packedReaderOf, PackedState.decode, mem_decode,
+      bit_image, Monitor.reader_step, upperStep, Finset.mem_filter, Finset.mem_univ,
       true_and, upperRows_spec]
   · ext i
-    simp only [PackedReader.step, packedReader, PackedState.decode, mem_decode, bit_image,
-      Monitor.reader_step, Monitor.lowerStep, Finset.mem_filter, Finset.mem_univ,
+    simp only [PackedReader.step, packedReader, packedReaderOf, PackedState.decode, mem_decode,
+      bit_image, Monitor.reader_step, lowerStep, Finset.mem_filter, Finset.mem_univ,
       true_and, lowerRows_spec]
-  · simp only [PackedReader.step, packedReader, PackedState.decode, Monitor.reader_step]
+  · simp only [PackedReader.step, packedReader, packedReaderOf, PackedState.decode,
+      Monitor.reader_step]
     congr 1
     exact Bool.eq_iff_iff.mpr (by simp only [decide_eq_true_eq]; exact ready_spec ψ s)
 
 /-- Packed acceptance is acceptance of the decoded state. -/
 theorem packedReader_accept (ψ : Constraint n m) (X Y : V m) (s : PackedState m) :
     (packedReader ψ X Y).accept s = true ↔ Monitor.Accept ψ s.decode := by
-  simp only [PackedReader.accept, packedReader, Bool.or_eq_true, ready_spec, meets_iff,
-    bit_ofList, List.mem_map, Monitor.Accept, PackedState.decode, mem_decode]
+  simp only [PackedReader.accept, packedReader, packedReaderOf, Bool.or_eq_true, ready_spec,
+    meets_iff, bit_ofList, List.mem_map, Monitor.Accept, PackedState.decode, mem_decode]
   aesop
 
 /-- Decoding commutes with evaluation on every word. -/
@@ -209,14 +214,27 @@ theorem packedReader_hole (ψ : Constraint n (2 * k)) (X Y : V (2 * k)) (w : Lis
 of `Monitor.sideReader`. -/
 abbrev packedSideReader (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) (θ : Side) :
     PackedReader n (2 * k) :=
-  packedReader (Events.sideSystem c ϕ θ) (Events.sideQuery x y θ).1 (Events.sideQuery x y θ).2
+  packedReader (signed c ϕ) (Events.sideQuery x y θ).1 (Events.sideQuery x y θ).2
 
 /-- The packed side reader has the holes of the label reader of that side. -/
 theorem packedSideReader_hole (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (w : List (Fin n)) :
     IsReaderHole (packedSideReader c ϕ x y θ).machine (fun s t => admitted s t = true)
       {s | (packedSideReader c ϕ x y θ).accept s = false} w ↔
-    IsReaderHole (sideReader c ϕ x y θ) admission (sideTarget c ϕ θ) w :=
+    IsReaderHole (sideReader c ϕ x y θ) admission (sideTarget c ϕ) w :=
   packedReader_hole _ _ _ w
+
+/-- The packed readers of the top-prefix and the bottom-prefix side. They differ in
+the start state only, so the closure and the transition matrices are computed once. -/
+def packedSideReaders (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
+    PackedReader n (2 * k) × PackedReader n (2 * k) :=
+  let d := derivedRows (signed c ϕ)
+  let l := packedReaderOf (signed c ϕ) d (sv x false) (sv y false)
+  (l, { l with start := ⟨d (sv y true), inverseRows d (sv x true), false⟩ })
+
+/-- The shared pair consists of the two packed side readers. -/
+theorem packedSideReaders_eq (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
+    packedSideReaders c ϕ x y =
+      (packedSideReader c ϕ x y .l, packedSideReader c ϕ x y .r) := rfl
 
 end DeciNSSE.Solver

@@ -5,6 +5,13 @@ import DeciNSSE.Semantics.Tree
 Path polarity is the XOR of the variances encountered from the root. A true
 bit reverses comparison by exchanging bottom and top; constructor labels and
 domains stay fixed. Normalization therefore turns variance order into covariance.
+
+## Main declarations
+
+- `polarity`: the accumulated polarity of a path.
+- `Tree.normalize`, `Tree.dual`: normalization of a tree, and the exchange of bottom and
+  top.
+- `dual_le_iff`: leaf duality reverses the covariant order.
 -/
 
 namespace DeciNSSE
@@ -134,6 +141,16 @@ def Tree.dual : Tree n → Tree n := Tree.normalize (fun _ => false) true
   cases h : t.fn π with
   | none => simp [h]
   | some a => cases hp : polarity c π <;> simp [h, hp]
+
+@[simp] theorem dual_eq_bot (t : Tree n) : Tree.dual t = Tree.bot ↔ t = Tree.top := by
+  constructor
+  · intro h; have := congrArg Tree.dual h; simpa using this
+  · rintro rfl; simp
+
+@[simp] theorem dual_eq_top (t : Tree n) : Tree.dual t = Tree.top ↔ t = Tree.bot := by
+  constructor
+  · intro h; have := congrArg Tree.dual h; simpa using this
+  · rintro rfl; simp
 
 @[simp] theorem dual_le_iff (t u : Tree n) : Tree.dual t ≤ Tree.dual u ↔ u ≤ t := by
   constructor

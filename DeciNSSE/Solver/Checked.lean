@@ -19,12 +19,13 @@ packed check `checkEntailmentPacked`, with its own soundness theorem.
 ## Main declarations
 
 - `Solver.Checked.packedSatB`, `Solver.Checked.packedSatB_eq`: packed satisfiability,
-  equal to `Monitor.satB`.
+  equal to `satB`.
 - `Solver.Checked.checkHole`, `Solver.Checked.checkHole_iff`: the packed hole check of one
   word.
 - `Solver.Checked.checkRefutationPacked`, `Solver.Checked.checkRefutationPacked_eq_refutesB`:
   the packed refutation check, equal to `refutesB`.
-- `Solver.Checked.checkSidePacked`, `Solver.Checked.checkEntailmentPacked`,
+- `Solver.Checked.checkCoverPacked`, `Solver.Checked.checkSidePacked`,
+  `Solver.Checked.checkEntailmentPacked`,
   `Solver.Checked.checkEntailmentPacked_sound`: the packed cover and entailment checks.
 -/
 
@@ -44,11 +45,11 @@ def packedSatB (c : Fin n → Bool) (ϕ : Constraint n k) : Bool :=
   !((List.finRange (2 * k)).any fun x =>
     (lowerTop x && upperBot x) || (lowerTop x && upperF x) || (lowerF x && upperBot x))
 
-/-- Packed satisfiability agrees with the specification `Monitor.satB`. -/
+/-- Packed satisfiability agrees with the specification `satB`. -/
 theorem packedSatB_eq (c : Fin n → Bool) (ϕ : Constraint n k) :
-    packedSatB c ϕ = Monitor.satB c ϕ := by
+    packedSatB c ϕ = satB c ϕ := by
   apply Bool.eq_iff_iff.mpr
-  simp only [packedSatB, Monitor.satB, satInfB, labelClashB, Bool.not_eq_true',
+  simp only [packedSatB, satB, labelClashB, Bool.not_eq_true',
     Bool.eq_false_iff, ne_eq, List.any_eq_true, List.mem_finRange, true_and,
     Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq, bit_derivedRows, mem_derivedPairs,
     or_assoc]
@@ -74,12 +75,6 @@ theorem checkHole_iff (r : PackedReader n (2 * k)) (w : List (Fin n)) :
   · intro h s e hse hp
     exact h s e hse (by have := e.isLt; omega) hp
 
-/-- The packed hole check of one side accepts exactly the holes of its side monitor. -/
-theorem checkHole_iff_hole (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) (θ : Side)
-    (w : List (Fin n)) :
-    checkHole (packedSideReader c ϕ x y θ) w = true ↔ (sideMonitor c ϕ x y θ).Hole w :=
-  (checkHole_iff _ w).trans (packedSideReader_hole c ϕ x y θ w)
-
 /-- The packed implementation of the refutation checker. -/
 def checkRefutationPacked (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (cert : Refutation n) : Bool :=
@@ -94,24 +89,30 @@ theorem checkRefutationPacked_eq_refutesB (c : Fin n → Bool) (ϕ : Constraint 
   simp only [checkRefutationPacked, refutesB, Bool.and_eq_true, decide_eq_true_eq,
     checkHole_iff, packedSideReader_hole, packedSatB_eq]
 
-/-- Check the same covering product over the packed reader states. -/
+/-- Check a covering product over the states of a packed reader. -/
+def checkCoverPacked (r : PackedReader n (2 * k)) (cert : Cover (Fin n)) : Bool :=
+  checkCover r.machine (fun s t => admitted s t = true) {s | r.accept s = false} cert
+
+/-- Check the covering product of one side over its packed reader. -/
 def checkSidePacked (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (cert : Cover (Fin n)) : Bool :=
-  let r := packedSideReader c ϕ x y θ
-  checkCover r.machine (fun s t => admitted s t = true) {s | r.accept s = false} cert
+  checkCoverPacked (packedSideReader c ϕ x y θ) cert
 
 /-- An accepted packed cover excludes every hole of its side. -/
 theorem checkSidePacked_sound (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
     (θ : Side) (cert : Cover (Fin n)) (h : checkSidePacked c ϕ x y θ cert = true) :
-    ∀ w, ¬ (sideMonitor c ϕ x y θ).Hole w := by
+    ∀ w, ¬ SideHole c ϕ x y θ w := by
   intro w hw
   exact checkCover_sound _ _ _ cert h w ((packedSideReader_hole c ϕ x y θ w).mpr hw)
 
-/-- Entailment uses unsatisfiability or two accepted covers. -/
+/-- Entailment uses unsatisfiability or two accepted covers. The two side readers share
+one closure. -/
 def checkEntailmentPacked (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k) :
     Entailment n → Bool
   | .unsat => !(packedSatB c ϕ)
-  | .cover l r => checkSidePacked c ϕ x y .l l && checkSidePacked c ϕ x y .r r
+  | .cover l r =>
+    let readers := packedSideReaders c ϕ x y
+    checkCoverPacked readers.1 l && checkCoverPacked readers.2 r
 
 /-- An accepted packed entailment certificate proves arbitrary-tree entailment. -/
 theorem checkEntailmentPacked_sound (c : Fin n → Bool) (ϕ : Constraint n k) (x y : V k)
@@ -122,9 +123,9 @@ theorem checkEntailmentPacked_sound (c : Fin n → Bool) (ϕ : Constraint n k) (
     apply Certificates.checkEntailment_sound c ϕ x y .unsat
     simpa only [checkEntailmentPacked, packedSatB_eq, Certificates.checkEntailment] using h
   | cover l r =>
-    simp only [checkEntailmentPacked, Bool.and_eq_true] at h
+    simp only [checkEntailmentPacked, packedSideReaders_eq, Bool.and_eq_true] at h
     obtain ⟨hl, hr⟩ := h
-    apply (entails_iff_of_monitors (sideMonitor c ϕ x y .l) (sideMonitor c ϕ x y .r)).mpr
+    apply entails_iff_sideHoles.mpr
     exact Or.inr ⟨fun ⟨w, hw⟩ => checkSidePacked_sound c ϕ x y .l l hl w hw,
       fun ⟨w, hw⟩ => checkSidePacked_sound c ϕ x y .r r hr w hw⟩
 

@@ -60,8 +60,8 @@ theorem realized_derive {j h₀ h : ℕ} {T : Table (Fin h₀) (Cores Q j)} (hT 
     (hs : w.foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ h) = s)
     (hd : ∀ a b, s.equalTracks a b = true → a = b) : Realized T₀ (j + 1) (derivedTable T ℓ s) := by
   obtain ⟨ℓ₀, ρ, hA, hadm⟩ := hT
-  have hsum : s.toProp = summ T.toLettered ℓ h (dec w) := by
-    rw [← hs, ColumnSummary.toProp_eval, colEval _ _ _ _ hw]
+  have hsum : s = summ T.toLettered ℓ h (dec w) := by
+    rw [← hs, ColumnSummary.eval _ _ _ hw]
   have hA₂ := hA.derive (List.mem_finRange ℓ) ((List.finRange h).map (dec w))
     (fun _ _ a _ => List.mem_finRange a)
   set ℓ' : (i : ℕ) → Alph (Fin n) i := Function.update ℓ₀ j (ρ ℓ)

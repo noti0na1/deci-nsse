@@ -4,7 +4,7 @@ import DeciNSSE.Solver.Checked
 
 /-! # Holes and certificates of the rejection system
 
-The rejection system is satisfiable, so the holes of its side monitors, the words
+The rejection system is satisfiable, so the holes of its side readers, the words
 passing the Boolean check `refutesB`, and the words of the refutations passing
 the solver's packed checker are its unsafe words. If `A` accepts every word
 without the prefix `W`, all of them extend `W`. If moreover all states of `A` are
@@ -24,15 +24,15 @@ open Monitor Directions
 
 variable {n m : ℕ} (hn : 2 ≤ n) {A : BinNFA m} {W : List (Fin 2)}
 
-/-- The holes of the side monitors are the unsafe words. -/
+/-- The holes of the side readers are the unsafe words. -/
 theorem hole_iff_unsafe (θ : Side) (w : List (Fin n)) :
-    (sideMonitor (fun _ => false) (rejectionSystem n A) xVar yVar θ).Hole w ↔
+    SideHole (fun _ => false) (rejectionSystem n A) xVar yVar θ w ↔
       Unsafe (fun _ => false) (rejectionSystem n A) xVar yVar θ w :=
-  (sideMonitor _ _ _ _ θ).hole_iff_unsafe (satisfiable_rejectionSystem A) w
+  Monitor.hole_iff_unsafe (satisfiable_rejectionSystem A) θ w
 
 /-- If `A` accepts every word without the prefix `W`, every hole extends `W`. -/
 theorem prefix_of_hole (hA : ∀ u, ¬ W <+: u → A.Accepts u) {θ : Side} {w : List (Fin n)}
-    (h : (sideMonitor (fun _ => false) (rejectionSystem n A) xVar yVar θ).Hole w) :
+    (h : SideHole (fun _ => false) (rejectionSystem n A) xVar yVar θ w) :
     W.map (embedDir hn) <+: w :=
   prefix_of_unsafe hn hA ((hole_iff_unsafe θ w).mp h)
 
@@ -57,10 +57,10 @@ theorem prefix_of_checkRefutationPacked (hA : ∀ u, ¬ W <+: u → A.Accepts u)
 variable (hfin : ∀ q, A.final q = true) (hW : W ≠ []) (hA : ∀ u, A.Accepts u ↔ ¬ W <+: u)
 include hfin hW hA
 
-/-- The left monitor has no hole, and the holes of the right monitor are exactly the binary
+/-- The left side has no hole, and the holes of the right side are exactly the binary
 words that extend `W`. -/
 theorem hole_iff (θ : Side) (w : List (Fin n)) :
-    (sideMonitor (fun _ => false) (rejectionSystem n A) xVar yVar θ).Hole w ↔
+    SideHole (fun _ => false) (rejectionSystem n A) xVar yVar θ w ↔
       θ = .r ∧ ∃ v, w = (W ++ v).map (embedDir hn) :=
   (hole_iff_unsafe θ w).trans (unsafe_iff hn hfin hW hA θ w)
 

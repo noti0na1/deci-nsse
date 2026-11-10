@@ -94,7 +94,7 @@ dictionaries. -/
 theorem exists_bounded_dictionary_hole (hw : D0.IsHole w) (hd : depth w ≤ d) :
     ∃ v, D0.IsHole v ∧ depth v = depth w ∧ v.length ≤ w.length ∧
       ∀ i, 1 ≤ i → i ≤ depth v → alphCard v i ≤ dictionaryBound (Fintype.card Q) d := by
-  obtain ⟨v, hv, hdepth, hlen, _, _, hn⟩ := exists_normal_form hw
+  obtain ⟨v, hv, hdepth, hlen, hn⟩ := exists_normal_form hw
   refine ⟨v, hv, hdepth, hlen, fun i hi hid => ?_⟩
   rcases eq_or_lt_of_le hid with rfl | hid
   · exact (alphCard_depth_le_one v).trans (by unfold dictionaryBound; omega)

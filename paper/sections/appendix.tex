@@ -161,7 +161,7 @@ markers of the original hierarchy below level $i$ gives a nonempty base hole
 by \cref{lem:der-holes}.
 It remains to prove the asserted structural properties of that expansion.
 
-\subsection{Induced Level Maps and Start Counts}
+\subsection{Induced Level Maps}
 
 Continue a hierarchy past its first unary level when discussing all
 levels; desubstitution preserves unary words. For a level map $\theta$ define
@@ -171,9 +171,8 @@ application to a block body.
 \begin{lemma}[Shape under a level map]\label{lem:level-maps}
 Let $w$ be a nonempty hole, and let $\theta$ map the dictionary of $u_i$ into
 itself. Suppose that it identifies no unequal predecessor pair, as in
-the hypothesis of \cref{lem:comparison-map}, fixes the
-start prefix $u_i[:s_i]$ letterwise, preserves the level-$i$ state run,
-and makes $\theta(u_i)$ a hole of $\mathcal M_i$. Expand $\theta(u_i)$ with the
+the hypothesis of \cref{lem:comparison-map}, and makes $\theta(u_i)$ a hole
+of $\mathcal M_i$. Expand $\theta(u_i)$ with the
 markers of the original hierarchy below level $i$ to obtain $w'$. Then $w'$
 is a hole, its markers below $i$ are unchanged, and its dictionaries below
 $i$ are subsets of the old ones. At every $r\ge0$,
@@ -182,15 +181,15 @@ $i$ are subsets of the old ones. At every $r\ge0$,
  \ell'_{i+r}=\theta_r(\ell_{i+r}),
 \]
 and $\theta_r$ identifies no unequal predecessor pair of a comparison of
-$u_{i+r}$. Every start count is unchanged, and exactly the same levels
-are unary. In particular, depth is preserved and no dictionary grows.
+$u_{i+r}$. Exactly the same levels are unary. In particular, depth is
+preserved and no dictionary grows.
 \end{lemma}
 
 \begin{proof}
 Every image letter occurs in the old dictionary, so it has a valid
 expansion avoiding each lower marker. Expansion and cutting are inverse
 at every lower level: a block body avoids its marker and its following
-marker is present. Thus the decoded hierarchy reaches $f(u_i)$ exactly,
+marker is present. Thus the decoded hierarchy reaches $\theta(u_i)$ exactly,
 with unchanged lower markers. Repeated use of \cref{lem:der-holes} proves
 holehood. Descending through these expansions also proves dictionary
 containment below $i$.
@@ -210,57 +209,6 @@ $X=Y$. This proves the required nonidentification property upstairs,
 including when the upper comparison is terminal. Induction gives the
 claimed level words, markers, and comparison sets at every higher level.
 
-We show that every start count is unchanged.
-For any nonempty hierarchy let $m_j=|u_j|$ and write
-$\#_{\ell}(v)$ for the number of occurrences of $\ell$ in $v$. The core
-recursion gives
-\begin{equation}\label{eq:start-count}
- s_0=0,\qquad
- s_{j+1}=\min\{1+\#_{\ell_j}(u_j[:s_j]),\ m_{j+1}\}.
-\end{equation}
-There is one new start core, followed by those inherited from nonfinal
-markers in the old start prefix. The minimum removes the final marker
-when that whole level is a start prefix. In particular, if $s_j=m_j$,
-then $s_{j+1}=m_{j+1}$, since $\#_{\ell_j}(u_j)=m_{j+1}$.
-At level $i$ the unchanged run and length give $s'_i=s_i$, and the
-start prefixes agree by hypothesis. Above $i$, marker reflection and
-the equal lengths of mapped words preserve both arguments of the minimum
-in \eqref{eq:start-count}; induction gives $s'_j=s_j$.
-
-Below level $i$ we argue as follows. Suppose two hierarchies have the same markers
-below $i$, equal start counts at $i$, and equal start prefixes there.
-Expanding that common prefix downwards gives, at every $j\le i$, a
-common prefix of length $\lambda_j$ with
-\[
- s_j\le \lambda_j\le m_j,\qquad
- j<i\ \Longrightarrow\ (s_j<\lambda_j\ \text{or}\ \lambda_j=m_j).
-\]
-To check these inequalities, if the upper start prefix is not the whole
-upper word, \eqref{eq:start-count} says it has one more block than the
-number of markers in the lower start prefix. Its full expansion therefore
-ends strictly after that lower prefix. If it is the whole word, its
-expansion is the whole lower word. Apply this observation inductively;
-expanding a longer common upper prefix only increases the lower length.
-Equal lower markers give equal derived monitors through level $i$, so
-runs coincide along each common prefix. Every old start position is
-therefore still a start position: $s'_j\ge s_j$.
-
-For $j<i$, if $s_j<m_j$, an excess $s'_j>s_j$ is impossible. The common prefix
-contains position $s_j$, which is ordinary in the old run and would be
-symbolic in the new one. The remaining case is the cap $s_j=m_j$.
-Assume $s'_j>s_j$. The old whole word is a prefix of the new one,
-and the new word is strictly longer. The old upper level is also wholly
-symbolic and is a common prefix of the new upper level. That upper level
-must be strictly longer too, since equal upper words with the same marker
-expand to equal lower words. The new start prefix contains the entire
-old lower word, hence at least $m_{j+1}$ markers. Formula
-\eqref{eq:start-count} now gives
-\[
- s'_{j+1}\ge\min\{m_{j+1}+1,m'_{j+1}\}>m_{j+1}=s_{j+1}.
-\]
-The excess propagates to level $i$, contradicting $s'_i=s_i$.
-Thus no cap creates an extra start position, and all lower counts agree.
-
 Finally, marker reflection implies that a higher mapped word is unary
 iff the old word is unary: if every image letter equals the image marker,
 every old letter is the marker. If $u_i$ is nonunary, no lower word in
@@ -272,10 +220,9 @@ so their sizes cannot increase.
 \end{proof}
 
 \begin{proof}[Completion of \cref{lem:isolated-exchange}]
-The local argument already proved comparison preservation, run preservation,
-and holehood at level $i$. The map fixes the start prefix and maps the
-dictionary into itself, because $a,a'$ occur and are unprotected.
-Apply \cref{lem:level-maps}. The new level-$i$ dictionary is the old
+The local argument already proved comparison preservation and holehood
+at level $i$. The map sends the dictionary into itself, because $a'$ occurs
+in $u_i$. Apply \cref{lem:level-maps}. The new level-$i$ dictionary is the old
 one with $a$ removed, so its size strictly decreases. Write $|a|_0$ and
 $|a'|_0$ for the lengths of the ordinary level-zero expansions of $a$ and
 $a'$ with the markers of the original hierarchy. The decoded length changes by
@@ -290,20 +237,22 @@ The level maps establish hierarchy geometry, not agreement of all the
 higher derived predicates under noninjective maps. After decoding, derive
 the monitors again from the new word. Holehood in those monitors follows
 from \cref{lem:der-holes}. Protected sets, isolation, and exchange types
-are likewise computed afresh for the next merge.
+are likewise those of the new word.
 
 \subsection{Dictionary Normal Form, Boundary Pairs, and the Recurrence}
 
 \begin{proof}[Proof of \cref{lem:dictionary-normal-form}]
 Use the natural-number potential $\sum_{j=0}^{\Delta}g_j$, the total
-size of the dictionaries. Whenever dictionary normality fails, merge the offending
-isolated pair in the direction of smaller expansion. By
-\cref{lem:isolated-exchange}, depth stays $\Delta$, no dictionary grows,
-and one strictly shrinks, so the potential strictly decreases. The process
-terminates. Recompute the entire hierarchy and its types after every step;
-termination therefore means dictionary normality at every positive nonunary level
-of the final word simultaneously. Length and dictionary nonincrease and
-start-count equalities compose through the finite sequence of merges.
+size of the dictionaries. Among the holes of the same depth $\Delta$ as the
+given hole and of no greater length, choose one of least potential. It is
+dictionary-normal. Otherwise, at some level $1\le i<\Delta$ of its own
+hierarchy, two distinct isolated letters have the same exchange type; merge
+them in the direction of smaller expansion. By \cref{lem:isolated-exchange},
+the result is a hole of depth $\Delta$ and no greater length, no dictionary
+grows, and one strictly shrinks. Its potential is therefore strictly
+smaller, contradicting the choice. The hierarchy, the protected sets, and
+the exchange types in this argument are those of the chosen hole, so
+dictionary normality holds at every positive nonunary level simultaneously.
 \end{proof}
 
 \begin{proof}[Counting part of \cref{lem:dictionary-count}]

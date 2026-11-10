@@ -1,4 +1,4 @@
-import DeciNSSE.Solver.Complete
+import DeciNSSE.Solver.Checked
 import DeciNSSE.Solver.Search
 import DeciNSSE.Solver.Extraction
 import Mathlib.Data.Nat.Find
@@ -10,8 +10,7 @@ Search results are checked before they become answers. Exhausted fuel, or a
 candidate certificate that fails its check, falls back to the complete decider.
 Refutations carry regular countermodels unless they are not requested.
 All checks use the packed checkers of `Solver.Checked`, and the fallback evaluates
-`decideEntails`, which compiles to `Solver.decideEntailsPacked`
-(`Solver.decideEntails_eq_decideEntailsPacked`).
+`decideEntails`.
 
 ## Main declarations
 

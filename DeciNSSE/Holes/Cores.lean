@@ -23,17 +23,6 @@ open scoped List
 universe u v
 
 section PrefixCode
-variable {Γ : Type*}
-
-/-- The one-level packet code reflects prefixes, including empty packet bodies. -/
-theorem expand_prefix_iff {ℓ : Γ} {a b : List (List Γ)}
-    (ha : ∀ X ∈ a, ℓ ∉ X) (hb : ∀ X ∈ b, ℓ ∉ X) :
-    expand ℓ a <+: expand ℓ b ↔ a <+: b := by
-  obtain ⟨a', rfl⟩ := lift_avoid ha
-  obtain ⟨b', rfl⟩ := lift_avoid hb
-  rw [← mcode_enc, ← mcode_enc, DeciNSSE.Desubstitution.MarkerCode.enc_prefix_iff,
-    prefix_map_inj Subtype.val_injective]
-
 variable {α : Type u}
 
 /-- Prefix decoding through the entire admissible tower. -/

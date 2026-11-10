@@ -117,12 +117,14 @@ theorem levelReached_succ (hv : T₀.toLettered.IsHole v) {j : ℕ} (hj : j < de
     [] (conv Ys) (by simpa using valid_conv Ys) hcols
   simp only [List.nil_append] at h2
   set s := (conv Ys).foldl (ColumnSummary.step T ℓ) (ColumnSummary.start T ℓ K)
-  have hs : s.toProp = summ T.toLettered ℓ K Ys := by
-    rw [ColumnSummary.toProp_eval, colEval T.toLettered ℓ K _ (valid_conv Ys), dec_conv]
+  have hs : s = summ T.toLettered ℓ K Ys := by
+    dsimp only [s]
+    rw [ColumnSummary.eval T ℓ _ (valid_conv Ys), dec_conv]
   have hdist : ∀ a b, s.equalTracks a b = true → a = b := by
     intro a b hab
-    have heq : Ys a = Ys b :=
-      (Iff.of_eq (congrFun (congrFun (congrArg CS.equalTracks hs) a) b)).mp hab
+    have heq : Ys a = Ys b := by
+      have he := (Bool.eq_iff_iff.mp (congrArg (fun s => s.equalTracks a b) hs)).mp hab
+      simpa only [summ, decide_eq_true_eq] using he
     have := congrArg (List.map φ) heq
     rw [hYs, hYs] at this
     exact Fin.ext ((List.nodup_dedup _).getElem_inj_iff.mp this)

@@ -11,6 +11,9 @@ a finite path witness.
   `Safety.trace_mono`
 - `Safety.descend_eq_bot_of_le`, `Safety.ne_top_of_le_node`, `Safety.ne_bot_of_node_le`:
   traces below and above constructors
+- `Safety.trace_eq_bot_iff`, `Safety.trace_eq_top_iff`: a trace is an extreme leaf
+  exactly when a prefix of the path carries its label
+- `covPrefTop`, `covPrefBot`: top and bottom prefixes of a covariant tree, as traces
 - `Safety.not_le_iff_unsafe`: an order failure is a path witness
 - `prefTop`, `prefBot`, `treeLe_iff_safe`, and the covariant forms `prefTop_false_iff`
   and `prefBot_false_iff`
@@ -90,68 +93,65 @@ theorem ne_bot_of_node_le {t : Tree n} {a : Fin n → Tree n} (h : Tree.node a �
     t ≠ Tree.bot := by
   rintro rfl; exact Tree.node_ne_bot a ((Tree.le_bot_iff _).mp h)
 
-/-- A label occurs at some (possibly equal) prefix. -/
-def HasLabel (t : Tree n) (ν : List (Fin n)) (s : Sym) : Prop :=
-  ∃ τ, τ <+: ν ∧ t.fn τ = some s
+/-- A trace has an extreme root label exactly when a prefix of the path carries it. -/
+theorem trace_root_iff (t : Tree n) (ν : List (Fin n)) {s : Sym} (hs : s ≠ Sym.f) :
+    (trace t ν).fn [] = some s ↔ ∃ τ, τ <+: ν ∧ t.fn τ = some s := by
+  induction ν generalizing t with
+  | nil => simp
+  | cons i ν ih =>
+    rcases t.eq_bot_or_eq_top_or_node with rfl | rfl | ⟨a, rfl⟩
+    · refine ⟨fun h => ⟨[], List.nil_prefix, by simpa using h⟩, ?_⟩
+      rintro ⟨τ, _, h⟩
+      cases τ with
+      | nil => simpa using h
+      | cons => simp at h
+    · refine ⟨fun h => ⟨[], List.nil_prefix, by simpa using h⟩, ?_⟩
+      rintro ⟨τ, _, h⟩
+      cases τ with
+      | nil => simpa using h
+      | cons => simp at h
+    · rw [trace_cons, descend_node, ih]
+      constructor
+      · rintro ⟨v, ⟨z, he⟩, h⟩
+        exact ⟨i :: v, ⟨z, by simp [he]⟩, h⟩
+      · rintro ⟨v, hp, h⟩
+        cases v with
+        | nil => exact absurd (Option.some.inj h).symm hs
+        | cons j v =>
+          obtain ⟨z, he⟩ := hp
+          obtain rfl : j = i := (List.cons.inj he).1
+          exact ⟨v, ⟨z, (List.cons.inj he).2⟩, h⟩
 
-@[simp] theorem hasLabel_nil (t : Tree n) (s : Sym) :
-    HasLabel t [] s ↔ t.fn [] = some s := by simp [HasLabel]
-
-@[simp] theorem hasLabel_bot (ν : List (Fin n)) (s : Sym) :
-    HasLabel Tree.bot ν s ↔ s = Sym.bot := by
-  constructor
-  · rintro ⟨τ, _, h⟩; cases τ <;> simpa using h.symm
-  · rintro rfl; exact ⟨[], List.nil_prefix, rfl⟩
-
-@[simp] theorem hasLabel_top (ν : List (Fin n)) (s : Sym) :
-    HasLabel Tree.top ν s ↔ s = Sym.top := by
-  constructor
-  · rintro ⟨τ, _, h⟩; cases τ <;> simpa using h.symm
-  · rintro rfl; exact ⟨[], List.nil_prefix, rfl⟩
-
-theorem hasLabel_node_cons (a : Fin n → Tree n) (i : Fin n) (w : List (Fin n))
-    (s : Sym) (hs : s ≠ Sym.f) :
-    HasLabel (Tree.node a) (i :: w) s ↔ HasLabel (a i) w s := by
-  constructor
-  · rintro ⟨v, hp, h⟩
-    cases v with
-    | nil => exact False.elim (hs (Option.some.inj h).symm)
-    | cons j v =>
-      obtain ⟨z, he⟩ := hp
-      have hij : j = i := (List.cons.inj he).1
-      subst j
-      exact ⟨v, ⟨z, (List.cons.inj he).2⟩, h⟩
-  · rintro ⟨v, ⟨z, he⟩, h⟩
-    exact ⟨i :: v, ⟨z, by simp [he]⟩, h⟩
-
+/-- A trace is bottom exactly when a prefix of the path carries bottom. -/
 theorem trace_eq_bot_iff (t : Tree n) (ν : List (Fin n)) :
-    trace t ν = Tree.bot ↔ HasLabel t ν Sym.bot := by
-  induction ν generalizing t with
-  | nil => simp
-  | cons i ν ih =>
-    rcases t.eq_bot_or_eq_top_or_node with rfl | rfl | ⟨a, rfl⟩
-    · simp
-    · simp
-    · rw [trace_cons, descend_node, ih, hasLabel_node_cons _ _ _ _ (by decide)]
+    trace t ν = Tree.bot ↔ ∃ τ, τ <+: ν ∧ t.fn τ = some Sym.bot := by
+  rw [← Tree.root_eq_bot_iff, trace_root_iff _ _ (by decide)]
 
+/-- A trace is top exactly when a prefix of the path carries top. -/
 theorem trace_eq_top_iff (t : Tree n) (ν : List (Fin n)) :
-    trace t ν = Tree.top ↔ HasLabel t ν Sym.top := by
-  induction ν generalizing t with
-  | nil => simp
-  | cons i ν ih =>
-    rcases t.eq_bot_or_eq_top_or_node with rfl | rfl | ⟨a, rfl⟩
-    · simp
-    · simp
-    · rw [trace_cons, descend_node, ih, hasLabel_node_cons _ _ _ _ (by decide)]
+    trace t ν = Tree.top ↔ ∃ τ, τ <+: ν ∧ t.fn τ = some Sym.top := by
+  rw [← Tree.root_eq_top_iff, trace_root_iff _ _ (by decide)]
 
 /-- Proper prefixes of an existing path cannot carry a nullary symbol. -/
-theorem not_hasLabel_of_label {t : Tree n} {ν : List (Fin n)} {a s : Sym}
-    (h : t.fn ν = some a) (hs : s ≠ Sym.f) (ha : a ≠ s) : ¬ HasLabel t ν s := by
+theorem not_prefix_label {t : Tree n} {ν : List (Fin n)} {a s : Sym}
+    (h : t.fn ν = some a) (hs : s ≠ Sym.f) (ha : a ≠ s) :
+    ¬ ∃ τ, τ <+: ν ∧ t.fn τ = some s := by
   rintro ⟨τ, hp, ht⟩
   by_cases he : τ = ν
   · subst τ; exact ha (Option.some.inj (h.symm.trans ht))
   · have hf := t.label_eq_f_of_proper_prefix hp he (by simp [h])
     exact hs (Option.some.inj (ht.symm.trans hf))
+
+/-- Leaf duality commutes with traces. -/
+theorem trace_dual (t : Tree n) (ν : List (Fin n)) :
+    trace (Tree.dual t) ν = Tree.dual (trace t ν) := by
+  induction ν generalizing t with
+  | nil => rfl
+  | cons i ν ih =>
+    rcases t.eq_bot_or_eq_top_or_node with rfl | rfl | ⟨a, rfl⟩
+    · simp
+    · simp
+    · rw [dual_node, trace_cons, trace_cons, descend_node, descend_node, ih]
 
 /-- A violation of the pathwise order is a failure of left or right safety. -/
 theorem not_le_iff_unsafe (t u : Tree n) :
@@ -167,11 +167,11 @@ theorem not_le_iff_unsafe (t u : Tree n) :
       cases a <;> cases b <;> simp_all <;> exact absurd hab (by decide)
     refine ⟨ν, ?_⟩
     rcases hc with ⟨rfl, ha⟩ | ⟨rfl, hb⟩
-    · exact Or.inl ⟨fun h => not_hasLabel_of_label ht (by decide) ha
+    · exact Or.inl ⟨fun h => not_prefix_label ht (by decide) ha
         ((trace_eq_bot_iff _ _).mp h),
         (trace_eq_bot_iff _ _).mpr ⟨ν, List.prefix_refl _, hu⟩⟩
     · exact Or.inr ⟨(trace_eq_top_iff _ _).mpr ⟨ν, List.prefix_refl _, ht⟩,
-        fun h => not_hasLabel_of_label hu (by decide) hb ((trace_eq_top_iff _ _).mp h)⟩
+        fun h => not_prefix_label hu (by decide) hb ((trace_eq_top_iff _ _).mp h)⟩
   · rintro ⟨ν, h⟩ hle
     have hm := trace_mono hle ν
     rcases h with ⟨hx, hy⟩ | ⟨hx, hy⟩
@@ -180,34 +180,27 @@ theorem not_le_iff_unsafe (t u : Tree n) :
 
 end Safety
 
-/-- A prefix of the word reaches top in the covariant tree. -/
-abbrev covPrefTop (w : List (Fin n)) (t : Tree n) := Safety.HasLabel t w Sym.top
-/-- A prefix of the word reaches bottom in the covariant tree. -/
-abbrev covPrefBot (w : List (Fin n)) (t : Tree n) := Safety.HasLabel t w Sym.bot
-
-theorem hasLabel_dual (t : Tree n) (w : List (Fin n)) (s : Sym) :
-    Safety.HasLabel (Tree.dual t) w s ↔ Safety.HasLabel t w (Sym.flip true s) := by
-  simp only [Safety.HasLabel, dual_fn]
-  refine exists_congr fun τ => and_congr_right fun _ => ?_
-  cases t.fn τ with
-  | none => simp
-  | some a => cases a <;> cases s <;> simp [Sym.flip]
+/-- A prefix of the word reaches top in the covariant tree: the trace along the word
+is top. -/
+abbrev covPrefTop (w : List (Fin n)) (t : Tree n) : Prop := Safety.trace t w = Tree.top
+/-- A prefix of the word reaches bottom in the covariant tree: the trace along the word
+is bottom. -/
+abbrev covPrefBot (w : List (Fin n)) (t : Tree n) : Prop := Safety.trace t w = Tree.bot
 
 /-- Leaf duality exchanges top and bottom prefixes. -/
 @[simp] theorem covPrefTop_dual (w : List (Fin n)) (t : Tree n) :
-    covPrefTop w (Tree.dual t) ↔ covPrefBot w t := hasLabel_dual t w Sym.top
+    covPrefTop w (Tree.dual t) ↔ covPrefBot w t := by
+  rw [covPrefTop, Safety.trace_dual, dual_eq_top]
 
 @[simp] theorem covPrefBot_dual (w : List (Fin n)) (t : Tree n) :
-    covPrefBot w (Tree.dual t) ↔ covPrefTop w t := hasLabel_dual t w Sym.bot
+    covPrefBot w (Tree.dual t) ↔ covPrefTop w t := by
+  rw [covPrefBot, Safety.trace_dual, dual_eq_bot]
 
 /-- The covariant safety equivalence is the negation of the existing unsafety theorem. -/
 theorem cov_le_iff_safe (t u : Tree n) :
     t ≤ u ↔ ∀ π, (covPrefTop π t → covPrefTop π u) ∧
       (covPrefBot π u → covPrefBot π t) := by
   have h := Safety.not_le_iff_unsafe t u
-  simp only [ne_eq, Safety.trace_eq_bot_iff, Safety.trace_eq_top_iff] at h
-  classical
-  simp only [covPrefTop, covPrefBot]
   constructor
   · intro hle π
     constructor
@@ -248,23 +241,23 @@ theorem normalize_label (c : Fin n → Bool) (t : Tree n) (π : List (Fin n)) (s
 
 theorem prefTop_iff_normalize (c : Fin n → Bool) (π : List (Fin n)) (t : Tree n) :
     prefTop c π t ↔ covPrefTop π (Tree.normalize c false t) := by
-  simp only [prefTop, covPrefTop, Safety.HasLabel, normalize_label]
+  simp only [prefTop, covPrefTop, Safety.trace_eq_top_iff, normalize_label]
 
 theorem prefBot_iff_normalize (c : Fin n → Bool) (π : List (Fin n)) (t : Tree n) :
     prefBot c π t ↔ covPrefBot π (Tree.normalize c false t) := by
-  simp only [prefBot, covPrefBot, Safety.HasLabel, normalize_label]
+  simp only [prefBot, covPrefBot, Safety.trace_eq_bot_iff, normalize_label]
 
 /-- Covariant top prefixes are top traces. -/
 theorem prefTop_false_iff (π : List (Fin n)) (t : Tree n) :
     prefTop (fun _ => false) π t ↔ Safety.trace t π = Tree.top := by
   rw [Safety.trace_eq_top_iff]
-  simp only [prefTop, polarity_false, Sym.flip_false, Safety.HasLabel]
+  simp only [prefTop, polarity_false, Sym.flip_false]
 
 /-- Covariant bottom prefixes are bottom traces. -/
 theorem prefBot_false_iff (π : List (Fin n)) (t : Tree n) :
     prefBot (fun _ => false) π t ↔ Safety.trace t π = Tree.bot := by
   rw [Safety.trace_eq_bot_iff]
-  simp only [prefBot, polarity_false, Sym.flip_false, Safety.HasLabel]
+  simp only [prefBot, polarity_false, Sym.flip_false]
 
 /-- Variance order is equivalent to preservation of extreme prefixes. -/
 theorem treeLe_iff_safe (c : Fin n → Bool) (t u : Tree n) :

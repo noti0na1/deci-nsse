@@ -55,7 +55,9 @@ saturation and is not proved to run in that space.
 reader over a one-letter alphabet, and the unary procedures test only the
 word up to the first rejected cut. For every arity $n\ge2$ and each domain,
 \lean{Complexity.entails_hardnessSystem_iff} and its regular and finite
-versions prove the hardness reduction correct, with linearly many literals;
+versions prove the hardness reduction correct, through the all-final code
+of \cref{lem:cx-allfinal} and its rejection system, with linearly many
+literals;
 the systems of \cref{prop:cx-length} refute entailment, and
 \lean{Complexity.expSystem_shortest_hole} gives their exact shortest hole
 length $2(\beta+1)2^\beta$. Not mechanized are the complexity classes

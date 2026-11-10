@@ -16,7 +16,6 @@ truncation at that depth gives a finite solution.
 - `leastShape_depth`: without cycle clashes, the least shape has bounded depth.
 - `FTree.ofTree`, `FTree.toTree_ofTree`: truncation of a tree of bounded depth.
 - `satFin_iff`: finite solutions exist iff there is neither a label nor a cycle clash.
-- `cycleClash_iff_bounded`: without a label clash, cycle clashes have short witnesses.
 -/
 
 namespace DeciNSSE
@@ -235,21 +234,5 @@ theorem satFin_iff : (∃ σ : V k → FTree n, Covariant.Sat (FTree.toTree ∘ 
       fun hc => hc.no_finite_solution ⟨σ, hσ⟩⟩
   · rintro ⟨hl, hc⟩
     exact satFin_of_leastShape_depth hl (leastShape_depth hc)
-
-/-- Without a label clash, every cycle clash has a witness of length
-between one and the number of variable pairs. -/
-theorem cycleClash_iff_bounded (hn : ¬ LabelClash ϕ) :
-    CycleClash ϕ ↔ ∃ ρ x y, 0 < ρ.length ∧ ρ.length ≤ k * k ∧
-      LowerAt ϕ ρ x x ∧ Derives ϕ x y ∧ UpperAt ϕ ρ y y := by
-  constructor
-  · intro hc
-    by_contra hbounded
-    apply hc.no_finite_solution
-    apply satFin_of_leastShape_depth hn
-    intro z π hdom
-    by_contra hlen
-    exact hbounded (leastShape_bounded_cycle_of_long_path hdom (by omega))
-  · rintro ⟨ρ, x, y, hp, _, hl, hd, hu⟩
-    exact ⟨ρ, x, y, List.length_pos_iff.mp hp, hl, hd, hu⟩
 
 end DeciNSSE
