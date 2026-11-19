@@ -53,7 +53,7 @@ theorem finite_comparison_extends (W : ℕ → α) {n J d s e : ℕ}
     ∀ k, e ≤ k → W (k - (e - s)) = W k := by
   intro k
   induction k using Nat.strong_induction_on with
-  | h k ih =>
+  | ind k ih =>
     intro hek
     by_cases hk : k < n + J + d
     · exact hfin k hek hk

@@ -224,9 +224,11 @@ theorem step_within [DecidableEq D] (I : Square D) (s : Control D) (hs : Within 
         simp_all [tokenStep, Within, beginPhase] <;> grind [Within]
     by_cases bits : r.slot ≤ 2 * I.p
     · rcases a with (b | _ | d) | _ | _ <;> simp [tokenStep, payload, start, bits, readBit] at h
-      (try split_ifs at h) <;> simp_all [Within] <;> grind [Within]
+      simp_all [Within]
+      grind [Within]
     · rcases a with (b | _ | d) | _ | _ <;> simp [tokenStep, payload, start, bits, readTile] at h
-      (try split_ifs at h) <;> simp_all [Within] <;> grind [Within]
+      simp_all [Within]
+      grind [Within]
 
 private def cellEquiv : CellLetter D ≃ Bool ⊕ Unit ⊕ D where
   toFun | .bit b => .inl b | .record => .inr (.inl ()) | .tile d => .inr (.inr d)

@@ -43,7 +43,7 @@ theorem index_bit (a : Addr p) (master : Bool) (i : ℕ) (hi : i < 2*p) :
     (index master a).testBit (bitRank p master i) = bits a i := by
   cases master <;> simp only [index, bitRank, bits, Bool.false_eq_true, ite_false, ite_true,
     Nat.testBit_two_pow_mul_add _ a.1.isLt, Nat.testBit_two_pow_mul_add _ a.2.isLt]
-  all_goals split_ifs <;> simp_all; omega
+  split_ifs <;> simp_all; omega
 
 /-- Every traversal index lies below the number of cells in the square. -/
 theorem index_lt (a : Addr p) (master : Bool) : index master a < 2^(2*p) := by

@@ -159,7 +159,7 @@ theorem short_deadEnd_sideHole {w : List (Fin n)} (hw : SideHole c ϕ x y θ w)
   let : Inhabited (Fin n) := ⟨w.head hn⟩
   let M := sideReader c ϕ x y θ
   let T := sideTarget c ϕ
-  let E : Set (State (2 * k)) := DeadEnd M T
+  let E : Set (State (2 * k)) := {q | DeadEnd M T q}
   let D := ofReader M admission E
   have refined (u : List (Fin n)) : Holes.IsReaderHole M admission E u ↔
       SideHole c ϕ x y θ u ∧ DeadEnd M T (M.eval u) := by

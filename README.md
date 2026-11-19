@@ -818,7 +818,7 @@ lake exe cache get
 lake build
 ```
 
-The package pins Lean and Mathlib to **v4.35.0**. The first command downloads
+The package pins Lean and Mathlib to **v4.36.0**. The first command downloads
 compiled Mathlib dependencies; the second checks the whole development and
 builds the executables `nsse` and `nsse-check`.
 

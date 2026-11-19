@@ -97,7 +97,7 @@ private def singleEntry :=
 #guard singleEntry == ([1], [0, 1], true, false, true)
 
 -- There is a single possible word over the empty alphabet.
-private def emptyTarget (b : Bool) : Set Unit := fun _ => b = true
+private def emptyTarget (b : Bool) : Set Unit := Set.ofPred fun _ => b = true
 
 private def emptyDecision (b : Bool) : Bool :=
   let M : DFA (Fin 0) Unit := ⟨fun q _ => q, (), ∅⟩
