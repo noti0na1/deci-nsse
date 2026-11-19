@@ -22,9 +22,10 @@ simplifying inferred types.
 asks whether it is decidable for bottom, top and one binary constructor, without
 fixing the constructor's variance. The theorem covers every variance and all
 three tree domains, so it answers that question under each reading.
-The proof works directly over paths in `Fin n` and proves an elementary
-hole-length bound. The resulting exhaustive searches establish decidability
-in principle; their universal bounds are too large for practical type inference.
+The proof works directly over paths in `Fin n` and gives a singly exponential
+hole-length bound in the number of variables. The resulting exhaustive searches
+establish decidability in principle, but their universal bounds are too large
+for practical type inference.
 The [Lean solver](#lean-solver) `nsse` searches for certificates instead and
 checks them with proved checkers, so every answer it prints is correct.
 
@@ -193,7 +194,7 @@ procedures.
 
 `import DeciNSSE` makes all of the following available; `import DeciNSSE.Main`
 suffices for the three main procedures. Names are in namespace `DeciNSSE`.
-Each decider of the first three rows returns a `Decidable` instance and has a
+Each decider of the first four rows returns a `Decidable` instance and has a
 correctness theorem named by appending `_correct`, of the form of
 `decideEntails_correct` and without premises. The solver is correct by
 `solve_correct`.
@@ -201,21 +202,25 @@ correctness theorem named by appending `_correct`, of the form of
 | Interface | Declarations | Scope | Defined in |
 | --- | --- | --- | --- |
 | Main deciders | `decideEntails`, `decideEntailsReg`, `decideEntailsFin` | Every arity and variance; arbitrary, regular and finite trees. Hole search by enumeration up to `RejectedTail.holeLengthBound`. | [Main](DeciNSSE/Main.lean) |
+| Singly exponential witness deciders | `decideEntailsExp`, `decideEntailsRegExp`, `decideEntailsFinExp` | Every arity and variance, in all three domains. Side-hole search up to `Shortening.sideBound k`. | [Shortening/Side](DeciNSSE/Shortening/Side.lean) |
 | Summary deciders | `decideEntailsSummary`, `decideEntailsRegSummary`, `decideEntailsFinSummary` | Every arity and variance; the three domains. Hole search by the summary search (see [Complexity](#complexity-and-scope-of-the-algorithm)). | [Complexity/SummaryDecision](DeciNSSE/Complexity/SummaryDecision.lean) |
 | Unary deciders | `decideEntailsUnary`, `decideEntailsRegUnary`, `decideEntailsFinUnary` | Arity one only (`c : Fin 1 → Bool`); the three domains. Hole search below the reader state count. | [Complexity/Unary](DeciNSSE/Complexity/Unary.lean) |
 | Certifying solver | `solve`, `solveWithFuel`, with `solve_correct` and `solveWithFuel_correct` | Every arity and variance; arbitrary trees, hence regular trees by `entailsReg_iff_entails`. Returns checked evidence and a countermodel. | [Solver](DeciNSSE/Solver.lean) |
 
-All nine deciders of the first three rows are built from
+All twelve deciders of the first four rows are built from
 `Monitor.decideEntailsWith`, `Monitor.decideEntailsRegWith` and
 `Monitor.decideEntailsFinWith` in
 [Monitor/Decision.lean](DeciNSSE/Monitor/Decision.lean). These take a decider
 for the existence of holes of the reader of each side, stated with
-`Monitor.SideHole`. The three hole searches are `Monitor.decideSideHoles`,
-`Complexity.Summary.decideSideHoles` and `Complexity.Unary.decideSideHoles`.
-Each is given the state count `2 * 4^(2*k)` of a side reader as a number
-(`Monitor.card_state`), so the length bounds are computed from that number. The
-summary search still enumerates the reader states when it tests its accepting
-configurations.
+`Monitor.SideHole`. The singly exponential witness deciders use
+`Shortening.decideSideHolesExp`. Its Boolean search `Shortening.sideSearchExp`
+checks the empty word, handles arity zero and otherwise enumerates every word
+through `Shortening.sideBound k`. The main, summary and unary hole searches
+are `Monitor.decideSideHoles`, `Complexity.Summary.decideSideHoles` and
+`Complexity.Unary.decideSideHoles`. Each of those three is given the state count
+`2 * 4^(2*k)` of a side reader as a number (`Monitor.card_state`), so the length
+bounds are computed from that number. The summary search still enumerates the
+reader states when it tests its accepting configurations.
 The deciders are `@[instance_reducible] def`s rather than instances, because
 several of them decide the same proposition; install one with `letI` or pass it
 to `@decide`.
@@ -404,9 +409,9 @@ within the original bounded dictionaries.
 
 `ElementaryBound.exists_short_hole` proves the length bound `L(N,d)` for any
 finite-core lettered monitor with a hole of depth at most `d`. It needs no
-rejected-path hypothesis. The backend uses
-`RejectedTail.holeLengthBound N = L(N, RejectedTail.holeDepthBound N)` and
-proves (`RejectedTail.holeLengthBound_le`)
+rejected-path hypothesis. The bound used by the main deciders is
+`RejectedTail.holeLengthBound N = L(N, RejectedTail.holeDepthBound N)`.
+The theorem `RejectedTail.holeLengthBound_le` gives
 
 ```text
 holeLengthBound N ≤ 2^(2^(1280 * (N+1)^5)).
@@ -462,9 +467,9 @@ implement finite searches justified by explicit bounds; a classical choice of
 a `Decidable` instance alone would not supply an executable algorithm.
 Classical reasoning is used in the proofs of the bounds and correctness.
 
-The label reader has `N = 2 * 4^(2*k)` states. The checked hole-length bound is
-`2^(2^(1280 * (N+1)^5))`, doubly exponential in a polynomial in the state
-count. Substituting the reader size gives the explicit path-length
+The label reader has `N = 2 * 4^(2*k)` states. The main deciders have a
+hole-search allowance bounded by `2^(2^(1280 * (N+1)^5))`, doubly exponential
+in a polynomial in the state count. Substituting the reader size gives the explicit path-length
 allowance `2^(2^(1280 * (2 * 4^(2*k) + 1)^5))`. This bounds the unsafe path
 used to construct a countermodel, not the number of nodes in an expanded tree.
 
@@ -477,6 +482,19 @@ These universal searches remain unsuitable for practical type inference; the
 the complexity bounds. The complexity classes themselves, space-bounded
 machines and Savitch's theorem, are not formalized.
 
+* **Singly exponential witnesses.** Every side reader with a hole has one of
+  length at most `2^(512*(k+1)^4)`, independently of arity and variance
+  (`Shortening.sideHole_iff_bounded`). Here `k` counts the variables of the constraint
+  type `Constraint n k` and is at most the input size.
+  `Shortening.not_entails_iff_bounded`, `Shortening.not_entailsReg_iff_bounded`
+  and `Shortening.not_entailsFin_iff_bounded` characterize non-entailment by
+  satisfiability and a bounded hole on some side, with finite satisfiability
+  in the finite-tree case. Lean proves the witness-length bound and the
+  correctness of the bounded search. After the required satisfiability test,
+  guess a side and a word within the bound. Checking its run and suffix
+  comparisons takes polynomial time in the input and witness lengths, giving
+  membership in NEXPTIME. The running time of that check is not formalized.
+  [Side-reader bounds](DeciNSSE/Shortening/Side.lean)
 * **Summary search.** A search over level summaries of the block hierarchy
   decides holes of bounded depth without storing the word. It is sound and
   complete (`Complexity.Summary.summarySearch_sound`,
@@ -484,9 +502,9 @@ machines and Savitch's theorem, are not formalized.
   configurations number at most `2^((n+1)^2 * 2^(2^(20*k+20)))`
   (`Complexity.Summary.card_config_label_le`), so one configuration fits in
   doubly exponential space. These configuration bounds support the usual
-  space-bounded reachability argument for the 2-EXPSPACE bound. The executable
-  implementation `Complexity.Summary.summarySearch` computes the set of
-  reachable configurations by saturation (`Saturation.reachSet`) and is not
+  space-bounded reachability argument for the 2-EXPSPACE bound on summary
+  search. The executable implementation `Complexity.Summary.summarySearch`
+  computes the set of reachable configurations by saturation (`Saturation.reachSet`) and is not
   proved to meet that space bound. `decideEntailsSummary`,
   `decideEntailsRegSummary` and `decideEntailsFinSummary` decide entailment
   through this search.
@@ -515,6 +533,27 @@ machines and Savitch's theorem, are not formalized.
   `refutesB` (`Complexity.expSystem_shortest_refutesB`). Every answer of the
   Lean solver on it is a refutation at least that long
   (`Complexity.expSystem_result`).
+* **Exponential tiling.** For every `n ≥ 2` and every variance, the reduction
+  from torus tiling produces a finitely satisfiable system. For an initial word
+  fitting row zero, the system entails its query over arbitrary, regular and
+  finite trees exactly when the torus has no tiling with that word
+  (`Complexity.Tiling.torusSystem_correct`).
+  For `t` tiles, unary exponent `p` and a word of length `r` fitting row zero,
+  put `m = 65536*(p+1)^2*(t^3+6)^3*(r+1)`. Lean bounds the output by
+  `18*m+8` variables and `128*(n+1)*(m+1)^2` literals
+  (`Complexity.Tiling.torusSystem_size`). The initial-word family takes
+  `p = r+1` (`Complexity.Tiling.initialWordSystem_correct` and
+  `Complexity.Tiling.initialWordSystem_size`). Its NEXPTIME-hardness for a
+  fixed domino system is cited from Tobies, *Complexity Results and Practical
+  Algorithms for Logics in Knowledge Representation* (2001), Corollary 5.14.
+  The hardness of the torus problem and the polynomial running time of the
+  reduction are not formalized. [Torus and square](DeciNSSE/Complexity/Tiling/Source.lean),
+  [reduction](DeciNSSE/Complexity/Tiling/Reduction.lean)
+
+With the cited source theorem and these running-time arguments,
+**non-entailment is NEXPTIME-complete and entailment is coNEXPTIME-complete**
+under polynomial-time many-one reductions for every arity `n ≥ 2` and every
+variance, in each of the arbitrary, regular and finite tree domains.
 
 The theorem covers one constructor with any finite arity and any variance
 map. It does not cover arbitrary signatures with multiple constructors. The
@@ -805,6 +844,49 @@ import DeciNSSE
 #print axioms DeciNSSE.Complexity.Unary.exists_hole_length_le
 #print axioms DeciNSSE.Complexity.entailsFin_hardnessSystem_iff
 #print axioms DeciNSSE.Complexity.expSystem_shortest_refutesB
+
+-- Singly exponential witnesses and bounded decisions
+#print axioms DeciNSSE.Shortening.exists_shortening
+#print axioms DeciNSSE.Shortening.exists_short_hole
+#print axioms DeciNSSE.Shortening.hole_iff_rpBound
+#print axioms DeciNSSE.Shortening.rpBound_le
+#print axioms DeciNSSE.Shortening.rpBound_le_pow_seven
+#print axioms DeciNSSE.Shortening.hole_iff_stoppingBound
+#print axioms DeciNSSE.Shortening.stoppingBound_le
+#print axioms DeciNSSE.Shortening.decideHoleExp
+#print axioms DeciNSSE.Shortening.depth_le_of_deadEnd
+#print axioms DeciNSSE.Shortening.side_actionBound
+#print axioms DeciNSSE.Shortening.tower_actionBound
+#print axioms DeciNSSE.Shortening.hole_dichotomy
+#print axioms DeciNSSE.Shortening.short_hole_of_omega
+#print axioms DeciNSSE.Shortening.short_deadEnd_sideHole
+#print axioms DeciNSSE.Shortening.sideHole_iff_bounded
+#print axioms DeciNSSE.Shortening.sideSearchExp_correct
+#print axioms DeciNSSE.Shortening.not_entails_iff_bounded
+#print axioms DeciNSSE.Shortening.not_entailsReg_iff_bounded
+#print axioms DeciNSSE.Shortening.not_entailsFin_iff_bounded
+#print axioms DeciNSSE.decideEntailsExp_correct
+#print axioms DeciNSSE.decideEntailsRegExp_correct
+#print axioms DeciNSSE.decideEntailsFinExp_correct
+#print axioms DeciNSSE.decideEntailsExp_eq
+#print axioms DeciNSSE.decideEntailsRegExp_eq
+#print axioms DeciNSSE.decideEntailsFinExp_eq
+
+-- Exponential tiling
+#print axioms DeciNSSE.Complexity.Tiling.bridge_iff
+#print axioms DeciNSSE.Complexity.Tiling.checks_iff
+#print axioms DeciNSSE.Complexity.Tiling.tokenReader_hole_iff
+#print axioms DeciNSSE.Complexity.Tiling.binary_hole_iff
+#print axioms DeciNSSE.Complexity.Tiling.tilingReader_hole_iff
+#print axioms DeciNSSE.Complexity.Tiling.tilingReader_size
+#print axioms DeciNSSE.Complexity.Tiling.emit_correct
+#print axioms DeciNSSE.Complexity.Tiling.lifted_holes
+#print axioms DeciNSSE.Complexity.Tiling.tilingSystem_correct
+#print axioms DeciNSSE.Complexity.Tiling.tilingSystem_size
+#print axioms DeciNSSE.Complexity.Tiling.torusSystem_correct
+#print axioms DeciNSSE.Complexity.Tiling.torusSystem_size
+#print axioms DeciNSSE.Complexity.Tiling.initialWordSystem_correct
+#print axioms DeciNSSE.Complexity.Tiling.initialWordSystem_size
 ```
 
 These declarations use only the usual `propext`, `Classical.choice` and
@@ -853,6 +935,8 @@ in the namespace of their prefix.
 | [Solver](DeciNSSE/Solver.lean) and [Solver/](DeciNSSE/Solver) | top level, `Solver`, `Solver.Checked`, `Solver.Graph`, `Solver.Mask`, `Solver.Search` | The certifying solver: packed readers and checks, the search and reachable countermodels |
 | [Solver/Command](DeciNSSE/Solver/Command.lean) | `Solver.Command` (and `main`) | The executable `nsse` |
 | [Complexity](DeciNSSE/Complexity.lean) | none | Overview and imports of the complexity modules |
+| [Shortening](DeciNSSE/Shortening) | `Shortening`, with deciders at top level | Simultaneous block shortening, explicit-reader and side-hole bounds, and bounded entailment decisions |
+| [Complexity/Tiling](DeciNSSE/Complexity/Tiling) | `Complexity.Tiling` | Torus and square tilings, stopping readers, and the reduction to non-entailment with polynomial output bounds |
 | [Complexity](DeciNSSE/Complexity): SummaryTables, SummaryColumns, SummaryGraph, SummarySound, SummaryComplete, SummaryBounds, SummaryDecision | `Complexity.Summary`; deciders top level | The summary search, its correctness and configuration bounds, and the summary deciders |
 | [Complexity](DeciNSSE/Complexity): Unary, UnaryExamples | `Complexity.Unary`; deciders top level | Holes over one letter and the arity-one deciders, with kernel-checked examples |
 | [Complexity](DeciNSSE/Complexity): BinNFA, Directions, FiniteTrees | `Complexity`, `Complexity.BinNFA`, `Complexity.Directions`, `Complexity.FiniteTrees` | Binary automata, child layouts and finite trees shared by the lower bounds |

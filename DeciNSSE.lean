@@ -10,6 +10,10 @@ import DeciNSSE.Countermodels
 import DeciNSSE.Instances
 import DeciNSSE.Semantics.Characterization
 import DeciNSSE.Complexity
+import DeciNSSE.Shortening.Side
+import DeciNSSE.Complexity.Tiling.Reduction
+import DeciNSSE.Shortening.Examples
+import DeciNSSE.Complexity.Tiling.Examples
 
 /-! # Non-structural subtype entailment
 
